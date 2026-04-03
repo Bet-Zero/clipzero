@@ -114,6 +114,12 @@ export default async function Home({
   const quarter = params.quarter || "";
   const team = params.team || "";
 
+  const selectedGame = games.find((game) => game.gameId === selectedGameId);
+  const teams = [
+    selectedGame?.awayTeam?.teamTricode,
+    selectedGame?.homeTeam?.teamTricode,
+  ].filter(Boolean) as string[];
+
   const { clips, total, players } = await getClips(
     selectedGameId,
     limit,
@@ -126,22 +132,23 @@ export default async function Home({
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <FilterBar
-        players={players}
-        teams={
-          games.find((game) => game.gameId === selectedGameId)
-            ? ([
-                games.find((game) => game.gameId === selectedGameId)?.awayTeam
-                  ?.teamTricode,
-                games.find((game) => game.gameId === selectedGameId)?.homeTeam
-                  ?.teamTricode,
-              ].filter(Boolean) as string[])
-            : []
-        }
-      />
+      <FilterBar players={players} teams={teams} />
 
       <div className="mx-auto max-w-3xl px-4 py-4">
         <GameSelector games={games} selectedGameId={selectedGameId} />
+      </div>
+
+      <div className="mx-auto max-w-3xl px-4 pt-2 text-sm text-zinc-400">
+        Showing {clips.length} of {total} clips
+      </div>
+
+      <div className="mx-auto max-w-3xl px-4 pt-1 text-xs text-zinc-500">
+        {team || "All Teams"} • {quarter ? `Q${quarter}` : "All Quarters"} •{" "}
+        {playType}
+        {playerFilter ? ` • ${playerFilter}` : ""}
+        {playType === "shots" && resultFilter !== "all"
+          ? ` • ${resultFilter}`
+          : ""}
       </div>
 
       <ClipFeed clips={clips} />
