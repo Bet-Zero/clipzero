@@ -6,8 +6,8 @@ export default function LoadMoreButton() {
   const router = useRouter();
   const params = useSearchParams();
 
-  const currentLimit = Number(params.get("limit") ?? "12");
-  const nextLimit = currentLimit + 12;
+  const currentLimit = Number(params.get("limit") ?? "24");
+  const nextLimit = currentLimit + 24;
 
   function handleClick() {
     const search = new URLSearchParams(params.toString());

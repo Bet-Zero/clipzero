@@ -28,6 +28,10 @@ type Game = {
   matchup: string;
 };
 
+type Player = {
+  name: string;
+};
+
 async function getGames(): Promise<Game[]> {
   const res = await fetch("http://localhost:4000/games", {
     cache: "no-store",
@@ -40,16 +44,29 @@ async function getGames(): Promise<Game[]> {
 async function getClips(
   gameId: string,
   limit: number,
-): Promise<{ clips: Clip[]; total: number }> {
+  player?: string,
+  result?: string,
+): Promise<{ clips: Clip[]; total: number; players: Player[] }> {
+  const search = new URLSearchParams();
+  search.set("gameId", gameId);
+  search.set("limit", String(limit));
+
+  if (player) search.set("player", player);
+  if (result && result !== "all") search.set("result", result);
+
   const res = await fetch(
-    `http://localhost:4000/clips/game?gameId=${gameId}&limit=${limit}`,
+    `http://localhost:4000/clips/game?${search.toString()}`,
     {
       cache: "no-store",
     },
   );
 
   const data = await res.json();
-  return { clips: data.clips, total: data.total };
+  return {
+    clips: data.clips ?? [],
+    total: data.total ?? 0,
+    players: data.players ?? [],
+  };
 }
 
 export default async function Home({
@@ -65,32 +82,21 @@ export default async function Home({
   const games = await getGames();
   const params = await searchParams;
 
-  const limitParam = Number(params.limit ?? "12");
-  const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 12;
+  const limitParam = Number(params.limit ?? "24");
+  const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 24;
 
   const selectedGameId = params.gameId || games[0]?.gameId || "0022501115";
+  const resultFilter = params.result || "all";
+  const playerFilter = params.player || "";
 
-  const { clips, total } = await getClips(selectedGameId, limit);
+  const { clips, total, players } = await getClips(
+    selectedGameId,
+    limit,
+    playerFilter,
+    resultFilter,
+  );
 
-  const resultFilter = params.result;
-
-  let filteredClips = clips;
-
-  if (resultFilter && resultFilter !== "all") {
-    filteredClips = filteredClips.filter((c) => c.shotResult === resultFilter);
-  }
-
-  const playerFilter = params.player;
-
-  if (playerFilter) {
-    filteredClips = filteredClips.filter((c) => c.playerName === playerFilter);
-  }
-
-  const hasMore = filteredClips.length < total;
-
-  const players = Array.from(
-    new Set(clips.map((c) => c.playerName).filter(Boolean)),
-  ).map((name) => ({ name }));
+  const hasMore = clips.length < total;
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -100,7 +106,7 @@ export default async function Home({
         <GameSelector games={games} selectedGameId={selectedGameId} />
       </div>
 
-      <ClipFeed clips={filteredClips} />
+      <ClipFeed clips={clips} />
       {hasMore && <LoadMoreButton />}
     </main>
   );

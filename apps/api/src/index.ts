@@ -71,18 +71,36 @@ app.get("/clips/game", async (req, res) => {
         ? req.query.gameId
         : "0022501115";
 
-    const actions = await getPlayByPlay(gameId);
+    const player =
+      typeof req.query.player === "string" ? req.query.player.trim() : "";
+
+    const result =
+      typeof req.query.result === "string" && req.query.result.trim() !== ""
+        ? req.query.result
+        : "all";
+
     const limitParam =
       typeof req.query.limit === "string" ? Number(req.query.limit) : 12;
 
     const limit =
       Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 12;
 
+    const actions = await getPlayByPlay(gameId);
     const allShots = getShotActions(gameId, actions);
-    const shots = allShots.slice(0, limit);
 
-    const cacheKey = `${gameId}:${limit}`;
+    const players = Array.from(
+      new Set(allShots.map((shot) => shot.playerName).filter(Boolean)),
+    ).map((name) => ({ name }));
 
+    const filteredShots = allShots.filter((shot) => {
+      const matchesPlayer = !player || shot.playerName === player;
+      const matchesResult = result === "all" || shot.shotResult === result;
+      return matchesPlayer && matchesResult;
+    });
+
+    const shots = filteredShots.slice(0, limit);
+
+    const cacheKey = `${gameId}:${player}:${result}:${limit}`;
     const cached = clipCache.get(cacheKey);
     if (cached) {
       return res.json(cached);
@@ -120,7 +138,8 @@ app.get("/clips/game", async (req, res) => {
     const payload = {
       gameId,
       count: clips.length,
-      total: allShots.length,
+      total: filteredShots.length,
+      players,
       clips,
     };
 
