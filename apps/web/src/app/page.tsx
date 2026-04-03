@@ -1,6 +1,7 @@
 import ClipFeed from "@/components/ClipFeed";
 import FilterBar from "@/components/FilterBar";
 import GameSelector from "@/components/GameSelector";
+import LoadMoreButton from "@/components/LoadMoreButton";
 
 type Clip = {
   gameId: string;
@@ -36,7 +37,10 @@ async function getGames(): Promise<Game[]> {
   return data.games;
 }
 
-async function getClips(gameId: string, limit: number): Promise<Clip[]> {
+async function getClips(
+  gameId: string,
+  limit: number,
+): Promise<{ clips: Clip[]; total: number }> {
   const res = await fetch(
     `http://localhost:4000/clips/game?gameId=${gameId}&limit=${limit}`,
     {
@@ -45,7 +49,7 @@ async function getClips(gameId: string, limit: number): Promise<Clip[]> {
   );
 
   const data = await res.json();
-  return data.clips;
+  return { clips: data.clips, total: data.total };
 }
 
 export default async function Home({
@@ -66,7 +70,7 @@ export default async function Home({
 
   const selectedGameId = params.gameId || games[0]?.gameId || "0022501115";
 
-  const clips = await getClips(selectedGameId, limit);
+  const { clips, total } = await getClips(selectedGameId, limit);
 
   const resultFilter = params.result;
 
@@ -82,6 +86,8 @@ export default async function Home({
     filteredClips = filteredClips.filter((c) => c.playerName === playerFilter);
   }
 
+  const hasMore = filteredClips.length < total;
+
   const players = Array.from(
     new Set(clips.map((c) => c.playerName).filter(Boolean)),
   ).map((name) => ({ name }));
@@ -95,6 +101,7 @@ export default async function Home({
       </div>
 
       <ClipFeed clips={filteredClips} />
+      {hasMore && <LoadMoreButton />}
     </main>
   );
 }

@@ -77,7 +77,8 @@ app.get("/clips/game", async (req, res) => {
     const limit =
       Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 12;
 
-    const shots = getShotActions(gameId, actions).slice(0, limit);
+    const allShots = getShotActions(gameId, actions);
+    const shots = allShots.slice(0, limit);
 
     const clips = await Promise.all(
       shots.map(async (shot) => {
@@ -111,6 +112,7 @@ app.get("/clips/game", async (req, res) => {
     res.json({
       gameId,
       count: clips.length,
+      total: allShots.length,
       clips,
     });
   } catch (error: any) {
