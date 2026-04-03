@@ -90,7 +90,13 @@ app.get("/clips/game", async (req, res) => {
         ? req.query.playType
         : "shots";
 
-    const cacheKey = `${gameId}:${player}:${result}:${playType}:${limit}`;
+    const quarterParam =
+      typeof req.query.quarter === "string" ? Number(req.query.quarter) : 0;
+
+    const quarter =
+      Number.isFinite(quarterParam) && quarterParam > 0 ? quarterParam : 0;
+
+    const cacheKey = `${gameId}:${player}:${result}:${playType}:${quarter}:${limit}`;
     const cached = clipCache.get(cacheKey);
     if (cached) {
       return res.json(cached);
@@ -106,7 +112,8 @@ app.get("/clips/game", async (req, res) => {
     const filteredShots = allShots.filter((shot) => {
       const matchesPlayer = !player || shot.playerName === player;
       const matchesResult = result === "all" || shot.shotResult === result;
-      return matchesPlayer && matchesResult;
+      const matchesQuarter = !quarter || shot.period === quarter;
+      return matchesPlayer && matchesResult && matchesQuarter;
     });
 
     const shots = filteredShots.slice(0, limit);

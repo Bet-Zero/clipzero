@@ -16,6 +16,7 @@ export default function FilterBar({ players }: { players: Player[] }) {
   const selectedPlayer = params.get("player") || "";
   const gameId = params.get("gameId") || "";
   const playType = params.get("playType") || "shots";
+  const quarter = params.get("quarter") || "";
 
   function update(paramsObj: Record<string, string | null>) {
     const search = new URLSearchParams();
@@ -38,6 +39,7 @@ export default function FilterBar({ players }: { players: Player[] }) {
         onChange={(e) =>
           update({
             playType: e.target.value,
+            quarter,
             result: "all",
             player: "",
           })
@@ -59,6 +61,7 @@ export default function FilterBar({ players }: { players: Player[] }) {
               onClick={() =>
                 update({
                   playType,
+                  quarter,
                   result: value,
                   player: selectedPlayer,
                 })
@@ -76,10 +79,30 @@ export default function FilterBar({ players }: { players: Player[] }) {
       )}
 
       <select
+        value={quarter}
+        onChange={(e) =>
+          update({
+            playType,
+            quarter: e.target.value,
+            result: playType === "shots" ? shotResult : "all",
+            player: selectedPlayer,
+          })
+        }
+        className="h-9 rounded bg-zinc-900 px-3 text-sm text-white"
+      >
+        <option value="">All Quarters</option>
+        <option value="1">Q1</option>
+        <option value="2">Q2</option>
+        <option value="3">Q3</option>
+        <option value="4">Q4</option>
+      </select>
+
+      <select
         value={selectedPlayer}
         onChange={(e) =>
           update({
             playType,
+            quarter,
             player: e.target.value,
             result: playType === "shots" ? shotResult : "all",
           })
