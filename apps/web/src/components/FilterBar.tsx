@@ -6,15 +6,7 @@ type Player = {
   name: string;
 };
 
-const PLAY_TYPES = [
-  "shots",
-  "rebounds",
-  "turnovers",
-  "assists",
-  "steals",
-  "blocks",
-  "fouls",
-];
+const PLAY_TYPES = ["shots", "rebounds", "turnovers", "assists", "fouls"];
 
 export default function FilterBar({ players }: { players: Player[] }) {
   const router = useRouter();
