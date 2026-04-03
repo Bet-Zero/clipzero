@@ -20,14 +20,9 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/games", async (req, res) => {
+app.get("/games", async (_req, res) => {
   try {
-    const date =
-      typeof req.query.date === "string" && req.query.date.trim() !== ""
-        ? req.query.date
-        : "";
-
-    const games = date ? await getGamesByDate(date) : await getTodaysGames();
+    const games = await getTodaysGames();
 
     res.json({
       count: games.length,
