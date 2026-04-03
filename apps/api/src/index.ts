@@ -159,6 +159,68 @@ app.get("/clips/game", async (req, res) => {
   }
 });
 
+app.get("/debug/steals", async (req, res) => {
+  try {
+    const gameId =
+      typeof req.query.gameId === "string" && req.query.gameId.trim() !== ""
+        ? req.query.gameId
+        : "0022501115";
+
+    const actions = await getPlayByPlay(gameId);
+
+    const matches = actions.filter((action) => {
+      const description = action.description ?? "";
+      const actionType = action.actionType?.toLowerCase() ?? "";
+      return actionType === "turnover" || /steal/i.test(description);
+    });
+
+    res.json({
+      gameId,
+      count: matches.length,
+      actions: matches.slice(0, 50),
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      error: "Failed to inspect steal actions",
+      details: error?.response?.status ?? error?.message ?? "unknown error",
+    });
+  }
+});
+
+app.get("/debug/blocks", async (req, res) => {
+  try {
+    const gameId =
+      typeof req.query.gameId === "string" && req.query.gameId.trim() !== ""
+        ? req.query.gameId
+        : "0022501115";
+
+    const actions = await getPlayByPlay(gameId);
+
+    const matches = actions.filter((action) => {
+      const description = action.description ?? "";
+      const actionType = action.actionType?.toLowerCase() ?? "";
+      return (
+        actionType === "2pt" ||
+        actionType === "3pt" ||
+        /block/i.test(description)
+      );
+    });
+
+    res.json({
+      gameId,
+      count: matches.length,
+      actions: matches
+        .filter((action) => /block/i.test(action.description ?? ""))
+        .slice(0, 50),
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      error: "Failed to inspect block actions",
+      details: error?.response?.status ?? error?.message ?? "unknown error",
+    });
+  }
+});
+
 app.listen(port, () => {
   console.log(`ClipZero API running on http://localhost:${port}`);
 });
