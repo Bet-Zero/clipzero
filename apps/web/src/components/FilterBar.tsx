@@ -130,26 +130,46 @@ export default function FilterBar({
         <option value="4">Q4</option>
       </select>
 
-      <select
-        value={selectedPlayer}
-        onChange={(e) =>
-          update({
-            playType,
-            team,
-            quarter,
-            player: e.target.value,
-            result: playType === "shots" ? shotResult : "all",
-          })
-        }
-        className="h-9 rounded bg-zinc-900 px-3 text-sm text-white"
-      >
-        <option value="">All Players</option>
-        {players.map((p) => (
-          <option key={p.name} value={p.name}>
-            {p.name}
-          </option>
-        ))}
-      </select>
+      <div className="flex items-center gap-2">
+        <input
+          list="player-options"
+          value={selectedPlayer}
+          onChange={(e) =>
+            update({
+              playType,
+              team,
+              quarter,
+              player: e.target.value,
+              result: playType === "shots" ? shotResult : "all",
+            })
+          }
+          placeholder="Search player"
+          className="h-9 rounded bg-zinc-900 px-3 text-sm text-white placeholder:text-zinc-500"
+        />
+
+        {selectedPlayer && (
+          <button
+            onClick={() =>
+              update({
+                playType,
+                team,
+                quarter,
+                player: "",
+                result: playType === "shots" ? shotResult : "all",
+              })
+            }
+            className="h-9 rounded bg-zinc-900 px-3 text-sm text-zinc-300"
+          >
+            Clear
+          </button>
+        )}
+
+        <datalist id="player-options">
+          {players.map((p) => (
+            <option key={p.name} value={p.name} />
+          ))}
+        </datalist>
+      </div>
     </div>
   );
 }
