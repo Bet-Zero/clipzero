@@ -71,7 +71,13 @@ app.get("/clips/game", async (req, res) => {
         : "0022501115";
 
     const actions = await getPlayByPlay(gameId);
-    const shots = getShotActions(gameId, actions).slice(0, 25);
+    const limitParam =
+      typeof req.query.limit === "string" ? Number(req.query.limit) : 12;
+
+    const limit =
+      Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 12;
+
+    const shots = getShotActions(gameId, actions).slice(0, limit);
 
     const clips = await Promise.all(
       shots.map(async (shot) => {

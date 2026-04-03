@@ -36,10 +36,13 @@ async function getGames(): Promise<Game[]> {
   return data.games;
 }
 
-async function getClips(gameId: string): Promise<Clip[]> {
-  const res = await fetch(`http://localhost:4000/clips/game?gameId=${gameId}`, {
-    cache: "no-store",
-  });
+async function getClips(gameId: string, limit: number): Promise<Clip[]> {
+  const res = await fetch(
+    `http://localhost:4000/clips/game?gameId=${gameId}&limit=${limit}`,
+    {
+      cache: "no-store",
+    },
+  );
 
   const data = await res.json();
   return data.clips;
@@ -48,14 +51,22 @@ async function getClips(gameId: string): Promise<Clip[]> {
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ gameId?: string }>;
+  searchParams: Promise<{
+    gameId?: string;
+    limit?: string;
+    result?: string;
+    player?: string;
+  }>;
 }) {
   const games = await getGames();
   const params = await searchParams;
 
+  const limitParam = Number(params.limit ?? "12");
+  const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 12;
+
   const selectedGameId = params.gameId || games[0]?.gameId || "0022501115";
 
-  const clips = await getClips(selectedGameId);
+  const clips = await getClips(selectedGameId, limit);
 
   const resultFilter = params.result;
 
