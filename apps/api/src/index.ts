@@ -27,15 +27,9 @@ app.get("/games", async (req, res) => {
         ? req.query.date
         : "";
 
-    const cacheKey = date || "today";
-    const cached = gamesCache.get(cacheKey);
-    if (cached) {
-      return res.json(cached);
-    }
-
     const games = date ? await getGamesByDate(date) : await getTodaysGames();
 
-    const payload = {
+    res.json({
       count: games.length,
       games: games.map((game) => ({
         gameId: game.gameId,
@@ -45,11 +39,7 @@ app.get("/games", async (req, res) => {
         homeTeam: game.homeTeam,
         awayTeam: game.awayTeam,
       })),
-    };
-
-    gamesCache.set(cacheKey, payload);
-
-    res.json(payload);
+    });
   } catch (error: any) {
     res.status(500).json({
       error: "Failed to fetch games",
