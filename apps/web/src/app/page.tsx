@@ -45,6 +45,7 @@ async function getClips(
   limit: number,
   player?: string,
   result?: string,
+  playType?: string,
 ): Promise<{ clips: Clip[]; total: number; players: Player[] }> {
   const search = new URLSearchParams();
   search.set("gameId", gameId);
@@ -52,6 +53,7 @@ async function getClips(
 
   if (player) search.set("player", player);
   if (result && result !== "all") search.set("result", result);
+  if (playType) search.set("playType", playType);
 
   const res = await fetch(
     `http://localhost:4000/clips/game?${search.toString()}`,
@@ -76,6 +78,7 @@ export default async function Home({
     limit?: string;
     result?: string;
     player?: string;
+    playType?: string;
   }>;
 }) {
   const games = await getGames();
@@ -87,12 +90,14 @@ export default async function Home({
   const selectedGameId = params.gameId || games[0]?.gameId || "0022501115";
   const resultFilter = params.result || "all";
   const playerFilter = params.player || "";
+  const playType = params.playType || "shots";
 
   const { clips, total, players } = await getClips(
     selectedGameId,
     limit,
     playerFilter,
     resultFilter,
+    playType,
   );
 
   return (
