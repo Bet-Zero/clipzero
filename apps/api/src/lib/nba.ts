@@ -94,18 +94,6 @@ export function getFilteredActions(
     return match?.[1]?.trim() ?? null;
   }
 
-  function parseBlockName(description?: string) {
-    if (!description) return null;
-    const match = description.match(/\(([^()]+?)\s+BLOCK\)/i);
-    return match?.[1]?.trim() ?? null;
-  }
-
-  function parseStealName(description?: string) {
-    if (!description) return null;
-    const match = description.match(/\(([^()]+?)\s+STEAL\)/i);
-    return match?.[1]?.trim() ?? null;
-  }
-
   return actions
     .filter((action) => {
       const actionType = action.actionType?.toLowerCase() ?? "";
@@ -129,11 +117,11 @@ export function getFilteredActions(
       }
 
       if (normalized === "steals") {
-        return actionType === "turnover" && /\bSTEAL\b/i.test(description);
+        return actionType === "steal";
       }
 
       if (normalized === "blocks") {
-        return isShot && /\bBLOCK\b/i.test(description);
+        return actionType === "block";
       }
 
       if (normalized === "fouls") {
@@ -146,18 +134,9 @@ export function getFilteredActions(
       const description = action.description;
 
       let playerName = action.playerName;
-      let personId = action.personId;
 
       if (normalized === "assists") {
         playerName = parseAssistName(description) ?? action.playerName;
-      }
-
-      if (normalized === "blocks") {
-        playerName = parseBlockName(description) ?? action.playerName;
-      }
-
-      if (normalized === "steals") {
-        playerName = parseStealName(description) ?? action.playerName;
       }
 
       return {
@@ -167,7 +146,7 @@ export function getFilteredActions(
         clock: action.clock,
         teamId: action.teamId,
         teamTricode: action.teamTricode,
-        personId,
+        personId: action.personId,
         playerName,
         actionType: action.actionType,
         subType: action.subType,
