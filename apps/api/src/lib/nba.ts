@@ -37,6 +37,26 @@ export type ClipRecord = {
   thumbnailUrl?: string | null;
 };
 
+export type ScoreboardGame = {
+  gameId: string;
+  gameCode: string;
+  gameStatusText: string;
+  homeTeam: {
+    teamName: string;
+    teamTricode: string;
+  };
+  awayTeam: {
+    teamName: string;
+    teamTricode: string;
+  };
+};
+
+type ScoreboardResponse = {
+  scoreboard: {
+    games: ScoreboardGame[];
+  };
+};
+
 type PlayByPlayResponse = {
   game: {
     gameId: string;
@@ -137,4 +157,15 @@ export async function getClipRecordsForGame(
   }
 
   return clipRecords;
+}
+
+export async function getTodaysGames(): Promise<ScoreboardGame[]> {
+  const url =
+    "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json";
+
+  const response = await axios.get<ScoreboardResponse>(url, {
+    headers: NBA_HEADERS,
+  });
+
+  return response.data.scoreboard.games;
 }

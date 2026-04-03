@@ -1,6 +1,11 @@
 import cors from "cors";
 import express from "express";
-import { getPlayByPlay, getShotActions, getVideoEventAsset } from "./lib/nba";
+import {
+  getPlayByPlay,
+  getShotActions,
+  getTodaysGames,
+  getVideoEventAsset,
+} from "./lib/nba";
 
 const app = express();
 const port = 4000;
@@ -10,6 +15,29 @@ app.use(express.json());
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
+});
+
+app.get("/games", async (_req, res) => {
+  try {
+    const games = await getTodaysGames();
+
+    res.json({
+      count: games.length,
+      games: games.map((game) => ({
+        gameId: game.gameId,
+        gameCode: game.gameCode,
+        gameStatusText: game.gameStatusText,
+        matchup: `${game.awayTeam.teamTricode} @ ${game.homeTeam.teamTricode}`,
+        homeTeam: game.homeTeam,
+        awayTeam: game.awayTeam,
+      })),
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      error: "Failed to fetch games",
+      details: error?.response?.status ?? error?.message ?? "unknown error",
+    });
+  }
 });
 
 app.get("/clips/test", async (_req, res) => {
@@ -35,35 +63,44 @@ app.get("/clips/test", async (_req, res) => {
   }
 });
 
-app.get("/clips/game", async (_req, res) => {
+app.get("/clips/game", async (req, res) => {
   try {
-    const gameId = "0022501115";
+    const gameId =
+      typeof req.query.gameId === "string" && req.query.gameId.trim() !== ""
+        ? req.query.gameId
+        : "0022501115";
 
     const actions = await getPlayByPlay(gameId);
-    const shots = getShotActions(gameId, actions).slice(0, 5);
+    const shots = getShotActions(gameId, actions).slice(0, 25);
 
-    const clips = [];
+    const clips = await Promise.all(
+      shots.map(async (shot) => {
+        if (!shot.actionNumber) {
+          return {
+            ...shot,
+            videoUrl: null,
+            thumbnailUrl: null,
+          };
+        }
 
-    for (const shot of shots) {
-      if (!shot.actionNumber) continue;
+        try {
+          const asset = await getVideoEventAsset(gameId, shot.actionNumber);
+          const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
 
-      try {
-        const asset = await getVideoEventAsset(gameId, shot.actionNumber);
-        const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
-
-        clips.push({
-          ...shot,
-          videoUrl: firstVideo?.murl ?? null,
-          thumbnailUrl: firstVideo?.mth ?? null,
-        });
-      } catch {
-        clips.push({
-          ...shot,
-          videoUrl: null,
-          thumbnailUrl: null,
-        });
-      }
-    }
+          return {
+            ...shot,
+            videoUrl: firstVideo?.murl ?? null,
+            thumbnailUrl: firstVideo?.mth ?? null,
+          };
+        } catch {
+          return {
+            ...shot,
+            videoUrl: null,
+            thumbnailUrl: null,
+          };
+        }
+      }),
+    );
 
     res.json({
       gameId,
