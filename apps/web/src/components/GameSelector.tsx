@@ -27,6 +27,7 @@ export default function GameSelector({
         const search = new URLSearchParams(params.toString());
         search.set("gameId", e.target.value);
         search.delete("player");
+        search.delete("team");
         router.push(`/?${search.toString()}`);
       }}
     >
