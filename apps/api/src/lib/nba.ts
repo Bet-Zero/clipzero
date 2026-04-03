@@ -80,11 +80,45 @@ export async function getPlayByPlay(gameId: string): Promise<RawAction[]> {
   return response.data.game.actions;
 }
 
-export function getShotActions(gameId: string, actions: RawAction[]) {
+export function getFilteredActions(
+  gameId: string,
+  actions: RawAction[],
+  playType: string,
+) {
+  const normalized = playType.toLowerCase();
+
   return actions
-    .filter(
-      (action) => action.actionType === "2pt" || action.actionType === "3pt",
-    )
+    .filter((action) => {
+      if (normalized === "shots") {
+        return action.actionType === "2pt" || action.actionType === "3pt";
+      }
+
+      if (normalized === "assists") {
+        return action.subType?.toLowerCase().includes("assist");
+      }
+
+      if (normalized === "rebounds") {
+        return action.actionType?.toLowerCase() === "rebound";
+      }
+
+      if (normalized === "turnovers") {
+        return action.actionType?.toLowerCase() === "turnover";
+      }
+
+      if (normalized === "steals") {
+        return action.actionType?.toLowerCase() === "steal";
+      }
+
+      if (normalized === "blocks") {
+        return action.actionType?.toLowerCase() === "block";
+      }
+
+      if (normalized === "fouls") {
+        return action.actionType?.toLowerCase() === "foul";
+      }
+
+      return action.actionType === "2pt" || action.actionType === "3pt";
+    })
     .map((action) => ({
       gameId,
       actionNumber: action.actionNumber,

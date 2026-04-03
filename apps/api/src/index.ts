@@ -1,8 +1,8 @@
 import cors from "cors";
 import express from "express";
 import {
+  getFilteredActions,
   getPlayByPlay,
-  getShotActions,
   getTodaysGames,
   getVideoEventAsset,
 } from "./lib/nba";
@@ -85,8 +85,13 @@ app.get("/clips/game", async (req, res) => {
     const limit =
       Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 12;
 
+    const playType =
+      typeof req.query.playType === "string" && req.query.playType.trim() !== ""
+        ? req.query.playType
+        : "shots";
+
     const actions = await getPlayByPlay(gameId);
-    const allShots = getShotActions(gameId, actions);
+    const allShots = getFilteredActions(gameId, actions, playType);
 
     const players = Array.from(
       new Set(allShots.map((shot) => shot.playerName).filter(Boolean)),
@@ -100,7 +105,7 @@ app.get("/clips/game", async (req, res) => {
 
     const shots = filteredShots.slice(0, limit);
 
-    const cacheKey = `${gameId}:${player}:${result}:${limit}`;
+    const cacheKey = `${gameId}:${player}:${result}:${playType}:${limit}`;
     const cached = clipCache.get(cacheKey);
     if (cached) {
       return res.json(cached);
