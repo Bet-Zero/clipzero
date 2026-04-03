@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 import {
   getFilteredActions,
+  getGamesByDate,
   getPlayByPlay,
   getTodaysGames,
   getVideoEventAsset,
@@ -18,9 +19,14 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/games", async (_req, res) => {
+app.get("/games", async (req, res) => {
   try {
-    const games = await getTodaysGames();
+    const date =
+      typeof req.query.date === "string" && req.query.date.trim() !== ""
+        ? req.query.date
+        : "";
+
+    const games = date ? await getGamesByDate(date) : await getTodaysGames();
 
     res.json({
       count: games.length,

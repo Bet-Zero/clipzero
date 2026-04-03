@@ -238,6 +238,40 @@ export async function getClipRecordsForGame(
   return clipRecords;
 }
 
+function formatDateForNba(date: string) {
+  const [year, month, day] = date.split("-");
+  return `${month}/${day}/${year}`;
+}
+
+export async function getGamesByDate(date: string): Promise<ScoreboardGame[]> {
+  const url = "https://stats.nba.com/stats/scoreboardv3";
+
+  const response = await axios.get(url, {
+    headers: NBA_HEADERS,
+    params: {
+      GameDate: formatDateForNba(date),
+      LeagueID: "00",
+    },
+    timeout: 10000,
+  });
+
+  const games = response.data?.scoreboard?.games ?? [];
+
+  return games.map((game: any) => ({
+    gameId: game.gameId,
+    gameCode: game.gameCode,
+    gameStatusText: game.gameStatusText,
+    homeTeam: {
+      teamName: game.homeTeam?.teamName ?? "",
+      teamTricode: game.homeTeam?.teamTricode ?? "",
+    },
+    awayTeam: {
+      teamName: game.awayTeam?.teamName ?? "",
+      teamTricode: game.awayTeam?.teamTricode ?? "",
+    },
+  }));
+}
+
 export async function getTodaysGames(): Promise<ScoreboardGame[]> {
   const url =
     "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json";

@@ -1,4 +1,5 @@
 import ClipFeed from "@/components/ClipFeed";
+import DatePicker from "@/components/DatePicker";
 import FilterBar from "@/components/FilterBar";
 import GameSelector from "@/components/GameSelector";
 
@@ -37,11 +38,17 @@ type Player = {
   name: string;
 };
 
-async function getGames(): Promise<Game[]> {
+async function getGames(date?: string): Promise<Game[]> {
+  const search = new URLSearchParams();
+  if (date) search.set("date", date);
+
   try {
-    const res = await fetch("http://localhost:4000/games", {
-      cache: "no-store",
-    });
+    const res = await fetch(
+      `http://localhost:4000/games${search.toString() ? `?${search.toString()}` : ""}`,
+      {
+        cache: "no-store",
+      },
+    );
     if (!res.ok) return [];
     const data = await res.json();
     return data.games ?? [];
@@ -88,6 +95,10 @@ async function getClips(
   }
 }
 
+function getTodayString() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default async function Home({
   searchParams,
 }: {
@@ -97,12 +108,14 @@ export default async function Home({
     result?: string;
     player?: string;
     playType?: string;
+    date?: string;
     quarter?: string;
     team?: string;
   }>;
 }) {
-  const games = await getGames();
   const params = await searchParams;
+  const selectedDate = params.date || getTodayString();
+  const games = await getGames(selectedDate);
 
   const limitParam = Number(params.limit ?? "24");
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 24;
@@ -134,7 +147,8 @@ export default async function Home({
     <main className="min-h-screen bg-black text-white">
       <FilterBar players={players} teams={teams} />
 
-      <div className="mx-auto max-w-3xl px-4 py-4">
+      <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-4">
+        <DatePicker selectedDate={selectedDate} />
         <GameSelector games={games} selectedGameId={selectedGameId} />
       </div>
 

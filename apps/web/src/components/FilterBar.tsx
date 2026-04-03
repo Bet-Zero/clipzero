@@ -20,6 +20,7 @@ export default function FilterBar({
 
   const shotResult = params.get("result") || "all";
   const selectedPlayer = params.get("player") || "";
+  const date = params.get("date") || "";
   const gameId = params.get("gameId") || "";
   const playType = params.get("playType") || "shots";
   const quarter = params.get("quarter") || "";
@@ -28,6 +29,7 @@ export default function FilterBar({
   function update(paramsObj: Record<string, string | null>) {
     const search = new URLSearchParams();
 
+    if (date) search.set("date", date);
     if (gameId) search.set("gameId", gameId);
 
     Object.entries(paramsObj).forEach(([key, value]) => {
