@@ -108,16 +108,20 @@ app.get("/clips/game", async (req, res) => {
     const actions = await getPlayByPlay(gameId);
     const allShots = getFilteredActions(gameId, actions, playType);
 
-    const players = Array.from(
-      new Set(allShots.map((shot) => shot.playerName).filter(Boolean)),
-    ).map((name) => ({ name }));
-
-    const filteredShots = allShots.filter((shot) => {
-      const matchesPlayer = !player || shot.playerName === player;
+    const playerOptionPool = allShots.filter((shot) => {
       const matchesTeam = !team || shot.teamTricode === team;
       const matchesResult = result === "all" || shot.shotResult === result;
       const matchesQuarter = !quarter || shot.period === quarter;
-      return matchesPlayer && matchesTeam && matchesResult && matchesQuarter;
+      return matchesTeam && matchesResult && matchesQuarter;
+    });
+
+    const players = Array.from(
+      new Set(playerOptionPool.map((shot) => shot.playerName).filter(Boolean)),
+    ).map((name) => ({ name }));
+
+    const filteredShots = playerOptionPool.filter((shot) => {
+      const matchesPlayer = !player || shot.playerName === player;
+      return matchesPlayer;
     });
 
     const shots = filteredShots.slice(0, limit);
