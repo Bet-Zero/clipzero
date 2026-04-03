@@ -26,6 +26,7 @@ export default function GameSelector({
       onChange={(e) => {
         const search = new URLSearchParams(params.toString());
         search.set("gameId", e.target.value);
+        search.delete("player");
         router.push(`/?${search.toString()}`);
       }}
     >
