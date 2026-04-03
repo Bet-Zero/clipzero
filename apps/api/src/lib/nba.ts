@@ -93,7 +93,7 @@ export async function getPlayByPlay(gameId: string): Promise<RawAction[]> {
 
   const response = await axios.get<PlayByPlayResponse>(url, {
     headers: NBA_HEADERS,
-    timeout: 10000,
+    timeout: 20000,
   });
 
   return response.data.game.actions;
@@ -301,7 +301,7 @@ export async function getGamesByDate(date: string): Promise<ScoreboardGame[]> {
       GameDate: formatDateForNba(date),
       LeagueID: "00",
     },
-    timeout: 10000,
+    timeout: 20000,
   });
 
   const games = response.data?.scoreboard?.games ?? [];
