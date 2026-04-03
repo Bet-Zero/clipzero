@@ -88,38 +88,103 @@ export function getFilteredActions(
 ) {
   const normalized = playType.toLowerCase();
 
+  function parseAssistName(description?: string) {
+    if (!description) return null;
+    const match = description.match(/\(([^()]+?)\s+\d+\s+AST\)/i);
+    return match?.[1]?.trim() ?? null;
+  }
+
+  function parseBlockName(description?: string) {
+    if (!description) return null;
+    const match = description.match(/\(([^()]+?)\s+BLOCK\)/i);
+    return match?.[1]?.trim() ?? null;
+  }
+
+  function parseStealName(description?: string) {
+    if (!description) return null;
+    const match = description.match(/\(([^()]+?)\s+STEAL\)/i);
+    return match?.[1]?.trim() ?? null;
+  }
+
   return actions
     .filter((action) => {
+      const actionType = action.actionType?.toLowerCase() ?? "";
+      const description = action.description ?? "";
+      const isShot = actionType === "2pt" || actionType === "3pt";
+
       if (normalized === "shots") {
-        return action.actionType === "2pt" || action.actionType === "3pt";
+        return isShot;
       }
 
       if (normalized === "assists") {
-        return action.subType?.toLowerCase().includes("assist");
+        return isShot && /\bAST\b/i.test(description);
       }
 
       if (normalized === "rebounds") {
-        return action.actionType?.toLowerCase() === "rebound";
+        return actionType === "rebound";
       }
 
       if (normalized === "turnovers") {
-        return action.actionType?.toLowerCase() === "turnover";
+        return actionType === "turnover";
       }
 
       if (normalized === "steals") {
-        return action.actionType?.toLowerCase() === "steal";
+        return actionType === "turnover" && /\bSTEAL\b/i.test(description);
       }
 
       if (normalized === "blocks") {
-        return action.actionType?.toLowerCase() === "block";
+        return isShot && /\bBLOCK\b/i.test(description);
       }
 
       if (normalized === "fouls") {
-        return action.actionType?.toLowerCase() === "foul";
+        return actionType === "foul";
       }
 
-      return action.actionType === "2pt" || action.actionType === "3pt";
+      return isShot;
     })
+    .map((action) => {
+      const description = action.description;
+
+      let playerName = action.playerName;
+      let personId = action.personId;
+
+      if (normalized === "assists") {
+        playerName = parseAssistName(description) ?? action.playerName;
+      }
+
+      if (normalized === "blocks") {
+        playerName = parseBlockName(description) ?? action.playerName;
+      }
+
+      if (normalized === "steals") {
+        playerName = parseStealName(description) ?? action.playerName;
+      }
+
+      return {
+        gameId,
+        actionNumber: action.actionNumber,
+        period: action.period,
+        clock: action.clock,
+        teamId: action.teamId,
+        teamTricode: action.teamTricode,
+        personId,
+        playerName,
+        actionType: action.actionType,
+        subType: action.subType,
+        shotResult: action.shotResult,
+        shotDistance: action.shotDistance,
+        x: action.x,
+        y: action.y,
+        description: action.description,
+      };
+    });
+}
+
+function getShotActions(gameId: string, actions: RawAction[]) {
+  return actions
+    .filter(
+      (action) => action.actionType === "2pt" || action.actionType === "3pt",
+    )
     .map((action) => ({
       gameId,
       actionNumber: action.actionNumber,
