@@ -12,8 +12,15 @@ function shiftDate(dateString: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
+function getTodayString() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function DatePicker({ selectedDate }: DatePickerProps) {
   const router = useRouter();
+  const today = getTodayString();
+  const yesterday = shiftDate(today, -1);
+  const tomorrow = shiftDate(today, 1);
 
   function goToDate(date: string) {
     const search = new URLSearchParams();
@@ -21,11 +28,40 @@ export default function DatePicker({ selectedDate }: DatePickerProps) {
     router.push(`/?${search.toString()}`);
   }
 
+  function chipClass(isActive: boolean) {
+    return `h-9 rounded px-3 text-sm transition ${
+      isActive
+        ? "bg-white text-black"
+        : "bg-zinc-900 text-white hover:bg-zinc-800"
+    }`;
+  }
+
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        onClick={() => goToDate(yesterday)}
+        className={chipClass(selectedDate === yesterday)}
+      >
+        Yesterday
+      </button>
+
+      <button
+        onClick={() => goToDate(today)}
+        className={chipClass(selectedDate === today)}
+      >
+        Today
+      </button>
+
+      <button
+        onClick={() => goToDate(tomorrow)}
+        className={chipClass(selectedDate === tomorrow)}
+      >
+        Tomorrow
+      </button>
+
       <button
         onClick={() => goToDate(shiftDate(selectedDate, -1))}
-        className="h-9 rounded bg-zinc-900 px-3 text-sm text-white"
+        className="h-9 rounded bg-zinc-900 px-3 text-sm text-white hover:bg-zinc-800"
       >
         Prev
       </button>
@@ -39,7 +75,7 @@ export default function DatePicker({ selectedDate }: DatePickerProps) {
 
       <button
         onClick={() => goToDate(shiftDate(selectedDate, 1))}
-        className="h-9 rounded bg-zinc-900 px-3 text-sm text-white"
+        className="h-9 rounded bg-zinc-900 px-3 text-sm text-white hover:bg-zinc-800"
       >
         Next
       </button>
