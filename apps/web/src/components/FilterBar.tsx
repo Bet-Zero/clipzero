@@ -28,9 +28,11 @@ export default function FilterBar({
   const team = params.get("team") || "";
 
   const [playerInput, setPlayerInput] = useState(selectedPlayer);
+  const [isPlayerOpen, setIsPlayerOpen] = useState(false);
 
   useEffect(() => {
     setPlayerInput(selectedPlayer);
+    setIsPlayerOpen(false);
   }, [selectedPlayer, gameId, team, playType, quarter]);
 
   function update(paramsObj: Record<string, string | null>) {
@@ -73,6 +75,9 @@ export default function FilterBar({
   }, [players, playerInput]);
 
   function applyPlayer(name: string) {
+    setPlayerInput(name);
+    setIsPlayerOpen(false);
+
     update({
       playType,
       team,
@@ -84,6 +89,8 @@ export default function FilterBar({
 
   function clearPlayer() {
     setPlayerInput("");
+    setIsPlayerOpen(false);
+
     update({
       playType,
       team,
@@ -186,7 +193,14 @@ export default function FilterBar({
         <div className="flex items-center gap-2">
           <input
             value={playerInput}
-            onChange={(e) => setPlayerInput(e.target.value)}
+            onChange={(e) => {
+              setPlayerInput(e.target.value);
+              setIsPlayerOpen(true);
+            }}
+            onFocus={() => setIsPlayerOpen(true)}
+            onBlur={() => {
+              setTimeout(() => setIsPlayerOpen(false), 150);
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 const exactMatch = players.find(
@@ -198,6 +212,7 @@ export default function FilterBar({
 
               if (e.key === "Escape") {
                 clearPlayer();
+                setIsPlayerOpen(false);
               }
             }}
             placeholder="Search player"
@@ -214,19 +229,21 @@ export default function FilterBar({
           )}
         </div>
 
-        {playerInput.trim() !== "" && filteredPlayers.length > 0 && (
-          <div className="absolute z-10 mt-2 w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg">
-            {filteredPlayers.map((p) => (
-              <button
-                key={p.name}
-                onClick={() => applyPlayer(p.name)}
-                className="block w-full px-3 py-2 text-left text-sm text-white hover:bg-zinc-900"
-              >
-                {p.name}
-              </button>
-            ))}
-          </div>
-        )}
+        {isPlayerOpen &&
+          playerInput.trim() !== "" &&
+          filteredPlayers.length > 0 && (
+            <div className="absolute z-10 mt-2 w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg">
+              {filteredPlayers.map((p) => (
+                <button
+                  key={p.name}
+                  onClick={() => applyPlayer(p.name)}
+                  className="block w-full px-3 py-2 text-left text-sm text-white hover:bg-zinc-900"
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
       </div>
     </div>
   );
