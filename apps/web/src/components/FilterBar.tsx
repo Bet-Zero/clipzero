@@ -200,7 +200,7 @@ export default function FilterBar({
                 clearPlayer();
               }
             }}
-            placeholder="Search player last name"
+            placeholder="Search player"
             className="h-9 w-full rounded bg-zinc-900 px-3 text-sm text-white placeholder:text-zinc-500"
           />
 
