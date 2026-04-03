@@ -7,6 +7,7 @@ type Player = {
 };
 
 const PLAY_TYPES = ["shots", "assists", "rebounds", "turnovers", "fouls"];
+const TEAM_OPTIONS = ["DET", "MIN"];
 
 export default function FilterBar({ players }: { players: Player[] }) {
   const router = useRouter();
@@ -17,6 +18,7 @@ export default function FilterBar({ players }: { players: Player[] }) {
   const gameId = params.get("gameId") || "";
   const playType = params.get("playType") || "shots";
   const quarter = params.get("quarter") || "";
+  const team = params.get("team") || "";
 
   function update(paramsObj: Record<string, string | null>) {
     const search = new URLSearchParams();
@@ -39,6 +41,7 @@ export default function FilterBar({ players }: { players: Player[] }) {
         onChange={(e) =>
           update({
             playType: e.target.value,
+            team,
             quarter,
             result: "all",
             player: "",
@@ -53,6 +56,27 @@ export default function FilterBar({ players }: { players: Player[] }) {
         ))}
       </select>
 
+      <select
+        value={team}
+        onChange={(e) =>
+          update({
+            playType,
+            quarter,
+            team: e.target.value,
+            result: playType === "shots" ? shotResult : "all",
+            player: "",
+          })
+        }
+        className="h-9 rounded bg-zinc-900 px-3 text-sm text-white"
+      >
+        <option value="">All Teams</option>
+        {TEAM_OPTIONS.map((value) => (
+          <option key={value} value={value}>
+            {value}
+          </option>
+        ))}
+      </select>
+
       {playType === "shots" && (
         <div className="flex gap-2">
           {["all", "Made", "Missed"].map((value) => (
@@ -61,6 +85,7 @@ export default function FilterBar({ players }: { players: Player[] }) {
               onClick={() =>
                 update({
                   playType,
+                  team,
                   quarter,
                   result: value,
                   player: selectedPlayer,
@@ -83,6 +108,7 @@ export default function FilterBar({ players }: { players: Player[] }) {
         onChange={(e) =>
           update({
             playType,
+            team,
             quarter: e.target.value,
             result: playType === "shots" ? shotResult : "all",
             player: selectedPlayer,
@@ -102,6 +128,7 @@ export default function FilterBar({ players }: { players: Player[] }) {
         onChange={(e) =>
           update({
             playType,
+            team,
             quarter,
             player: e.target.value,
             result: playType === "shots" ? shotResult : "all",
