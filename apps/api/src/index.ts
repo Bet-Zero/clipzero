@@ -20,11 +20,22 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/games", async (_req, res) => {
+app.get("/games", async (req, res) => {
   try {
-    const games = await getTodaysGames();
+    const date =
+      typeof req.query.date === "string" && req.query.date.trim() !== ""
+        ? req.query.date
+        : "";
 
-    res.json({
+    const cacheKey = date || "today";
+    const cached = gamesCache.get(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
+    const games = date ? await getGamesByDate(date) : await getTodaysGames();
+
+    const payload = {
       count: games.length,
       games: games.map((game) => ({
         gameId: game.gameId,
@@ -34,7 +45,11 @@ app.get("/games", async (_req, res) => {
         homeTeam: game.homeTeam,
         awayTeam: game.awayTeam,
       })),
-    });
+    };
+
+    gamesCache.set(cacheKey, payload);
+
+    res.json(payload);
   } catch (error: any) {
     res.status(500).json({
       error: "Failed to fetch games",

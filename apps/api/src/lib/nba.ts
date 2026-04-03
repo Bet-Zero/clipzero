@@ -206,7 +206,7 @@ export async function getPlayerNameMapForGame(gameId: string) {
 
   const response = await axios.get<BoxScoreResponse>(url, {
     headers: NBA_HEADERS,
-    timeout: 10000,
+    timeout: 20000,
   });
 
   const homePlayers = response.data?.game?.homeTeam?.players ?? [];
