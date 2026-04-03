@@ -9,6 +9,7 @@ import {
 
 const app = express();
 const port = 4000;
+const clipCache = new Map<string, unknown>();
 
 app.use(cors());
 app.use(express.json());
@@ -80,6 +81,13 @@ app.get("/clips/game", async (req, res) => {
     const allShots = getShotActions(gameId, actions);
     const shots = allShots.slice(0, limit);
 
+    const cacheKey = `${gameId}:${limit}`;
+
+    const cached = clipCache.get(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     const clips = await Promise.all(
       shots.map(async (shot) => {
         if (!shot.actionNumber) {
@@ -109,12 +117,16 @@ app.get("/clips/game", async (req, res) => {
       }),
     );
 
-    res.json({
+    const payload = {
       gameId,
       count: clips.length,
       total: allShots.length,
       clips,
-    });
+    };
+
+    clipCache.set(cacheKey, payload);
+
+    res.json(payload);
   } catch (error: any) {
     res.status(500).json({
       error: "Failed to fetch game clips",
