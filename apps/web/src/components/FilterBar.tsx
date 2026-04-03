@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type Player = {
@@ -26,6 +27,12 @@ export default function FilterBar({
   const quarter = params.get("quarter") || "";
   const team = params.get("team") || "";
 
+  const [playerInput, setPlayerInput] = useState(selectedPlayer);
+
+  useEffect(() => {
+    setPlayerInput(selectedPlayer);
+  }, [selectedPlayer, gameId, team, playType, quarter]);
+
   function update(paramsObj: Record<string, string | null>) {
     const search = new URLSearchParams();
 
@@ -39,6 +46,35 @@ export default function FilterBar({
     });
 
     router.push(`/?${search.toString()}`);
+  }
+
+  const filteredPlayers = useMemo(() => {
+    const q = playerInput.trim().toLowerCase();
+
+    if (!q) return players.slice(0, 8);
+
+    return players.filter((p) => p.name.toLowerCase().includes(q)).slice(0, 8);
+  }, [players, playerInput]);
+
+  function applyPlayer(name: string) {
+    update({
+      playType,
+      team,
+      quarter,
+      player: name,
+      result: playType === "shots" ? shotResult : "all",
+    });
+  }
+
+  function clearPlayer() {
+    setPlayerInput("");
+    update({
+      playType,
+      team,
+      quarter,
+      player: "",
+      result: playType === "shots" ? shotResult : "all",
+    });
   }
 
   return (
@@ -130,45 +166,51 @@ export default function FilterBar({
         <option value="4">Q4</option>
       </select>
 
-      <div className="flex items-center gap-2">
-        <input
-          list="player-options"
-          value={selectedPlayer}
-          onChange={(e) =>
-            update({
-              playType,
-              team,
-              quarter,
-              player: e.target.value,
-              result: playType === "shots" ? shotResult : "all",
-            })
-          }
-          placeholder="Search player"
-          className="h-9 rounded bg-zinc-900 px-3 text-sm text-white placeholder:text-zinc-500"
-        />
+      <div className="relative min-w-[220px]">
+        <div className="flex items-center gap-2">
+          <input
+            value={playerInput}
+            onChange={(e) => setPlayerInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const exactMatch = players.find(
+                  (p) =>
+                    p.name.toLowerCase() === playerInput.trim().toLowerCase(),
+                );
+                applyPlayer(exactMatch?.name ?? playerInput.trim());
+              }
 
-        {selectedPlayer && (
-          <button
-            onClick={() =>
-              update({
-                playType,
-                team,
-                quarter,
-                player: "",
-                result: playType === "shots" ? shotResult : "all",
-              })
-            }
-            className="h-9 rounded bg-zinc-900 px-3 text-sm text-zinc-300"
-          >
-            Clear
-          </button>
+              if (e.key === "Escape") {
+                clearPlayer();
+              }
+            }}
+            placeholder="Search player"
+            className="h-9 w-full rounded bg-zinc-900 px-3 text-sm text-white placeholder:text-zinc-500"
+          />
+
+          {selectedPlayer && (
+            <button
+              onClick={clearPlayer}
+              className="h-9 rounded bg-zinc-900 px-3 text-sm text-zinc-300"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {playerInput.trim() !== "" && filteredPlayers.length > 0 && (
+          <div className="absolute z-10 mt-2 w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg">
+            {filteredPlayers.map((p) => (
+              <button
+                key={p.name}
+                onClick={() => applyPlayer(p.name)}
+                className="block w-full px-3 py-2 text-left text-sm text-white hover:bg-zinc-900"
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
         )}
-
-        <datalist id="player-options">
-          {players.map((p) => (
-            <option key={p.name} value={p.name} />
-          ))}
-        </datalist>
       </div>
     </div>
   );
