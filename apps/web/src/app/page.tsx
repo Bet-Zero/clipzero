@@ -32,12 +32,16 @@ type Player = {
 };
 
 async function getGames(): Promise<Game[]> {
-  const res = await fetch("http://localhost:4000/games", {
-    cache: "no-store",
-  });
-
-  const data = await res.json();
-  return data.games;
+  try {
+    const res = await fetch("http://localhost:4000/games", {
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.games ?? [];
+  } catch {
+    return [];
+  }
 }
 
 async function getClips(
@@ -55,19 +59,23 @@ async function getClips(
   if (result && result !== "all") search.set("result", result);
   if (playType) search.set("playType", playType);
 
-  const res = await fetch(
-    `http://localhost:4000/clips/game?${search.toString()}`,
-    {
-      cache: "no-store",
-    },
-  );
-
-  const data = await res.json();
-  return {
-    clips: data.clips ?? [],
-    total: data.total ?? 0,
-    players: data.players ?? [],
-  };
+  try {
+    const res = await fetch(
+      `http://localhost:4000/clips/game?${search.toString()}`,
+      {
+        cache: "no-store",
+      },
+    );
+    if (!res.ok) return { clips: [], total: 0, players: [] };
+    const data = await res.json();
+    return {
+      clips: data.clips ?? [],
+      total: data.total ?? 0,
+      players: data.players ?? [],
+    };
+  } catch {
+    return { clips: [], total: 0, players: [] };
+  }
 }
 
 export default async function Home({

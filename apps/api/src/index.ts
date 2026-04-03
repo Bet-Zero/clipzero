@@ -90,6 +90,12 @@ app.get("/clips/game", async (req, res) => {
         ? req.query.playType
         : "shots";
 
+    const cacheKey = `${gameId}:${player}:${result}:${playType}:${limit}`;
+    const cached = clipCache.get(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     const actions = await getPlayByPlay(gameId);
     const allShots = getFilteredActions(gameId, actions, playType);
 
@@ -104,12 +110,6 @@ app.get("/clips/game", async (req, res) => {
     });
 
     const shots = filteredShots.slice(0, limit);
-
-    const cacheKey = `${gameId}:${player}:${result}:${playType}:${limit}`;
-    const cached = clipCache.get(cacheKey);
-    if (cached) {
-      return res.json(cached);
-    }
 
     const clips = await Promise.all(
       shots.map(async (shot) => {

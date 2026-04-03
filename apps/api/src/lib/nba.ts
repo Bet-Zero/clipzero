@@ -75,6 +75,7 @@ export async function getPlayByPlay(gameId: string): Promise<RawAction[]> {
 
   const response = await axios.get<PlayByPlayResponse>(url, {
     headers: NBA_HEADERS,
+    timeout: 10000,
   });
 
   return response.data.game.actions;
