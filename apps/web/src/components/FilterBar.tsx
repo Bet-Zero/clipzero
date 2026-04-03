@@ -53,7 +53,23 @@ export default function FilterBar({
 
     if (!q) return players.slice(0, 8);
 
-    return players.filter((p) => p.name.toLowerCase().includes(q)).slice(0, 8);
+    const queryParts = q.split(/\s+/).filter(Boolean);
+
+    return players
+      .filter((p) => {
+        const name = p.name.toLowerCase();
+        const nameParts = name.split(/\s+/).filter(Boolean);
+        const reversedName = nameParts.slice().reverse().join(" ");
+
+        return (
+          name.includes(q) ||
+          reversedName.includes(q) ||
+          queryParts.every((part) =>
+            nameParts.some((namePart) => namePart.startsWith(part)),
+          )
+        );
+      })
+      .slice(0, 8);
   }, [players, playerInput]);
 
   function applyPlayer(name: string) {
