@@ -4,6 +4,7 @@ import {
   getFilteredActions,
   getGamesByDate,
   getPlayByPlay,
+  getPlayerNameMapForGame,
   getTodaysGames,
   getVideoEventAsset,
 } from "./lib/nba";
@@ -114,7 +115,16 @@ app.get("/clips/game", async (req, res) => {
     const actions = await getPlayByPlay(gameId);
     const allShots = getFilteredActions(gameId, actions, playType);
 
-    const playerOptionPool = allShots.filter((shot) => {
+    const playerNameMap = await getPlayerNameMapForGame(gameId);
+
+    const normalizedShots = allShots.map((shot) => ({
+      ...shot,
+      playerName:
+        (shot.personId ? playerNameMap.get(shot.personId) : undefined) ??
+        shot.playerName,
+    }));
+
+    const playerOptionPool = normalizedShots.filter((shot) => {
       const matchesTeam = !team || shot.teamTricode === team;
       const matchesResult = result === "all" || shot.shotResult === result;
       const matchesQuarter = !quarter || shot.period === quarter;

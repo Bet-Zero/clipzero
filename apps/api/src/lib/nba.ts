@@ -64,6 +64,24 @@ type PlayByPlayResponse = {
   };
 };
 
+type BoxScorePlayer = {
+  personId?: number;
+  firstName?: string;
+  familyName?: string;
+  name?: string;
+};
+
+type BoxScoreResponse = {
+  game?: {
+    homeTeam?: {
+      players?: BoxScorePlayer[];
+    };
+    awayTeam?: {
+      players?: BoxScorePlayer[];
+    };
+  };
+};
+
 const NBA_HEADERS = {
   "User-Agent": "Mozilla/5.0",
   Referer: "https://www.nba.com/",
@@ -183,6 +201,37 @@ function getShotActions(gameId: string, actions: RawAction[]) {
     }));
 }
 
+export async function getPlayerNameMapForGame(gameId: string) {
+  const url = `https://cdn.nba.com/static/json/liveData/boxscore/boxscore_${gameId}.json`;
+
+  const response = await axios.get<BoxScoreResponse>(url, {
+    headers: NBA_HEADERS,
+    timeout: 10000,
+  });
+
+  const homePlayers = response.data?.game?.homeTeam?.players ?? [];
+  const awayPlayers = response.data?.game?.awayTeam?.players ?? [];
+  const allPlayers = [...homePlayers, ...awayPlayers];
+
+  const playerMap = new Map<number, string>();
+
+  for (const player of allPlayers) {
+    const id = player.personId;
+    if (!id) continue;
+
+    const fullName =
+      `${player.firstName ?? ""} ${player.familyName ?? ""}`.trim() ||
+      player.name?.trim() ||
+      "";
+
+    if (fullName) {
+      playerMap.set(id, fullName);
+    }
+  }
+
+  return playerMap;
+}
+
 export async function getVideoEventAsset(gameId: string, gameEventId: number) {
   const url = "https://stats.nba.com/stats/videoeventsasset";
 
@@ -212,7 +261,7 @@ export async function getClipRecordsForGame(
         ...shot,
         videoUrl: null,
         thumbnailUrl: null,
-      });
+      } as ClipRecord);
       continue;
     }
 
@@ -225,13 +274,13 @@ export async function getClipRecordsForGame(
         ...shot,
         videoUrl: firstVideo?.murl ?? null,
         thumbnailUrl: firstVideo?.mth ?? null,
-      });
+      } as ClipRecord);
     } catch {
       clipRecords.push({
         ...shot,
         videoUrl: null,
         thumbnailUrl: null,
-      });
+      } as ClipRecord);
     }
   }
 

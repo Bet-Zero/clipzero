@@ -43,7 +43,7 @@
 
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "moduleResolution": "node10",
-    "project": "apps/api",
-  }
+    "moduleResolution": "node10"
+  },
+  "exclude": ["apps/**", "packages/**", "node_modules"]
 }
