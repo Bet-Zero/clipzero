@@ -1,7 +1,6 @@
 import ClipFeed from "@/components/ClipFeed";
 import FilterBar from "@/components/FilterBar";
 import GameSelector from "@/components/GameSelector";
-import LoadMoreButton from "@/components/LoadMoreButton";
 
 type Clip = {
   gameId: string;
@@ -96,8 +95,6 @@ export default async function Home({
     resultFilter,
   );
 
-  const hasMore = clips.length < total;
-
   return (
     <main className="min-h-screen bg-black text-white">
       <FilterBar players={players} />
@@ -107,7 +104,6 @@ export default async function Home({
       </div>
 
       <ClipFeed clips={clips} />
-      {hasMore && <LoadMoreButton />}
     </main>
   );
 }
