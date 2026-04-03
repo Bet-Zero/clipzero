@@ -25,6 +25,12 @@ type Clip = {
 type Game = {
   gameId: string;
   matchup: string;
+  homeTeam?: {
+    teamTricode: string;
+  };
+  awayTeam?: {
+    teamTricode: string;
+  };
 };
 
 type Player = {
@@ -120,7 +126,19 @@ export default async function Home({
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <FilterBar players={players} />
+      <FilterBar
+        players={players}
+        teams={
+          games.find((game) => game.gameId === selectedGameId)
+            ? ([
+                games.find((game) => game.gameId === selectedGameId)?.awayTeam
+                  ?.teamTricode,
+                games.find((game) => game.gameId === selectedGameId)?.homeTeam
+                  ?.teamTricode,
+              ].filter(Boolean) as string[])
+            : []
+        }
+      />
 
       <div className="mx-auto max-w-3xl px-4 py-4">
         <GameSelector games={games} selectedGameId={selectedGameId} />

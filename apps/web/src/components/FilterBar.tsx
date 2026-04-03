@@ -7,9 +7,14 @@ type Player = {
 };
 
 const PLAY_TYPES = ["shots", "assists", "rebounds", "turnovers", "fouls"];
-const TEAM_OPTIONS = ["DET", "MIN"];
 
-export default function FilterBar({ players }: { players: Player[] }) {
+export default function FilterBar({
+  players,
+  teams,
+}: {
+  players: Player[];
+  teams: string[];
+}) {
   const router = useRouter();
   const params = useSearchParams();
 
@@ -70,7 +75,7 @@ export default function FilterBar({ players }: { players: Player[] }) {
         className="h-9 rounded bg-zinc-900 px-3 text-sm text-white"
       >
         <option value="">All Teams</option>
-        {TEAM_OPTIONS.map((value) => (
+        {teams.map((value) => (
           <option key={value} value={value}>
             {value}
           </option>
