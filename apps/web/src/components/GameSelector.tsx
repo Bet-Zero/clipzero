@@ -19,6 +19,17 @@ export default function GameSelector({
   const router = useRouter();
   const params = useSearchParams();
 
+  if (games.length === 0) {
+    return (
+      <select
+        className="h-9 rounded bg-zinc-900 px-3 text-sm text-zinc-500 cursor-not-allowed"
+        disabled
+      >
+        <option>No games for this date</option>
+      </select>
+    );
+  }
+
   return (
     <select
       className="h-9 rounded bg-zinc-900 px-3 text-sm text-white"
