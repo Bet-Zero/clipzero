@@ -12,6 +12,10 @@ import {
 const app = express();
 const port = 4000;
 const clipCache = new Map<string, unknown>();
+const videoAssetCache = new Map<
+  string,
+  { videoUrl: string | null; thumbnailUrl: string | null }
+>();
 
 app.use(cors());
 app.use(express.json());
@@ -152,20 +156,43 @@ app.get("/clips/game", async (req, res) => {
           };
         }
 
+        const assetCacheKey = `${gameId}:${shot.actionNumber}`;
+        const cachedAsset = videoAssetCache.get(assetCacheKey);
+
+        if (cachedAsset) {
+          return {
+            ...shot,
+            videoUrl: cachedAsset.videoUrl,
+            thumbnailUrl: cachedAsset.thumbnailUrl,
+          };
+        }
+
         try {
           const asset = await getVideoEventAsset(gameId, shot.actionNumber);
           const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
 
-          return {
-            ...shot,
+          const cachedValue = {
             videoUrl: firstVideo?.murl ?? null,
             thumbnailUrl: firstVideo?.mth ?? null,
           };
-        } catch {
+
+          videoAssetCache.set(assetCacheKey, cachedValue);
+
           return {
             ...shot,
+            ...cachedValue,
+          };
+        } catch {
+          const cachedValue = {
             videoUrl: null,
             thumbnailUrl: null,
+          };
+
+          videoAssetCache.set(assetCacheKey, cachedValue);
+
+          return {
+            ...shot,
+            ...cachedValue,
           };
         }
       }),
