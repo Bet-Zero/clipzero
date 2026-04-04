@@ -150,6 +150,27 @@ async function ClipsSection({
   team: string;
   teams: string[];
 }) {
+  if (!gameId) {
+    return (
+      <>
+        <FilterBar players={[]} teams={[]} />
+
+        <div className="mx-auto max-w-3xl px-4 pt-2 text-sm text-zinc-400">
+          Showing 0 of 0 clips
+        </div>
+
+        <div className="mx-auto max-w-3xl px-4 pt-1 text-xs text-zinc-500">
+          {team || "All Teams"} • {quarter ? `Q${quarter}` : "All Quarters"} •{" "}
+          {playType}
+          {player ? ` • ${player}` : ""}
+          {playType === "shots" && result !== "all" ? ` • ${result}` : ""}
+        </div>
+
+        <ClipFeed clips={[]} />
+      </>
+    );
+  }
+
   const { clips, total, players } = await getClips(
     gameId,
     limit,
@@ -159,7 +180,6 @@ async function ClipsSection({
     quarter,
     team,
   );
-
   return (
     <>
       <FilterBar players={players} teams={teams} />
@@ -201,14 +221,16 @@ export default async function Home({
   const limitParam = Number(params.limit ?? "24");
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 24;
 
-  const selectedGameId = params.gameId || games[0]?.gameId || "0022501115";
+  const selectedGameId = params.gameId || games[0]?.gameId || "";
   const resultFilter = params.result || "all";
   const playerFilter = params.player || "";
   const playType = params.playType || "shots";
   const quarter = params.quarter || "";
   const team = params.team || "";
 
-  const selectedGame = games.find((game) => game.gameId === selectedGameId);
+  const selectedGame = selectedGameId
+    ? games.find((game) => game.gameId === selectedGameId)
+    : undefined;
   const teams = [
     selectedGame?.awayTeam?.teamTricode,
     selectedGame?.homeTeam?.teamTricode,
