@@ -35,6 +35,7 @@ export default function GameSelector({
         search.set("gameId", e.target.value);
         search.delete("player");
         search.delete("team");
+        search.delete("actionNumber");
         router.push(`/?${search.toString()}`);
       }}
     >

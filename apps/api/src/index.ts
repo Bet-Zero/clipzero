@@ -259,7 +259,9 @@ app.get("/clips/game", async (req, res) => {
 
     const playerOptionPool = normalizedShots.filter((shot) => {
       const matchesTeam = !team || shot.teamTricode === team;
-      const matchesResult = result === "all" || shot.shotResult === result;
+      // result filter is only meaningful for shots; ignore it for other play types
+      const matchesResult =
+        playType !== "shots" || result === "all" || shot.shotResult === result;
       const matchesQuarter = !quarter || shot.period === quarter;
       return matchesTeam && matchesResult && matchesQuarter;
     });
@@ -567,6 +569,7 @@ app.get("/clips/player", async (req, res) => {
     // 2. Get or build season-level actions cache
     //    Keyed by personId:season:playType — reused across result/quarter/exclusion/page changes
     const seasonCacheKey = `${personId}:${season}:${playType}`;
+    const seasonCacheHit = playerSeasonActionsCache.has(seasonCacheKey);
     let seasonActions = playerSeasonActionsCache.get(seasonCacheKey);
 
     if (!seasonActions) {
@@ -648,7 +651,9 @@ app.get("/clips/player", async (req, res) => {
 
     const filteredActions = seasonActions.filter((action) => {
       if (excludedGameIdSet.has(action.gameId)) return false;
-      const matchesResult = result === "all" || action.shotResult === result;
+      // result filter is only meaningful for shots; ignore it for other play types
+      const matchesResult =
+        playType !== "shots" || result === "all" || action.shotResult === result;
       const matchesQuarter = !quarter || action.period === quarter;
       return matchesResult && matchesQuarter;
     });
@@ -731,7 +736,7 @@ app.get("/clips/player", async (req, res) => {
     }
 
     console.log(
-      `[clips/player] personId=${personId} season=${season} playType=${playType} result=${result} quarter=${quarter || "all"} games=${gameLog.length - excludedGames.length}/${gameLog.length} offset=${offset} count=${clips.length}/${total} hasMore=${hasMore} assetHits=${assetCacheHits} assetMisses=${assetCacheMisses} seasonCached=${playerSeasonActionsCache.has(seasonCacheKey) ? "hit" : "miss"} time=${msSince(startedAt)}`,
+      `[clips/player] personId=${personId} season=${season} playType=${playType} result=${result} quarter=${quarter || "all"} games=${gameLog.length - excludedGames.length}/${gameLog.length} offset=${offset} count=${clips.length}/${total} hasMore=${hasMore} assetHits=${assetCacheHits} assetMisses=${assetCacheMisses} seasonCache=${seasonCacheHit ? "hit" : "miss"} time=${msSince(startedAt)}`,
     );
 
     res.json(payload);

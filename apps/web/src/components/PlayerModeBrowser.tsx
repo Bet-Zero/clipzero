@@ -415,8 +415,12 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     if (gameIds.length > 0) search.set("excludeGameIds", gameIds.join(","));
     const dates = [...dateExclusions].filter(Boolean);
     if (dates.length > 0) search.set("excludeDates", dates.join(","));
-    // actionNumber — preserve if present and no filter change
-    const an = params.get("actionNumber");
+    // actionNumber — preserve if present and no filter change.
+    // Read from window.location.search rather than params: replaceState (used
+    // by setActionNumberInUrl for rail navigation) does NOT update useSearchParams,
+    // so params.get() would return a stale value if the user has navigated clips
+    // since the last router.push.
+    const an = new URLSearchParams(window.location.search).get("actionNumber");
     if (an && !overrides.playType && !overrides.result && !overrides.quarter)
       search.set("actionNumber", an);
     return `/?${search.toString()}`;
@@ -506,7 +510,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
           <>
             <select
               value={playType}
-              onChange={(e) => updateUrl({ playType: e.target.value })}
+              onChange={(e) =>
+                updateUrl({ playType: e.target.value, result: DEFAULT_RESULT })
+              }
               className="h-9 rounded bg-zinc-900 px-3 text-sm text-white"
             >
               {PLAY_TYPES.map((pt) => (
