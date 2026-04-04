@@ -54,7 +54,6 @@ app.get("/health", (_req, res) => {
 
 app.get("/games", async (req, res) => {
   try {
-    const startedAt = Date.now();
     const date =
       typeof req.query.date === "string" && req.query.date.trim() !== ""
         ? req.query.date
@@ -82,9 +81,6 @@ app.get("/games", async (req, res) => {
 
     gamesCache.set(cacheKey, payload);
 
-    console.log(
-      `[games] date=${date || "today"} count=${games.length} time=${msSince(startedAt)}`,
-    );
     res.json(payload);
   } catch (error: any) {
     res.status(500).json({
