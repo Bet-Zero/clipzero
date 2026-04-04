@@ -18,6 +18,10 @@ const videoAssetCache = new Map<
   { videoUrl: string | null; thumbnailUrl: string | null }
 >();
 
+function msSince(start: number) {
+  return `${Date.now() - start}ms`;
+}
+
 async function mapWithConcurrency<T, R>(
   items: T[],
   limit: number,
@@ -50,6 +54,7 @@ app.get("/health", (_req, res) => {
 
 app.get("/games", async (req, res) => {
   try {
+    const startedAt = Date.now();
     const date =
       typeof req.query.date === "string" && req.query.date.trim() !== ""
         ? req.query.date
@@ -77,6 +82,9 @@ app.get("/games", async (req, res) => {
 
     gamesCache.set(cacheKey, payload);
 
+    console.log(
+      `[games] date=${date || "today"} count=${games.length} time=${msSince(startedAt)}`,
+    );
     res.json(payload);
   } catch (error: any) {
     res.status(500).json({
@@ -111,6 +119,9 @@ app.get("/clips/test", async (_req, res) => {
 
 app.get("/clips/game", async (req, res) => {
   try {
+    const startedAt = Date.now();
+    let assetCacheHits = 0;
+    let assetCacheMisses = 0;
     const gameId =
       typeof req.query.gameId === "string" && req.query.gameId.trim() !== ""
         ? req.query.gameId
@@ -193,6 +204,7 @@ app.get("/clips/game", async (req, res) => {
       const cachedAsset = videoAssetCache.get(assetCacheKey);
 
       if (cachedAsset) {
+        assetCacheHits += 1;
         return {
           ...shot,
           videoUrl: cachedAsset.videoUrl,
@@ -201,6 +213,7 @@ app.get("/clips/game", async (req, res) => {
       }
 
       try {
+        assetCacheMisses += 1;
         const asset = await getVideoEventAsset(gameId, shot.actionNumber);
         const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
 
@@ -240,6 +253,9 @@ app.get("/clips/game", async (req, res) => {
 
     clipCache.set(cacheKey, payload);
 
+    console.log(
+      `[clips] game=${gameId} playType=${playType} quarter=${quarter || "all"} team=${team || "all"} player=${player || "all"} result=${result} count=${clips.length}/${filteredShots.length} assetHits=${assetCacheHits} assetMisses=${assetCacheMisses} time=${msSince(startedAt)}`,
+    );
     res.json(payload);
   } catch (error: any) {
     res.status(500).json({
