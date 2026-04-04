@@ -39,6 +39,19 @@ export default function FilterBar({
   const [activeIndex, setActiveIndex] = useState(-1);
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const filterBarRef = useRef<HTMLDivElement>(null);
+
+  // Close floating panel on outside click
+  useEffect(() => {
+    if (!isOverflowOpen) return;
+    function handleOutside(e: MouseEvent) {
+      if (filterBarRef.current && !filterBarRef.current.contains(e.target as Node)) {
+        setIsOverflowOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [isOverflowOpen]);
 
   useEffect(() => {
     setPlayerInput(selectedPlayer);
@@ -140,7 +153,7 @@ export default function FilterBar({
   }
 
   return (
-    <div className="border-b border-zinc-800">
+    <div ref={filterBarRef} className="relative border-b border-zinc-800">
       {/* Main filter row — always visible */}
       <div className="flex items-center gap-2 px-4 py-2">
         <select
@@ -310,9 +323,9 @@ export default function FilterBar({
         )}
       </div>
 
-      {/* Overflow panel — Quarter + Shot Result */}
+      {/* Floating filter panel — absolutely positioned so it does NOT push content down */}
       {isOverflowOpen && (
-        <div className="flex items-center gap-5 border-t border-zinc-800/60 bg-zinc-950 px-4 py-2">
+        <div className="absolute left-0 right-0 top-full z-50 flex items-center gap-5 border-b border-zinc-800 bg-zinc-950 px-4 py-3 shadow-xl">
           <label className="flex items-center gap-2 text-xs text-zinc-500">
             Quarter
             <select
