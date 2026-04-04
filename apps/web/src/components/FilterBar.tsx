@@ -7,7 +7,15 @@ type Player = {
   name: string;
 };
 
-const PLAY_TYPES = ["shots", "assists", "rebounds", "turnovers", "fouls"];
+const PLAY_TYPES = [
+  "shots",
+  "assists",
+  "rebounds",
+  "turnovers",
+  "fouls",
+  "steals",
+  "blocks",
+];
 
 export default function FilterBar({
   players,
@@ -187,6 +195,9 @@ export default function FilterBar({
         <option value="2">Q2</option>
         <option value="3">Q3</option>
         <option value="4">Q4</option>
+        <option value="5">OT1</option>
+        <option value="6">OT2</option>
+        <option value="7">OT3</option>
       </select>
 
       <div className="relative min-w-[220px]">
