@@ -218,8 +218,8 @@ export default async function Home({
   const selectedDate = params.date || getTodayString();
   const games = await getGames(selectedDate);
 
-  const limitParam = Number(params.limit ?? "24");
-  const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 24;
+  const limitParam = Number(params.limit ?? "12");
+  const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 12;
 
   const selectedGameId = params.gameId || games[0]?.gameId || "";
   const resultFilter = params.result || "all";

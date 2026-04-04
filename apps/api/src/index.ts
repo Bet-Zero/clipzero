@@ -12,6 +12,7 @@ import {
 const app = express();
 const port = 4000;
 const clipCache = new Map<string, unknown>();
+const gamesCache = new Map<string, unknown>();
 const videoAssetCache = new Map<
   string,
   { videoUrl: string | null; thumbnailUrl: string | null }
@@ -54,9 +55,15 @@ app.get("/games", async (req, res) => {
         ? req.query.date
         : "";
 
+    const cacheKey = date || "today";
+    const cached = gamesCache.get(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     const games = date ? await getGamesByDate(date) : await getTodaysGames();
 
-    res.json({
+    const payload = {
       count: games.length,
       games: games.map((game) => ({
         gameId: game.gameId,
@@ -66,7 +73,11 @@ app.get("/games", async (req, res) => {
         homeTeam: game.homeTeam,
         awayTeam: game.awayTeam,
       })),
-    });
+    };
+
+    gamesCache.set(cacheKey, payload);
+
+    res.json(payload);
   } catch (error: any) {
     res.status(500).json({
       error: "Failed to fetch games",
