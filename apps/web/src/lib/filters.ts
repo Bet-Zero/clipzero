@@ -12,15 +12,49 @@ type ClipQueryParams = {
   team?: string;
 };
 
-export function buildClipSearchParams(params: ClipQueryParams): URLSearchParams {
+export function buildClipSearchParams(
+  params: ClipQueryParams,
+): URLSearchParams {
   const search = new URLSearchParams();
   search.set("gameId", params.gameId);
   search.set("limit", String(params.limit));
   search.set("offset", String(params.offset));
   if (params.player) search.set("player", params.player);
-  if (params.result && params.result !== DEFAULT_RESULT) search.set("result", params.result);
+  if (params.result && params.result !== DEFAULT_RESULT)
+    search.set("result", params.result);
   if (params.playType) search.set("playType", params.playType);
   if (params.quarter) search.set("quarter", params.quarter);
   if (params.team) search.set("team", params.team);
+  return search;
+}
+
+type PlayerClipQueryParams = {
+  personId: number;
+  season: string;
+  limit: number;
+  offset: number;
+  playType?: string;
+  result?: string;
+  quarter?: string;
+  excludeDates?: string[];
+  excludeGameIds?: string[];
+};
+
+export function buildPlayerClipSearchParams(
+  params: PlayerClipQueryParams,
+): URLSearchParams {
+  const search = new URLSearchParams();
+  search.set("personId", String(params.personId));
+  search.set("season", params.season);
+  search.set("limit", String(params.limit));
+  search.set("offset", String(params.offset));
+  if (params.playType) search.set("playType", params.playType);
+  if (params.result && params.result !== DEFAULT_RESULT)
+    search.set("result", params.result);
+  if (params.quarter) search.set("quarter", params.quarter);
+  if (params.excludeDates && params.excludeDates.length > 0)
+    search.set("excludeDates", params.excludeDates.join(","));
+  if (params.excludeGameIds && params.excludeGameIds.length > 0)
+    search.set("excludeGameIds", params.excludeGameIds.join(","));
   return search;
 }

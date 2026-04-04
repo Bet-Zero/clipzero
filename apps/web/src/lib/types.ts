@@ -42,3 +42,40 @@ export type ClipsResponse = {
   hasMore: boolean;
   nextOffset: number | null;
 };
+
+// Player-mode types
+
+export type PlayerSearchResult = {
+  personId: number;
+  displayName: string;
+  teamTricode: string;
+};
+
+export type PlayerGameLogEntry = {
+  gameId: string;
+  gameDate: string;
+  matchup: string;
+  wl: string;
+  min: number;
+  pts: number;
+  reb: number;
+  ast: number;
+};
+
+export type PlayerClipsResponse = {
+  personId: number;
+  season: string;
+  playType: string;
+  result: string;
+  quarter: string | number;
+  count: number;
+  total: number;
+  offset: number;
+  limit: number;
+  hasMore: boolean;
+  nextOffset: number | null;
+  gamesIncluded: number;
+  gamesExcluded: number;
+  exclusions: { gameId: string; gameDate: string; reason: string }[];
+  clips: Clip[];
+};

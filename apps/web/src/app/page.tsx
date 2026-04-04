@@ -4,6 +4,8 @@ import ClipBrowser from "@/components/ClipBrowser";
 import DatePicker from "@/components/DatePicker";
 import FilterBar from "@/components/FilterBar";
 import GameSelector from "@/components/GameSelector";
+import ModeToggle from "@/components/ModeToggle";
+import PlayerModeBrowser from "@/components/PlayerModeBrowser";
 import SeasonSelector from "@/components/SeasonSelector";
 import { buildApiUrl } from "@/lib/api";
 import {
@@ -183,6 +185,7 @@ export default async function Home({
   searchParams,
 }: {
   searchParams: Promise<{
+    mode?: string;
     gameId?: string;
     limit?: string;
     result?: string;
@@ -193,15 +196,37 @@ export default async function Home({
     team?: string;
     season?: string;
     actionNumber?: string;
+    personId?: string;
+    playerName?: string;
+    teamTricode?: string;
+    excludeGameIds?: string;
+    excludeDates?: string;
   }>;
 }) {
   const params = await searchParams;
+  const mode = params.mode === "player" ? "player" : "game";
 
   // Derive season: prefer explicit param, then infer from date, then today
   const today = getTodayString();
   const selectedSeason = params.season
     ? parseSeason(params.season)
     : seasonForDate(params.date || today);
+
+  // ── Player mode: skip game-scoped data fetching entirely ──
+  if (mode === "player") {
+    return (
+      <main className="min-h-screen bg-black text-white">
+        <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-2">
+          <ModeToggle mode={mode} />
+          <SeasonSelector selectedSeason={selectedSeason} />
+        </div>
+
+        <PlayerModeBrowser season={selectedSeason} />
+      </main>
+    );
+  }
+
+  // ── Game mode (existing flow) ──
 
   // Use the URL date if it's in-season; otherwise fall back to a sensible default
   const seasonDefault = dateInSeason(today, selectedSeason)
@@ -275,6 +300,7 @@ export default async function Home({
   return (
     <main className="min-h-screen bg-black text-white">
       <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-2">
+        <ModeToggle mode={mode} />
         <SeasonSelector selectedSeason={selectedSeason} />
         <DatePicker
           selectedDate={selectedDate}
