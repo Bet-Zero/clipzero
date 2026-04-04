@@ -49,7 +49,7 @@ type Props = {
 export default function ClipPlayer({ clip }: Props) {
   if (!clip) {
     return (
-      <div className="flex aspect-video max-h-[50vh] w-full items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900 text-sm text-zinc-500">
+      <div className="flex aspect-video max-h-[65vh] w-full items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900 text-sm text-zinc-500">
         No clip selected
       </div>
     );
@@ -64,15 +64,15 @@ export default function ClipPlayer({ clip }: Props) {
           poster={clip.thumbnailUrl ?? undefined}
           controls
           preload="metadata"
-          className="max-h-[50vh] w-full bg-black"
+          className="max-h-[65vh] w-full bg-black"
         />
       ) : (
-        <div className="flex aspect-video max-h-[50vh] items-center justify-center bg-zinc-900 text-sm text-zinc-500">
+        <div className="flex aspect-video max-h-[65vh] items-center justify-center bg-zinc-900 text-sm text-zinc-500">
           Video unavailable
         </div>
       )}
 
-      <div className="space-y-1.5 px-4 py-3">
+      <div className="space-y-1 px-4 py-2">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-semibold text-white">

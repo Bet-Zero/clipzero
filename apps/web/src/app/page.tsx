@@ -106,7 +106,7 @@ function ClipsFallback() {
         ))}
       </div>
       {/* player skeleton */}
-      <div className="aspect-video max-h-[50vh] w-full animate-pulse rounded-xl bg-zinc-900" />
+      <div className="aspect-video max-h-[65vh] w-full animate-pulse rounded-xl bg-zinc-900" />
     </div>
   );
 }
