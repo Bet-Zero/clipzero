@@ -1,11 +1,10 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import ClipFeedPaginated from "@/components/ClipFeedPaginated";
+import ClipBrowser from "@/components/ClipBrowser";
 import DatePicker from "@/components/DatePicker";
 import FilterBar from "@/components/FilterBar";
 import GameSelector from "@/components/GameSelector";
 import SeasonSelector from "@/components/SeasonSelector";
-import ClipFeed from "@/components/ClipFeed";
 import { buildApiUrl } from "@/lib/api";
 import {
   parseSeason,
@@ -94,28 +93,23 @@ function ClipsFallback() {
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 border-b border-zinc-800 px-4 py-3">
-        <div className="h-9 w-28 rounded bg-zinc-900 animate-pulse" />
-        <div className="h-9 w-28 rounded bg-zinc-900 animate-pulse" />
-        <div className="h-9 w-28 rounded bg-zinc-900 animate-pulse" />
-        <div className="h-9 w-40 rounded bg-zinc-900 animate-pulse" />
+        <div className="h-9 w-28 animate-pulse rounded bg-zinc-900" />
+        <div className="h-9 w-28 animate-pulse rounded bg-zinc-900" />
+        <div className="h-9 w-28 animate-pulse rounded bg-zinc-900" />
+        <div className="h-9 w-40 animate-pulse rounded bg-zinc-900" />
       </div>
-      <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div
-            key={i}
-            className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950"
-          >
-            <div className="aspect-video w-full bg-zinc-900 animate-pulse" />
-            <div className="space-y-3 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="h-4 w-32 rounded bg-zinc-900 animate-pulse" />
-                <div className="h-3 w-16 rounded bg-zinc-900 animate-pulse" />
-              </div>
-              <div className="h-4 w-full rounded bg-zinc-900 animate-pulse" />
-              <div className="h-4 w-4/5 rounded bg-zinc-900 animate-pulse" />
-            </div>
-          </div>
-        ))}
+      <div className="mx-auto max-w-3xl px-4 py-4">
+        {/* rail skeleton */}
+        <div className="mb-4 flex gap-3 overflow-hidden">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-24 w-44 shrink-0 animate-pulse rounded-lg bg-zinc-900"
+            />
+          ))}
+        </div>
+        {/* player skeleton */}
+        <div className="aspect-video w-full animate-pulse rounded-xl bg-zinc-900" />
       </div>
     </>
   );
@@ -144,19 +138,9 @@ async function ClipsSection({
     return (
       <>
         <FilterBar players={[]} teams={[]} />
-
-        <div className="mx-auto max-w-3xl px-4 pt-2 text-sm text-zinc-400">
-          Showing 0 of 0 clips
+        <div className="mx-auto max-w-3xl px-4 py-6 text-sm text-zinc-400">
+          Select a game to load clips.
         </div>
-
-        <div className="mx-auto max-w-3xl px-4 pt-1 text-xs text-zinc-500">
-          {team || "All Teams"} • {quarter ? `Q${quarter}` : "All Quarters"} •{" "}
-          {playType}
-          {player ? ` • ${player}` : ""}
-          {playType === DEFAULT_PLAY_TYPE && result !== DEFAULT_RESULT ? ` • ${result}` : ""}
-        </div>
-
-        <ClipFeed clips={[]} />
       </>
     );
   }
@@ -176,7 +160,7 @@ async function ClipsSection({
     <>
       <FilterBar players={players} teams={teams} />
 
-      <ClipFeedPaginated
+      <ClipBrowser
         key={filterKey}
         initialClips={clips}
         initialTotal={total}
