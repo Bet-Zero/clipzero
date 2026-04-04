@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import ClipFeed from "@/components/ClipFeed";
 import DatePicker from "@/components/DatePicker";
 import FilterBar from "@/components/FilterBar";
@@ -99,6 +100,86 @@ function getTodayString() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function ClipsFallback() {
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-3 border-b border-zinc-800 px-4 py-3">
+        <div className="h-9 w-28 rounded bg-zinc-900 animate-pulse" />
+        <div className="h-9 w-28 rounded bg-zinc-900 animate-pulse" />
+        <div className="h-9 w-28 rounded bg-zinc-900 animate-pulse" />
+        <div className="h-9 w-40 rounded bg-zinc-900 animate-pulse" />
+      </div>
+      <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div
+            key={i}
+            className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950"
+          >
+            <div className="aspect-video w-full bg-zinc-900 animate-pulse" />
+            <div className="space-y-3 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="h-4 w-32 rounded bg-zinc-900 animate-pulse" />
+                <div className="h-3 w-16 rounded bg-zinc-900 animate-pulse" />
+              </div>
+              <div className="h-4 w-full rounded bg-zinc-900 animate-pulse" />
+              <div className="h-4 w-4/5 rounded bg-zinc-900 animate-pulse" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+async function ClipsSection({
+  gameId,
+  limit,
+  player,
+  result,
+  playType,
+  quarter,
+  team,
+  teams,
+}: {
+  gameId: string;
+  limit: number;
+  player: string;
+  result: string;
+  playType: string;
+  quarter: string;
+  team: string;
+  teams: string[];
+}) {
+  const { clips, total, players } = await getClips(
+    gameId,
+    limit,
+    player,
+    result,
+    playType,
+    quarter,
+    team,
+  );
+
+  return (
+    <>
+      <FilterBar players={players} teams={teams} />
+
+      <div className="mx-auto max-w-3xl px-4 pt-2 text-sm text-zinc-400">
+        Showing {clips.length} of {total} clips
+      </div>
+
+      <div className="mx-auto max-w-3xl px-4 pt-1 text-xs text-zinc-500">
+        {team || "All Teams"} • {quarter ? `Q${quarter}` : "All Quarters"} •{" "}
+        {playType}
+        {player ? ` • ${player}` : ""}
+        {playType === "shots" && result !== "all" ? ` • ${result}` : ""}
+      </div>
+
+      <ClipFeed clips={clips} />
+    </>
+  );
+}
+
 export default async function Home({
   searchParams,
 }: {
@@ -133,39 +214,25 @@ export default async function Home({
     selectedGame?.homeTeam?.teamTricode,
   ].filter(Boolean) as string[];
 
-  const { clips, total, players } = await getClips(
-    selectedGameId,
-    limit,
-    playerFilter,
-    resultFilter,
-    playType,
-    quarter,
-    team,
-  );
-
   return (
     <main className="min-h-screen bg-black text-white">
-      <FilterBar players={players} teams={teams} />
-
       <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-4">
         <DatePicker selectedDate={selectedDate} />
         <GameSelector games={games} selectedGameId={selectedGameId} />
       </div>
 
-      <div className="mx-auto max-w-3xl px-4 pt-2 text-sm text-zinc-400">
-        Showing {clips.length} of {total} clips
-      </div>
-
-      <div className="mx-auto max-w-3xl px-4 pt-1 text-xs text-zinc-500">
-        {team || "All Teams"} • {quarter ? `Q${quarter}` : "All Quarters"} •{" "}
-        {playType}
-        {playerFilter ? ` • ${playerFilter}` : ""}
-        {playType === "shots" && resultFilter !== "all"
-          ? ` • ${resultFilter}`
-          : ""}
-      </div>
-
-      <ClipFeed clips={clips} />
+      <Suspense fallback={<ClipsFallback />}>
+        <ClipsSection
+          gameId={selectedGameId}
+          limit={limit}
+          player={playerFilter}
+          result={resultFilter}
+          playType={playType}
+          quarter={quarter}
+          team={team}
+          teams={teams}
+        />
+      </Suspense>
     </main>
   );
 }
