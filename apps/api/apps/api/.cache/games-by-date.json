@@ -1,0 +1,77 @@
+{
+  "2025-12-25": {
+    "count": 5,
+    "games": [
+      {
+        "gameId": "0022500009",
+        "gameCode": "20251225/CLENYK",
+        "gameStatusText": "Final",
+        "matchup": "CLE @ NYK",
+        "homeTeam": {
+          "teamName": "Knicks",
+          "teamTricode": "NYK"
+        },
+        "awayTeam": {
+          "teamName": "Cavaliers",
+          "teamTricode": "CLE"
+        }
+      },
+      {
+        "gameId": "0022500010",
+        "gameCode": "20251225/SASOKC",
+        "gameStatusText": "Final",
+        "matchup": "SAS @ OKC",
+        "homeTeam": {
+          "teamName": "Thunder",
+          "teamTricode": "OKC"
+        },
+        "awayTeam": {
+          "teamName": "Spurs",
+          "teamTricode": "SAS"
+        }
+      },
+      {
+        "gameId": "0022500011",
+        "gameCode": "20251225/DALGSW",
+        "gameStatusText": "Final",
+        "matchup": "DAL @ GSW",
+        "homeTeam": {
+          "teamName": "Warriors",
+          "teamTricode": "GSW"
+        },
+        "awayTeam": {
+          "teamName": "Mavericks",
+          "teamTricode": "DAL"
+        }
+      },
+      {
+        "gameId": "0022500012",
+        "gameCode": "20251225/HOULAL",
+        "gameStatusText": "Final",
+        "matchup": "HOU @ LAL",
+        "homeTeam": {
+          "teamName": "Lakers",
+          "teamTricode": "LAL"
+        },
+        "awayTeam": {
+          "teamName": "Rockets",
+          "teamTricode": "HOU"
+        }
+      },
+      {
+        "gameId": "0022500013",
+        "gameCode": "20251225/MINDEN",
+        "gameStatusText": "Final/OT",
+        "matchup": "MIN @ DEN",
+        "homeTeam": {
+          "teamName": "Nuggets",
+          "teamTricode": "DEN"
+        },
+        "awayTeam": {
+          "teamName": "Timberwolves",
+          "teamTricode": "MIN"
+        }
+      }
+    ]
+  }
+}
