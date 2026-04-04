@@ -95,21 +95,19 @@ function getTodayString() {
 
 function ClipsFallback() {
   return (
-    <>
-      <div className="mx-auto max-w-3xl px-4 py-4">
-        {/* rail skeleton */}
-        <div className="mb-4 flex gap-3 overflow-hidden">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-24 w-44 shrink-0 animate-pulse rounded-lg bg-zinc-900"
-            />
-          ))}
-        </div>
-        {/* player skeleton */}
-        <div className="aspect-video w-full animate-pulse rounded-xl bg-zinc-900" />
+    <div className="px-3 py-3">
+      {/* rail skeleton */}
+      <div className="mb-3 flex gap-3 overflow-hidden">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-24 w-44 shrink-0 animate-pulse rounded-lg bg-zinc-900"
+          />
+        ))}
       </div>
-    </>
+      {/* player skeleton */}
+      <div className="aspect-video max-h-[50vh] w-full animate-pulse rounded-xl bg-zinc-900" />
+    </div>
   );
 }
 
@@ -138,7 +136,7 @@ async function ClipsSection({
     return (
       <>
         <FilterBar players={[]} teams={[]} />
-        <div className="mx-auto max-w-3xl px-4 py-6 text-sm text-zinc-400">
+        <div className="px-4 py-6 text-sm text-zinc-400">
           Select a game to load clips.
         </div>
       </>
@@ -273,8 +271,8 @@ export default async function Home({
       : null;
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-2">
+    <main className="flex min-h-screen flex-col bg-black text-white">
+      <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center gap-3 px-4 py-2">
         <SeasonSelector selectedSeason={selectedSeason} />
         <DatePicker
           selectedDate={selectedDate}
@@ -284,19 +282,23 @@ export default async function Home({
         <div id="filter-bar-portal" />
       </div>
 
-      <Suspense fallback={<ClipsFallback />}>
-        <ClipsSection
-          gameId={selectedGameId}
-          limit={limit}
-          player={playerFilter}
-          result={resultFilter}
-          playType={playType}
-          quarter={quarter}
-          team={team}
-          teams={teams}
-          actionNumber={actionNumber}
-        />
-      </Suspense>
+      <div className="mx-auto mt-2 flex w-full max-w-3xl flex-1 flex-col px-3 pb-3">
+        <div className="flex flex-1 flex-col rounded-xl border border-zinc-800/60 bg-zinc-950/80">
+          <Suspense fallback={<ClipsFallback />}>
+            <ClipsSection
+              gameId={selectedGameId}
+              limit={limit}
+              player={playerFilter}
+              result={resultFilter}
+              playType={playType}
+              quarter={quarter}
+              team={team}
+              teams={teams}
+              actionNumber={actionNumber}
+            />
+          </Suspense>
+        </div>
+      </div>
     </main>
   );
 }
