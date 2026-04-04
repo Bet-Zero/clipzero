@@ -57,7 +57,6 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [clipsLoading, setClipsLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(false);
-  const [seeking, setSeeking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -148,7 +147,8 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       loadingRef.current = true;
       setError(null);
 
-      // On the initial fetch, pass actionNumber so the API returns targetIndex.
+      // On the initial fetch, read actionNumber from URL to restore position
+      // if the clip is already in the first loaded page.
       const pinnedAction = !append ? params.get("actionNumber") : null;
       const pinnedNum = pinnedAction ? Number(pinnedAction) : null;
 
@@ -163,7 +163,6 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
           quarter,
           excludeDates: [...excludedDates],
           excludeGameIds: [...excludedGameIds],
-          actionNumber: !append && pinnedNum ? pinnedNum : undefined,
         });
 
         const res = await fetch(buildApiUrl("/clips/player", search));
@@ -178,78 +177,23 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
         } else {
           const newClips: Clip[] = data.clips ?? [];
           setClips(newClips);
+          setTotal(data.total ?? 0);
+          setHasMore(data.hasMore ?? false);
+          setNextOffset(data.nextOffset ?? null);
 
-          // Track whether the seek path handled pagination state.
-          let seekHandled = false;
-
-          // Restore pinned actionNumber from URL if valid
+          // Restore pinned actionNumber if the clip is in the first loaded page.
+          // If it's beyond page 1, clear the URL and fall back to clip 0 —
+          // no blocking catch-up fetch.
           if (pinnedNum) {
             const idx = newClips.findIndex((c) => c.actionNumber === pinnedNum);
             if (idx >= 0) {
-              // Found in initial page — select it.
               setActiveIndex(idx);
-            } else if (
-              typeof data.targetIndex === "number" &&
-              data.targetIndex >= 0
-            ) {
-              // Clip exists but is beyond this page — seek to it.
-              seekHandled = true;
-              setSeeking(true);
-              try {
-                const gapOffset = newClips.length;
-                const gapLimit = data.targetIndex - gapOffset + limit;
-                const seekSearch = buildPlayerClipSearchParams({
-                  personId: selectedPlayer.personId,
-                  season,
-                  limit: gapLimit,
-                  offset: gapOffset,
-                  playType,
-                  result,
-                  quarter,
-                  excludeDates: [...excludedDates],
-                  excludeGameIds: [...excludedGameIds],
-                });
-                const seekRes = await fetch(
-                  buildApiUrl("/clips/player", seekSearch),
-                );
-                if (!seekRes.ok) throw new Error(`HTTP ${seekRes.status}`);
-                const seekData = await seekRes.json();
-
-                const allClips = [...newClips, ...(seekData.clips ?? [])];
-                const targetIdx = allClips.findIndex(
-                  (c) => c.actionNumber === pinnedNum,
-                );
-                setClips(allClips);
-                setTotal(seekData.total ?? data.total ?? 0);
-                setHasMore(seekData.hasMore ?? false);
-                setNextOffset(seekData.nextOffset ?? null);
-
-                if (targetIdx >= 0) {
-                  setActiveIndex(targetIdx);
-                } else {
-                  setActiveIndex(0);
-                  setActionNumberInUrl(allClips[0]?.actionNumber ?? null);
-                }
-              } catch {
-                // Seek failed — fall back to first clip.
-                setActiveIndex(0);
-                setActionNumberInUrl(newClips[0]?.actionNumber ?? null);
-              } finally {
-                setSeeking(false);
-              }
             } else {
-              // actionNumber not found in filtered set — clear it.
               setActiveIndex(0);
               setActionNumberInUrl(newClips[0]?.actionNumber ?? null);
             }
           } else {
             setActiveIndex(0);
-          }
-
-          if (!seekHandled) {
-            setTotal(data.total ?? 0);
-            setHasMore(data.hasMore ?? false);
-            setNextOffset(data.nextOffset ?? null);
           }
         }
       } catch (err) {
@@ -592,21 +536,6 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
         </div>
       )}
 
-      {seeking && !initialLoading && (
-        <div className="mx-auto max-w-3xl px-4 py-6">
-          <div className="mb-2 text-sm text-zinc-400">Loading clip…</div>
-          <div className="mb-4 flex gap-3 overflow-hidden">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-24 w-44 shrink-0 animate-pulse rounded-lg bg-zinc-900"
-              />
-            ))}
-          </div>
-          <div className="aspect-video w-full animate-pulse rounded-xl bg-zinc-900" />
-        </div>
-      )}
-
       {/* No player selected */}
       {!selectedPlayer && !gameLogLoading && (
         <div className="mx-auto max-w-3xl px-4 py-6 text-sm text-zinc-400">
@@ -622,7 +551,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       )}
 
       {/* Clips viewer */}
-      {!initialLoading && !seeking && clips.length > 0 && (
+      {!initialLoading && clips.length > 0 && (
         <div className="flex flex-col gap-4 px-4 py-4">
           <ClipRail
             clips={clips}

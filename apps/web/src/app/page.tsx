@@ -157,7 +157,6 @@ async function ClipsSection({
     offset: initialOffset,
     hasMore: initialHasMore,
     nextOffset: initialNextOffset,
-    targetIndex: initialTargetIndex,
   } = await getClips(
     gameId,
     limit,
@@ -190,7 +189,6 @@ async function ClipsSection({
         quarter={quarter}
         team={team}
         initialActionNumber={actionNumber}
-        initialTargetIndex={initialTargetIndex ?? null}
       />
     </>
   );
