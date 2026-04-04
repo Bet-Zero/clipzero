@@ -124,6 +124,7 @@ async function ClipsSection({
   quarter,
   team,
   teams,
+  actionNumber,
 }: {
   gameId: string;
   limit: number;
@@ -133,6 +134,7 @@ async function ClipsSection({
   quarter: string;
   team: string;
   teams: string[];
+  actionNumber: number | null;
 }) {
   if (!gameId) {
     return (
@@ -173,6 +175,7 @@ async function ClipsSection({
         playType={playType}
         quarter={quarter}
         team={team}
+        initialActionNumber={actionNumber}
       />
     </>
   );
@@ -191,6 +194,7 @@ export default async function Home({
     quarter?: string;
     team?: string;
     season?: string;
+    actionNumber?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -233,11 +237,12 @@ export default async function Home({
     if (params.playType) canonical.set("playType", params.playType);
     if (params.quarter) canonical.set("quarter", params.quarter);
     if (params.result) canonical.set("result", params.result);
-    // Keep gameId only if it resolves to a real game; drop player/team when gameId is dropped
+    // Keep gameId only if it resolves to a real game; drop player/team/actionNumber when gameId is dropped
     if (gameIdIsValid && params.gameId) {
       canonical.set("gameId", params.gameId);
       if (params.player) canonical.set("player", params.player);
       if (params.team) canonical.set("team", params.team);
+      if (params.actionNumber) canonical.set("actionNumber", params.actionNumber);
     }
     redirect(`/?${canonical.toString()}`);
   }
@@ -260,6 +265,12 @@ export default async function Home({
     selectedGame?.homeTeam?.teamTricode,
   ].filter(Boolean) as string[];
 
+  const actionNumberParam = Number(params.actionNumber ?? "");
+  const actionNumber =
+    params.actionNumber && Number.isFinite(actionNumberParam) && actionNumberParam > 0
+      ? actionNumberParam
+      : null;
+
   return (
     <main className="min-h-screen bg-black text-white">
       <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-4">
@@ -278,6 +289,7 @@ export default async function Home({
           quarter={quarter}
           team={team}
           teams={teams}
+          actionNumber={actionNumber}
         />
       </Suspense>
     </main>

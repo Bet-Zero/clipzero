@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { buildApiUrl } from "@/lib/api";
 import {
   DEFAULT_PLAY_TYPE,
@@ -23,7 +23,18 @@ type Props = {
   playType: string;
   quarter: string;
   team: string;
+  initialActionNumber: number | null;
 };
+
+function setActionNumberInUrl(actionNumber: number | null) {
+  const url = new URL(window.location.href);
+  if (actionNumber !== null) {
+    url.searchParams.set("actionNumber", String(actionNumber));
+  } else {
+    url.searchParams.delete("actionNumber");
+  }
+  window.history.replaceState(null, "", url.toString());
+}
 
 export default function ClipBrowser({
   initialClips,
@@ -37,6 +48,7 @@ export default function ClipBrowser({
   playType,
   quarter,
   team,
+  initialActionNumber,
 }: Props) {
   const [clips, setClips] = useState<Clip[]>(initialClips);
   const [total, setTotal] = useState(initialTotal);
@@ -44,8 +56,39 @@ export default function ClipBrowser({
   const [nextOffset, setNextOffset] = useState<number | null>(initialNextOffset);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
+
+  // Initialize active index from the pinned actionNumber, fall back to 0.
+  const [activeIndex, setActiveIndex] = useState(() => {
+    if (initialActionNumber === null) return 0;
+    const idx = initialClips.findIndex((c) => c.actionNumber === initialActionNumber);
+    return idx >= 0 ? idx : 0;
+  });
+
   const loadingRef = useRef(false);
+
+  // Keep a ref to clips so handleSelect never closes over a stale array.
+  const clipsRef = useRef(clips);
+  clipsRef.current = clips;
+
+  // If the pinned actionNumber is not in this filter set's initial page,
+  // clear it from the URL so the address reflects what's actually selected.
+  useEffect(() => {
+    if (initialActionNumber === null) return;
+    const found = initialClips.some((c) => c.actionNumber === initialActionNumber);
+    if (!found) {
+      setActionNumberInUrl(null);
+    }
+    // Intentionally run only on mount; initialClips/initialActionNumber are
+    // stable props that define the remount boundary (via filterKey).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // When user clicks a rail item, update both selection state and the URL.
+  const handleSelect = useCallback((index: number) => {
+    setActiveIndex(index);
+    const clip = clipsRef.current[index];
+    setActionNumberInUrl(clip?.actionNumber ?? null);
+  }, []);
 
   const loadMore = useCallback(async () => {
     if (loadingRef.current || !hasMore || nextOffset === null) return;
@@ -108,7 +151,7 @@ export default function ClipBrowser({
       <ClipRail
         clips={clips}
         activeIndex={activeIndex}
-        onSelect={setActiveIndex}
+        onSelect={handleSelect}
         hasMore={hasMore}
         loading={loading}
         error={error}
