@@ -43,6 +43,7 @@ export default function ClipBrowser({
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [nextOffset, setNextOffset] = useState<number | null>(initialNextOffset);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const loadingRef = useRef(false);
 
@@ -50,6 +51,7 @@ export default function ClipBrowser({
     if (loadingRef.current || !hasMore || nextOffset === null) return;
     loadingRef.current = true;
     setLoading(true);
+    setError(null);
     try {
       const search = buildClipSearchParams({
         gameId,
@@ -70,8 +72,8 @@ export default function ClipBrowser({
       setTotal((prev) => data.total ?? prev);
       setHasMore(data.hasMore ?? false);
       setNextOffset(data.nextOffset ?? null);
-    } catch {
-      // silent — user can scroll back to retry
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load clips");
     } finally {
       loadingRef.current = false;
       setLoading(false);
@@ -109,6 +111,7 @@ export default function ClipBrowser({
         onSelect={setActiveIndex}
         hasMore={hasMore}
         loading={loading}
+        error={error}
         onLoadMore={loadMore}
       />
 
