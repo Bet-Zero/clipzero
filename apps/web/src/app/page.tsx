@@ -4,6 +4,7 @@ import DatePicker from "@/components/DatePicker";
 import FilterBar from "@/components/FilterBar";
 import GameSelector from "@/components/GameSelector";
 import ClipFeed from "@/components/ClipFeed";
+import { buildApiUrl } from "@/lib/api";
 
 type Clip = {
   gameId: string;
@@ -46,7 +47,7 @@ async function getGames(date?: string): Promise<Game[]> {
 
   try {
     const res = await fetch(
-      `http://localhost:4000/games${search.toString() ? `?${search.toString()}` : ""}`,
+      buildApiUrl("/games", search.toString() ? search : undefined),
       {
         cache: "no-store",
       },
@@ -99,12 +100,9 @@ async function getClips(
   };
 
   try {
-    const res = await fetch(
-      `http://localhost:4000/clips/game?${search.toString()}`,
-      {
-        cache: "no-store",
-      },
-    );
+    const res = await fetch(buildApiUrl("/clips/game", search), {
+      cache: "no-store",
+    });
     if (!res.ok) return empty;
     const data = await res.json();
     return {

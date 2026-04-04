@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import ClipFeed from "@/components/ClipFeed";
+import { buildApiUrl } from "@/lib/api";
 
 type Clip = {
   gameId: string;
@@ -77,9 +78,7 @@ export default function ClipFeedPaginated({
       if (quarter) search.set("quarter", quarter);
       if (team) search.set("team", team);
 
-      const res = await fetch(
-        `http://localhost:4000/clips/game?${search.toString()}`,
-      );
+      const res = await fetch(buildApiUrl("/clips/game", search));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
@@ -95,7 +94,17 @@ export default function ClipFeedPaginated({
       loadingRef.current = false;
       setLoading(false);
     }
-  }, [hasMore, nextOffset, gameId, player, result, playType, quarter, team, initialLimit]);
+  }, [
+    hasMore,
+    nextOffset,
+    gameId,
+    player,
+    result,
+    playType,
+    quarter,
+    team,
+    initialLimit,
+  ]);
 
   useEffect(() => {
     if (!hasMore) return;
