@@ -117,6 +117,24 @@ export default function FilterBar({
     });
   }
 
+  const isFiltered =
+    playType !== "shots" ||
+    shotResult !== "all" ||
+    quarter !== "" ||
+    selectedPlayer !== "" ||
+    team !== "";
+
+  function clearFilters() {
+    const search = new URLSearchParams();
+    if (season) search.set("season", season);
+    if (date) search.set("date", date);
+    if (gameId) search.set("gameId", gameId);
+    const limit = params.get("limit");
+    if (limit) search.set("limit", limit);
+    setPlayerInput("");
+    router.push(`/?${search.toString()}`);
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-3 border-b border-zinc-800 px-4 py-3">
       <select
@@ -305,6 +323,15 @@ export default function FilterBar({
           </div>
         )}
       </div>
+
+      {isFiltered && (
+        <button
+          onClick={clearFilters}
+          className="h-9 rounded bg-zinc-800 px-3 text-sm text-zinc-300 hover:bg-zinc-700"
+        >
+          Clear filters
+        </button>
+      )}
     </div>
   );
 }
