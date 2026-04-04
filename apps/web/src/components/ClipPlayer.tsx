@@ -44,9 +44,10 @@ function getEventBadge(actionType?: string) {
 
 type Props = {
   clip: Clip | null;
+  onEnded?: () => void;
 };
 
-export default function ClipPlayer({ clip }: Props) {
+export default function ClipPlayer({ clip, onEnded }: Props) {
   if (!clip) {
     return (
       <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900 text-sm text-zinc-500">
@@ -63,8 +64,10 @@ export default function ClipPlayer({ clip }: Props) {
           src={clip.videoUrl}
           poster={clip.thumbnailUrl ?? undefined}
           controls
+          autoPlay
           preload="metadata"
           className="w-full bg-black"
+          onEnded={onEnded}
         />
       ) : (
         <div className="flex aspect-video items-center justify-center bg-zinc-900 text-sm text-zinc-500">

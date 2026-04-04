@@ -74,6 +74,13 @@ export default function ClipBrowser({
   const clipsRef = useRef(clips);
   clipsRef.current = clips;
 
+  // Refs for auto-advance so the onEnded callback never reads stale state.
+  const activeIndexRef = useRef(activeIndex);
+  activeIndexRef.current = activeIndex;
+  const hasMoreRef = useRef(hasMore);
+  hasMoreRef.current = hasMore;
+  const pendingAdvanceRef = useRef(false);
+
   // If the pinned actionNumber is not in this filter set's initial page,
   // clear it from the URL so the address reflects what's actually selected.
   useEffect(() => {
@@ -162,6 +169,34 @@ export default function ClipBrowser({
     initialLimit,
   ]);
 
+  // Auto-advance: when the active clip's video ends, move to the next clip.
+  // If at the end of the loaded list but more clips exist, trigger loadMore
+  // and set a pending flag so we advance once they arrive.
+  const handleClipEnded = useCallback(() => {
+    const current = activeIndexRef.current;
+    const maxIndex = clipsRef.current.length - 1;
+
+    if (current < maxIndex) {
+      goToNext();
+    } else if (hasMoreRef.current) {
+      pendingAdvanceRef.current = true;
+      loadMore();
+    }
+    // else: final clip in the entire set — stop cleanly
+  }, [goToNext, loadMore]);
+
+  // Resolve pending advance when new clips arrive after loadMore completes.
+  useEffect(() => {
+    if (pendingAdvanceRef.current) {
+      const current = activeIndexRef.current;
+      const maxIndex = clips.length - 1;
+      if (current < maxIndex) {
+        pendingAdvanceRef.current = false;
+        goToNext();
+      }
+    }
+  }, [clips.length, goToNext]);
+
   // Auto-load more clips when within 3 of the end.
   useEffect(() => {
     if (hasMore && clips.length - activeIndex <= 3) {
@@ -213,7 +248,10 @@ export default function ClipBrowser({
       />
 
       <div className="mx-auto w-full max-w-4xl">
-        <ClipPlayer clip={clips[activeIndex] ?? null} />
+        <ClipPlayer
+          clip={clips[activeIndex] ?? null}
+          onEnded={handleClipEnded}
+        />
       </div>
 
       <div className="text-center text-xs text-zinc-600">
