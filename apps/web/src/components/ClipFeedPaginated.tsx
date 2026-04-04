@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ClipFeed from "@/components/ClipFeed";
 
 type Clip = {
@@ -59,8 +59,9 @@ export default function ClipFeedPaginated({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const loadingRef = useRef(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  async function loadMore() {
+  const loadMore = useCallback(async () => {
     if (loadingRef.current || !hasMore || nextOffset === null) return;
     loadingRef.current = true;
     setLoading(true);
@@ -83,7 +84,7 @@ export default function ClipFeedPaginated({
       const data = await res.json();
 
       setClips((prev) => [...prev, ...(data.clips ?? [])]);
-      setTotal(data.total ?? total);
+      setTotal((prev) => data.total ?? prev);
       setHasMore(data.hasMore ?? false);
       setNextOffset(data.nextOffset ?? null);
     } catch (err: unknown) {
@@ -94,7 +95,25 @@ export default function ClipFeedPaginated({
       loadingRef.current = false;
       setLoading(false);
     }
-  }
+  }, [hasMore, nextOffset, gameId, player, result, playType, quarter, team, initialLimit]);
+
+  useEffect(() => {
+    if (!hasMore) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          loadMore();
+        }
+      },
+      { rootMargin: "0px 0px 200px 0px" },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadMore, hasMore]);
 
   return (
     <>
@@ -111,20 +130,30 @@ export default function ClipFeedPaginated({
 
       <ClipFeed clips={clips} />
 
+      {/* sentinel: IntersectionObserver watches this to trigger the next page */}
+      <div ref={sentinelRef} aria-hidden="true" />
+
+      {loading && (
+        <div className="mx-auto max-w-3xl px-4 pb-4 text-center text-sm text-zinc-500">
+          Loading...
+        </div>
+      )}
+
       {error && (
         <div className="mx-auto max-w-3xl px-4 pb-2">
           <p className="text-sm text-red-400">{error}</p>
         </div>
       )}
 
-      {hasMore && (
+      {/* manual fallback button: visible when not loading so the user can
+          trigger load explicitly or retry after an error */}
+      {hasMore && !loading && (
         <div className="mx-auto max-w-3xl px-4 pb-10">
           <button
             onClick={loadMore}
-            disabled={loading}
-            className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-white transition hover:bg-zinc-900 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-white transition hover:bg-zinc-900"
           >
-            {loading ? "Loading..." : error ? "Retry" : "Load more"}
+            {error ? "Retry" : "Load more"}
           </button>
         </div>
       )}
