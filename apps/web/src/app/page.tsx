@@ -214,7 +214,6 @@ async function ClipsSection({
         key={filterKey}
         initialClips={clips}
         initialTotal={total}
-        initialOffset={initialOffset}
         initialLimit={limit}
         initialHasMore={initialHasMore}
         initialNextOffset={initialNextOffset}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import ClipFeed from "@/components/ClipFeed";
 
 type Clip = {
@@ -26,7 +26,6 @@ type Clip = {
 type Props = {
   initialClips: Clip[];
   initialTotal: number;
-  initialOffset: number;
   initialLimit: number;
   initialHasMore: boolean;
   initialNextOffset: number | null;
@@ -59,9 +58,11 @@ export default function ClipFeedPaginated({
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loadingRef = useRef(false);
 
   async function loadMore() {
-    if (loading || !hasMore || nextOffset === null) return;
+    if (loadingRef.current || !hasMore || nextOffset === null) return;
+    loadingRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -90,6 +91,7 @@ export default function ClipFeedPaginated({
         err instanceof Error ? err.message : "Failed to load more clips";
       setError(message);
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
   }
@@ -122,7 +124,7 @@ export default function ClipFeedPaginated({
             disabled={loading}
             className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-white transition hover:bg-zinc-900 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {loading ? "Loading..." : "Load more"}
+            {loading ? "Loading..." : error ? "Retry" : "Load more"}
           </button>
         </div>
       )}
