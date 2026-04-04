@@ -13,41 +13,8 @@ import {
   dateInSeason,
   defaultDateForSeason,
 } from "@/lib/season";
-
-type Clip = {
-  gameId: string;
-  actionNumber?: number;
-  period?: number;
-  clock?: string;
-  teamId?: number;
-  teamTricode?: string;
-  personId?: number;
-  playerName?: string;
-  actionType?: string;
-  subType?: string;
-  shotResult?: string;
-  shotDistance?: number;
-  x?: number;
-  y?: number;
-  description?: string;
-  videoUrl?: string | null;
-  thumbnailUrl?: string | null;
-};
-
-type Game = {
-  gameId: string;
-  matchup: string;
-  homeTeam?: {
-    teamTricode: string;
-  };
-  awayTeam?: {
-    teamTricode: string;
-  };
-};
-
-type Player = {
-  name: string;
-};
+import type { Game, ClipsResponse } from "@/lib/types";
+import { DEFAULT_PLAY_TYPE, DEFAULT_RESULT, buildClipSearchParams } from "@/lib/filters";
 
 async function getGames(date?: string): Promise<Game[]> {
   const search = new URLSearchParams();
@@ -77,30 +44,22 @@ async function getClips(
   quarter?: string,
   team?: string,
   offset?: number,
-): Promise<{
-  clips: Clip[];
-  total: number;
-  players: Player[];
-  offset: number;
-  limit: number;
-  hasMore: boolean;
-  nextOffset: number | null;
-}> {
-  const search = new URLSearchParams();
-  search.set("gameId", gameId);
-  search.set("limit", String(limit));
-  search.set("offset", String(offset ?? 0));
+): Promise<ClipsResponse> {
+  const search = buildClipSearchParams({
+    gameId,
+    limit,
+    offset: offset ?? 0,
+    player,
+    result,
+    playType,
+    quarter,
+    team,
+  });
 
-  if (player) search.set("player", player);
-  if (result && result !== "all") search.set("result", result);
-  if (playType) search.set("playType", playType);
-  if (quarter) search.set("quarter", quarter);
-  if (team) search.set("team", team);
-
-  const empty = {
-    clips: [] as Clip[],
+  const empty: ClipsResponse = {
+    clips: [],
     total: 0,
-    players: [] as Player[],
+    players: [],
     offset: offset ?? 0,
     limit,
     hasMore: false,
@@ -194,7 +153,7 @@ async function ClipsSection({
           {team || "All Teams"} • {quarter ? `Q${quarter}` : "All Quarters"} •{" "}
           {playType}
           {player ? ` • ${player}` : ""}
-          {playType === "shots" && result !== "all" ? ` • ${result}` : ""}
+          {playType === DEFAULT_PLAY_TYPE && result !== DEFAULT_RESULT ? ` • ${result}` : ""}
         </div>
 
         <ClipFeed clips={[]} />
@@ -303,9 +262,9 @@ export default async function Home({
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 12;
 
   const selectedGameId = params.gameId || games[0]?.gameId || "";
-  const resultFilter = params.result || "all";
+  const resultFilter = params.result || DEFAULT_RESULT;
   const playerFilter = params.player || "";
-  const playType = params.playType || "shots";
+  const playType = params.playType || DEFAULT_PLAY_TYPE;
   const quarter = params.quarter || "";
   const team = params.team || "";
 

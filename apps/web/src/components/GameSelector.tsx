@@ -1,11 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-
-type Game = {
-  gameId: string;
-  matchup: string;
-};
+import type { Game } from "@/lib/types";
 
 type GameSelectorProps = {
   games: Game[];

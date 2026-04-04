@@ -3,26 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import ClipFeed from "@/components/ClipFeed";
 import { buildApiUrl } from "@/lib/api";
-
-type Clip = {
-  gameId: string;
-  actionNumber?: number;
-  period?: number;
-  clock?: string;
-  teamId?: number;
-  teamTricode?: string;
-  personId?: number;
-  playerName?: string;
-  actionType?: string;
-  subType?: string;
-  shotResult?: string;
-  shotDistance?: number;
-  x?: number;
-  y?: number;
-  description?: string;
-  videoUrl?: string | null;
-  thumbnailUrl?: string | null;
-};
+import type { Clip } from "@/lib/types";
+import { DEFAULT_PLAY_TYPE, DEFAULT_RESULT, buildClipSearchParams } from "@/lib/filters";
 
 type Props = {
   initialClips: Clip[];
@@ -68,15 +50,16 @@ export default function ClipFeedPaginated({
     setLoading(true);
     setError(null);
     try {
-      const search = new URLSearchParams();
-      search.set("gameId", gameId);
-      search.set("limit", String(initialLimit));
-      search.set("offset", String(nextOffset));
-      if (player) search.set("player", player);
-      if (result && result !== "all") search.set("result", result);
-      if (playType) search.set("playType", playType);
-      if (quarter) search.set("quarter", quarter);
-      if (team) search.set("team", team);
+      const search = buildClipSearchParams({
+        gameId,
+        limit: initialLimit,
+        offset: nextOffset,
+        player,
+        result,
+        playType,
+        quarter,
+        team,
+      });
 
       const res = await fetch(buildApiUrl("/clips/game", search));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -134,7 +117,7 @@ export default function ClipFeedPaginated({
         {team || "All Teams"} • {quarter ? `Q${quarter}` : "All Quarters"} •{" "}
         {playType}
         {player ? ` • ${player}` : ""}
-        {playType === "shots" && result !== "all" ? ` • ${result}` : ""}
+        {playType === DEFAULT_PLAY_TYPE && result !== DEFAULT_RESULT ? ` • ${result}` : ""}
       </div>
 
       <ClipFeed clips={clips} />

@@ -2,13 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-
-type Player = {
-  name: string;
-};
+import type { Player } from "@/lib/types";
+import { DEFAULT_PLAY_TYPE, DEFAULT_RESULT } from "@/lib/filters";
 
 const PLAY_TYPES = [
-  "shots",
+  DEFAULT_PLAY_TYPE,
   "assists",
   "rebounds",
   "turnovers",
@@ -27,12 +25,12 @@ export default function FilterBar({
   const router = useRouter();
   const params = useSearchParams();
 
-  const shotResult = params.get("result") || "all";
+  const shotResult = params.get("result") || DEFAULT_RESULT;
   const selectedPlayer = params.get("player") || "";
   const date = params.get("date") || "";
   const gameId = params.get("gameId") || "";
   const season = params.get("season") || "";
-  const playType = params.get("playType") || "shots";
+  const playType = params.get("playType") || DEFAULT_PLAY_TYPE;
   const quarter = params.get("quarter") || "";
   const team = params.get("team") || "";
 
@@ -59,7 +57,7 @@ export default function FilterBar({
     if (gameId) search.set("gameId", gameId);
 
     Object.entries(paramsObj).forEach(([key, value]) => {
-      if (value && value !== "all") {
+      if (value && value !== DEFAULT_RESULT) {
         search.set(key, value);
       }
     });
@@ -100,7 +98,7 @@ export default function FilterBar({
       team,
       quarter,
       player: name,
-      result: playType === "shots" ? shotResult : "all",
+      result: playType === DEFAULT_PLAY_TYPE ? shotResult : DEFAULT_RESULT,
     });
   }
 
@@ -113,13 +111,13 @@ export default function FilterBar({
       team,
       quarter,
       player: "",
-      result: playType === "shots" ? shotResult : "all",
+      result: playType === DEFAULT_PLAY_TYPE ? shotResult : DEFAULT_RESULT,
     });
   }
 
   const isFiltered =
-    playType !== "shots" ||
-    shotResult !== "all" ||
+    playType !== DEFAULT_PLAY_TYPE ||
+    shotResult !== DEFAULT_RESULT ||
     quarter !== "" ||
     selectedPlayer !== "" ||
     team !== "";
@@ -144,7 +142,7 @@ export default function FilterBar({
             playType: e.target.value,
             team,
             quarter,
-            result: "all",
+            result: DEFAULT_RESULT,
             player: "",
           })
         }
@@ -164,7 +162,7 @@ export default function FilterBar({
             playType,
             quarter,
             team: e.target.value,
-            result: playType === "shots" ? shotResult : "all",
+            result: playType === DEFAULT_PLAY_TYPE ? shotResult : DEFAULT_RESULT,
             player: "",
           })
         }
@@ -178,9 +176,9 @@ export default function FilterBar({
         ))}
       </select>
 
-      {playType === "shots" && (
+      {playType === DEFAULT_PLAY_TYPE && (
         <div className="flex gap-2">
-          {["all", "Made", "Missed"].map((value) => (
+          {[DEFAULT_RESULT, "Made", "Missed"].map((value) => (
             <button
               key={value}
               onClick={() =>
@@ -211,7 +209,7 @@ export default function FilterBar({
             playType,
             team,
             quarter: e.target.value,
-            result: playType === "shots" ? shotResult : "all",
+            result: playType === DEFAULT_PLAY_TYPE ? shotResult : DEFAULT_RESULT,
             player: selectedPlayer,
           })
         }

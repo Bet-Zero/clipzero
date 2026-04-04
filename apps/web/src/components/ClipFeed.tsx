@@ -1,22 +1,4 @@
-type Clip = {
-  gameId: string;
-  actionNumber?: number;
-  period?: number;
-  clock?: string;
-  teamId?: number;
-  teamTricode?: string;
-  personId?: number;
-  playerName?: string;
-  actionType?: string;
-  subType?: string;
-  shotResult?: string;
-  shotDistance?: number;
-  x?: number;
-  y?: number;
-  description?: string;
-  videoUrl?: string | null;
-  thumbnailUrl?: string | null;
-};
+import type { Clip } from "@/lib/types";
 
 type ClipFeedProps = {
   clips: Clip[];
