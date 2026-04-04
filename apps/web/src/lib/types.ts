@@ -16,6 +16,8 @@ export type Clip = {
   description?: string;
   videoUrl?: string | null;
   thumbnailUrl?: string | null;
+  gameDate?: string;
+  matchup?: string;
 };
 
 export type Game = {

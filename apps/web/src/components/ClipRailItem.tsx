@@ -19,6 +19,12 @@ function formatClock(clock?: string) {
     .replace("S", "");
 }
 
+function formatShortDate(dateStr?: string) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 const ClipRailItem = forwardRef<HTMLButtonElement, Props>(
   ({ clip, isActive, index, onClick }, ref) => {
     return (
@@ -44,6 +50,13 @@ const ClipRailItem = forwardRef<HTMLButtonElement, Props>(
         <p className="line-clamp-2 text-[11px] leading-tight text-zinc-400">
           {clip.description ?? "No description"}
         </p>
+
+        {clip.matchup && (
+          <div className="truncate text-[10px] text-zinc-500">
+            {clip.matchup}
+            {clip.gameDate ? ` · ${formatShortDate(clip.gameDate)}` : ""}
+          </div>
+        )}
 
         <div className="mt-auto text-[10px] text-zinc-500">
           Q{clip.period ?? "—"} · {formatClock(clip.clock)}
