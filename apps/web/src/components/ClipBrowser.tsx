@@ -213,13 +213,7 @@ export default function ClipBrowser({
       />
 
       <div className="mx-auto w-full max-w-4xl">
-        <ClipPlayer
-          clip={clips[activeIndex] ?? null}
-          onPrev={goToPrev}
-          onNext={goToNext}
-          hasPrev={activeIndex > 0}
-          hasNext={activeIndex < clips.length - 1}
-        />
+        <ClipPlayer clip={clips[activeIndex] ?? null} />
       </div>
 
       <div className="text-center text-xs text-zinc-600">
