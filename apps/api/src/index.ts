@@ -17,6 +17,29 @@ const videoAssetCache = new Map<
   { videoUrl: string | null; thumbnailUrl: string | null }
 >();
 
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+
+  async function run() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await worker(items[currentIndex]);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => run()),
+  );
+
+  return results;
+}
+
 app.use(cors());
 app.use(express.json());
 
@@ -146,57 +169,55 @@ app.get("/clips/game", async (req, res) => {
 
     const shots = filteredShots.slice(0, limit);
 
-    const clips = await Promise.all(
-      shots.map(async (shot) => {
-        if (!shot.actionNumber) {
-          return {
-            ...shot,
-            videoUrl: null,
-            thumbnailUrl: null,
-          };
-        }
+    const clips = await mapWithConcurrency(shots, 6, async (shot) => {
+      if (!shot.actionNumber) {
+        return {
+          ...shot,
+          videoUrl: null,
+          thumbnailUrl: null,
+        };
+      }
 
-        const assetCacheKey = `${gameId}:${shot.actionNumber}`;
-        const cachedAsset = videoAssetCache.get(assetCacheKey);
+      const assetCacheKey = `${gameId}:${shot.actionNumber}`;
+      const cachedAsset = videoAssetCache.get(assetCacheKey);
 
-        if (cachedAsset) {
-          return {
-            ...shot,
-            videoUrl: cachedAsset.videoUrl,
-            thumbnailUrl: cachedAsset.thumbnailUrl,
-          };
-        }
+      if (cachedAsset) {
+        return {
+          ...shot,
+          videoUrl: cachedAsset.videoUrl,
+          thumbnailUrl: cachedAsset.thumbnailUrl,
+        };
+      }
 
-        try {
-          const asset = await getVideoEventAsset(gameId, shot.actionNumber);
-          const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
+      try {
+        const asset = await getVideoEventAsset(gameId, shot.actionNumber);
+        const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
 
-          const cachedValue = {
-            videoUrl: firstVideo?.murl ?? null,
-            thumbnailUrl: firstVideo?.mth ?? null,
-          };
+        const cachedValue = {
+          videoUrl: firstVideo?.murl ?? null,
+          thumbnailUrl: firstVideo?.mth ?? null,
+        };
 
-          videoAssetCache.set(assetCacheKey, cachedValue);
+        videoAssetCache.set(assetCacheKey, cachedValue);
 
-          return {
-            ...shot,
-            ...cachedValue,
-          };
-        } catch {
-          const cachedValue = {
-            videoUrl: null,
-            thumbnailUrl: null,
-          };
+        return {
+          ...shot,
+          ...cachedValue,
+        };
+      } catch {
+        const cachedValue = {
+          videoUrl: null,
+          thumbnailUrl: null,
+        };
 
-          videoAssetCache.set(assetCacheKey, cachedValue);
+        videoAssetCache.set(assetCacheKey, cachedValue);
 
-          return {
-            ...shot,
-            ...cachedValue,
-          };
-        }
-      }),
-    );
+        return {
+          ...shot,
+          ...cachedValue,
+        };
+      }
+    });
 
     const payload = {
       gameId,
