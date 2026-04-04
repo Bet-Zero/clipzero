@@ -73,7 +73,7 @@ export default function ClipRail({
   }
 
   return (
-    <div ref={scrollRef} className="overflow-x-auto pb-2">
+    <div ref={scrollRef} data-testid="clip-rail" className="overflow-x-auto pb-2">
       <div className="flex gap-3">
         {clips.map((clip, i) => {
           const key = [

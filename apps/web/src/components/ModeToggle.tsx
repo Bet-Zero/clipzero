@@ -27,6 +27,7 @@ export default function ModeToggle({ mode }: { mode: string }) {
   return (
     <div className="flex rounded bg-zinc-900">
       <button
+        data-testid="mode-game"
         onClick={() => switchMode("game")}
         className={`rounded px-3 py-1.5 text-xs font-medium transition-colors ${
           mode !== "player"
@@ -37,6 +38,7 @@ export default function ModeToggle({ mode }: { mode: string }) {
         Game
       </button>
       <button
+        data-testid="mode-player"
         onClick={() => switchMode("player")}
         className={`rounded px-3 py-1.5 text-xs font-medium transition-colors ${
           mode === "player"

@@ -116,6 +116,7 @@ export default function PlayerGameList({
             return (
               <button
                 key={game.gameId}
+                data-testid="game-chip"
                 onClick={() => onToggleGameId(game.gameId)}
                 title={`${game.matchup} — ${nd}\n${game.pts}pts ${game.reb}reb ${game.ast}ast\nClick to ${isExcluded ? "include" : "exclude"}`}
                 className={`rounded px-2 py-0.5 text-xs transition-colors ${

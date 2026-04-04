@@ -20,6 +20,7 @@ export default function GameSelector({
   if (games.length === 0) {
     return (
       <select
+        data-testid="game-selector"
         className="h-9 rounded bg-zinc-900 px-3 text-sm text-zinc-500 cursor-not-allowed"
         disabled
       >
@@ -34,6 +35,7 @@ export default function GameSelector({
 
   return (
     <select
+      data-testid="game-selector"
       className="h-9 rounded bg-zinc-900 px-3 text-sm text-white"
       value={selectedGameId}
       onChange={(e) => {

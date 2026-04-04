@@ -83,6 +83,7 @@ export default function PlayerSearch({
       <div className="flex items-center gap-1">
         <input
           ref={inputRef}
+          data-testid="player-search-input"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -143,6 +144,7 @@ export default function PlayerSearch({
           {results.map((p, i) => (
             <button
               key={p.personId}
+              data-testid="player-search-result"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => handleSelect(p)}
               className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm text-white ${
