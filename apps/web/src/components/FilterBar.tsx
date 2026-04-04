@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type Player = {
@@ -37,11 +37,18 @@ export default function FilterBar({
 
   const [playerInput, setPlayerInput] = useState(selectedPlayer);
   const [isPlayerOpen, setIsPlayerOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setPlayerInput(selectedPlayer);
     setIsPlayerOpen(false);
   }, [selectedPlayer, gameId, team, playType, quarter]);
+
+  // Reset highlight whenever the visible list changes
+  useEffect(() => {
+    setActiveIndex(-1);
+  }, [playerInput]);
 
   function update(paramsObj: Record<string, string | null>) {
     const search = new URLSearchParams();
@@ -213,17 +220,51 @@ export default function FilterBar({
               setTimeout(() => setIsPlayerOpen(false), 150);
             }}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                const exactMatch = players.find(
-                  (p) =>
-                    p.name.toLowerCase() === playerInput.trim().toLowerCase(),
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                if (!isPlayerOpen) setIsPlayerOpen(true);
+                setActiveIndex((i) =>
+                  filteredPlayers.length === 0
+                    ? -1
+                    : (i + 1) % filteredPlayers.length,
                 );
-                applyPlayer(exactMatch?.name ?? playerInput.trim());
+                return;
+              }
+
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                if (!isPlayerOpen) setIsPlayerOpen(true);
+                setActiveIndex((i) =>
+                  filteredPlayers.length === 0
+                    ? -1
+                    : i <= 0
+                      ? filteredPlayers.length - 1
+                      : i - 1,
+                );
+                return;
+              }
+
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (isPlayerOpen && activeIndex >= 0) {
+                  applyPlayer(filteredPlayers[activeIndex].name);
+                } else {
+                  const exactMatch = players.find(
+                    (p) =>
+                      p.name.toLowerCase() === playerInput.trim().toLowerCase(),
+                  );
+                  applyPlayer(exactMatch?.name ?? playerInput.trim());
+                }
+                return;
               }
 
               if (e.key === "Escape") {
-                clearPlayer();
-                setIsPlayerOpen(false);
+                if (isPlayerOpen) {
+                  setIsPlayerOpen(false);
+                  setActiveIndex(-1);
+                } else {
+                  clearPlayer();
+                }
               }
             }}
             placeholder="Search player"
@@ -240,21 +281,27 @@ export default function FilterBar({
           )}
         </div>
 
-        {isPlayerOpen &&
-          playerInput.trim() !== "" &&
-          filteredPlayers.length > 0 && (
-            <div className="absolute z-10 mt-2 w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg">
-              {filteredPlayers.map((p) => (
-                <button
-                  key={p.name}
-                  onClick={() => applyPlayer(p.name)}
-                  className="block w-full px-3 py-2 text-left text-sm text-white hover:bg-zinc-900"
-                >
-                  {p.name}
-                </button>
-              ))}
-            </div>
-          )}
+        {isPlayerOpen && filteredPlayers.length > 0 && (
+          <div
+            ref={listRef}
+            className="absolute z-10 mt-2 w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg"
+          >
+            {filteredPlayers.map((p, i) => (
+              <button
+                key={p.name}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => applyPlayer(p.name)}
+                className={`block w-full px-3 py-2 text-left text-sm text-white ${
+                  i === activeIndex
+                    ? "bg-zinc-700"
+                    : "hover:bg-zinc-800"
+                }`}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
