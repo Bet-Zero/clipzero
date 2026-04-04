@@ -44,9 +44,19 @@ function getEventBadge(actionType?: string) {
 
 type Props = {
   clip: Clip | null;
+  onPrev?: () => void;
+  onNext?: () => void;
+  hasPrev?: boolean;
+  hasNext?: boolean;
 };
 
-export default function ClipPlayer({ clip }: Props) {
+export default function ClipPlayer({
+  clip,
+  onPrev,
+  onNext,
+  hasPrev = false,
+  hasNext = false,
+}: Props) {
   if (!clip) {
     return (
       <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900 text-sm text-zinc-500">
@@ -73,6 +83,27 @@ export default function ClipPlayer({ clip }: Props) {
       )}
 
       <div className="space-y-2 p-4">
+        {/* Prev / Next navigation */}
+        {(onPrev || onNext) && (
+          <div className="flex items-center justify-between pb-1">
+            <button
+              onClick={onPrev}
+              disabled={!hasPrev}
+              aria-label="Previous clip"
+              className="rounded px-2 py-1 text-xs text-zinc-300 transition enabled:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              ← Prev
+            </button>
+            <button
+              onClick={onNext}
+              disabled={!hasNext}
+              aria-label="Next clip"
+              className="rounded px-2 py-1 text-xs text-zinc-300 transition enabled:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Next →
+            </button>
+          </div>
+        )}
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-semibold text-white">

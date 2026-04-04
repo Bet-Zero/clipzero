@@ -96,6 +96,29 @@ export default function ClipBrowser({
     setActionNumberInUrl(clip?.actionNumber ?? null);
   }, []);
 
+  // Navigate to the previous clip.
+  const goToPrev = useCallback(() => {
+    setActiveIndex((prev) => {
+      if (prev <= 0) return prev;
+      const next = prev - 1;
+      const clip = clipsRef.current[next];
+      setActionNumberInUrl(clip?.actionNumber ?? null);
+      return next;
+    });
+  }, []);
+
+  // Navigate to the next clip, auto-loading more if near the end.
+  const goToNext = useCallback(() => {
+    setActiveIndex((prev) => {
+      const maxIndex = clipsRef.current.length - 1;
+      if (prev >= maxIndex) return prev;
+      const next = prev + 1;
+      const clip = clipsRef.current[next];
+      setActionNumberInUrl(clip?.actionNumber ?? null);
+      return next;
+    });
+  }, []);
+
   const loadMore = useCallback(async () => {
     if (loadingRef.current || !hasMore || nextOffset === null) return;
     loadingRef.current = true;
@@ -139,6 +162,44 @@ export default function ClipBrowser({
     initialLimit,
   ]);
 
+  // Auto-load more clips when within 3 of the end.
+  useEffect(() => {
+    if (hasMore && clips.length - activeIndex <= 3) {
+      loadMore();
+    }
+  }, [activeIndex, clips.length, hasMore, loadMore]);
+
+  // Keyboard navigation: ArrowLeft / ArrowRight.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      // Don't hijack keyboard input from text fields or other inputs.
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if ((e.target as HTMLElement)?.isContentEditable) return;
+
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        goToPrev();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        goToNext();
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [goToPrev, goToNext]);
+
+  // Preload adjacent clip poster images (lightweight, poster only).
+  useEffect(() => {
+    const adjacent = [clips[activeIndex - 1], clips[activeIndex + 1]];
+    for (const c of adjacent) {
+      if (c?.thumbnailUrl) {
+        const img = new Image();
+        img.src = c.thumbnailUrl;
+      }
+    }
+  }, [activeIndex, clips]);
+
   return (
     <div className="flex flex-col gap-4 px-4 py-4">
       <ClipRail
@@ -152,7 +213,13 @@ export default function ClipBrowser({
       />
 
       <div className="mx-auto w-full max-w-4xl">
-        <ClipPlayer clip={clips[activeIndex] ?? null} />
+        <ClipPlayer
+          clip={clips[activeIndex] ?? null}
+          onPrev={goToPrev}
+          onNext={goToNext}
+          hasPrev={activeIndex > 0}
+          hasNext={activeIndex < clips.length - 1}
+        />
       </div>
 
       <div className="text-center text-xs text-zinc-600">
