@@ -31,6 +31,7 @@ export default function FilterBar({
   const selectedPlayer = params.get("player") || "";
   const date = params.get("date") || "";
   const gameId = params.get("gameId") || "";
+  const season = params.get("season") || "";
   const playType = params.get("playType") || "shots";
   const quarter = params.get("quarter") || "";
   const team = params.get("team") || "";
@@ -53,6 +54,7 @@ export default function FilterBar({
   function update(paramsObj: Record<string, string | null>) {
     const search = new URLSearchParams();
 
+    if (season) search.set("season", season);
     if (date) search.set("date", date);
     if (gameId) search.set("gameId", gameId);
 

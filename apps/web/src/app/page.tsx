@@ -3,8 +3,15 @@ import ClipFeedPaginated from "@/components/ClipFeedPaginated";
 import DatePicker from "@/components/DatePicker";
 import FilterBar from "@/components/FilterBar";
 import GameSelector from "@/components/GameSelector";
+import SeasonSelector from "@/components/SeasonSelector";
 import ClipFeed from "@/components/ClipFeed";
 import { buildApiUrl } from "@/lib/api";
+import {
+  parseSeason,
+  seasonForDate,
+  dateInSeason,
+  defaultDateForSeason,
+} from "@/lib/season";
 
 type Clip = {
   gameId: string;
@@ -239,10 +246,26 @@ export default async function Home({
     date?: string;
     quarter?: string;
     team?: string;
+    season?: string;
   }>;
 }) {
   const params = await searchParams;
-  const selectedDate = params.date || getTodayString();
+
+  // Derive season: prefer explicit param, then infer from date, then today
+  const today = getTodayString();
+  const selectedSeason = params.season
+    ? parseSeason(params.season)
+    : seasonForDate(params.date || today);
+
+  // Use the URL date if it's in-season; otherwise fall back to a sensible default
+  const seasonDefault = dateInSeason(today, selectedSeason)
+    ? today
+    : defaultDateForSeason(selectedSeason);
+  const selectedDate =
+    params.date && dateInSeason(params.date, selectedSeason)
+      ? params.date
+      : seasonDefault;
+
   const games = await getGames(selectedDate);
 
   const limitParam = Number(params.limit ?? "12");
@@ -266,6 +289,7 @@ export default async function Home({
   return (
     <main className="min-h-screen bg-black text-white">
       <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-4">
+        <SeasonSelector selectedSeason={selectedSeason} />
         <DatePicker selectedDate={selectedDate} />
         <GameSelector games={games} selectedGameId={selectedGameId} />
       </div>

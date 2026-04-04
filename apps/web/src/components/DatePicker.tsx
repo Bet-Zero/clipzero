@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 
 /** Params that are generally compatible across dates */
-const PRESERVE_ON_DATE_CHANGE = ["playType", "quarter", "result", "limit"];
+const PRESERVE_ON_DATE_CHANGE = ["playType", "quarter", "result", "limit", "season"];
 
 type DatePickerProps = {
   selectedDate: string;
