@@ -1,7 +1,11 @@
 import fs from "fs/promises";
 import path from "path";
+import { fileURLToPath } from "url";
 
-const CACHE_DIR = path.join(__dirname, "../../.cache");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const CACHE_DIR = path.resolve(__dirname, "../../.cache");
 const CACHE_FILE = path.join(CACHE_DIR, "games-by-date.json");
 
 type GamesPayload = {
