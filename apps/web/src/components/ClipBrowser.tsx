@@ -151,7 +151,7 @@ export default function ClipBrowser({
         onLoadMore={loadMore}
       />
 
-      <div className="mx-auto w-full max-w-4xl">
+      <div className="w-full">
         <ClipPlayer clip={clips[activeIndex] ?? null} />
       </div>
 

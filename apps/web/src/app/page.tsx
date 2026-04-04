@@ -282,7 +282,7 @@ export default async function Home({
         <div id="filter-bar-portal" />
       </div>
 
-      <div className="mx-auto mt-2 flex w-full max-w-3xl flex-1 flex-col px-3 pb-3">
+      <div className="mx-auto mt-2 flex w-full max-w-5xl flex-1 flex-col px-3 pb-3">
         <div className="flex flex-1 flex-col rounded-xl border border-zinc-800/60 bg-zinc-950/80">
           <Suspense fallback={<ClipsFallback />}>
             <ClipsSection
