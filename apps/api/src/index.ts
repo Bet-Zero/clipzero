@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import { getCachedGames, setCachedGames } from "./lib/gamesCache";
 import {
   getFilteredActions,
   getGamesByDate,
@@ -60,9 +61,16 @@ app.get("/games", async (req, res) => {
         : "";
 
     const cacheKey = date || "today";
-    const cached = gamesCache.get(cacheKey);
-    if (cached) {
-      return res.json(cached);
+
+    const memoryCached = gamesCache.get(cacheKey);
+    if (memoryCached) {
+      return res.json(memoryCached);
+    }
+
+    const diskCached = await getCachedGames(cacheKey);
+    if (diskCached) {
+      gamesCache.set(cacheKey, diskCached);
+      return res.json(diskCached);
     }
 
     const games = date ? await getGamesByDate(date) : await getTodaysGames();
@@ -80,6 +88,7 @@ app.get("/games", async (req, res) => {
     };
 
     gamesCache.set(cacheKey, payload);
+    await setCachedGames(cacheKey, payload);
 
     res.json(payload);
   } catch (error: any) {
