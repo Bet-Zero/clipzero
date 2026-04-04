@@ -31,6 +31,10 @@ function formatClock(clock?: string) {
     .replace("S", "");
 }
 
+function isShot(clip: Clip): boolean {
+  return clip.shotResult === "Made" || clip.shotResult === "Missed";
+}
+
 function getResultBadge(shotResult?: string) {
   if (shotResult === "Made") {
     return (
@@ -49,6 +53,15 @@ function getResultBadge(shotResult?: string) {
   }
 
   return null;
+}
+
+function getEventBadge(actionType?: string) {
+  if (!actionType) return null;
+  return (
+    <span className="rounded bg-zinc-700/40 px-2 py-0.5 text-xs text-zinc-300">
+      {actionType.toUpperCase()}
+    </span>
+  );
 }
 
 export default function ClipFeed({ clips }: ClipFeedProps) {
@@ -99,7 +112,9 @@ export default function ClipFeed({ clips }: ClipFeedProps) {
                   <span className="text-sm font-semibold text-white">
                     {clip.playerName ?? "Unknown"}
                   </span>
-                  {getResultBadge(clip.shotResult)}
+                  {isShot(clip)
+                    ? getResultBadge(clip.shotResult)
+                    : getEventBadge(clip.actionType)}
                 </div>
 
                 <span className="shrink-0 text-xs text-zinc-400">
@@ -112,13 +127,11 @@ export default function ClipFeed({ clips }: ClipFeedProps) {
               </p>
 
               <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500">
-                <div className="flex flex-wrap gap-2">
-                  {clip.teamTricode && <span>{clip.teamTricode}</span>}
-                  {clip.actionType && <span>{clip.actionType}</span>}
-                  {clip.subType && <span>{clip.subType}</span>}
-                </div>
+                <span>
+                  {[clip.teamTricode, clip.subType].filter(Boolean).join(" · ")}
+                </span>
 
-                {typeof clip.shotDistance === "number" && (
+                {isShot(clip) && typeof clip.shotDistance === "number" && (
                   <span>{Math.round(clip.shotDistance)} ft</span>
                 )}
               </div>
