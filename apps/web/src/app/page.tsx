@@ -13,7 +13,11 @@ import {
   defaultDateForSeason,
 } from "@/lib/season";
 import type { Game, ClipsResponse } from "@/lib/types";
-import { DEFAULT_PLAY_TYPE, DEFAULT_RESULT, buildClipSearchParams } from "@/lib/filters";
+import {
+  DEFAULT_PLAY_TYPE,
+  DEFAULT_RESULT,
+  buildClipSearchParams,
+} from "@/lib/filters";
 
 async function getGames(date?: string): Promise<Game[]> {
   const search = new URLSearchParams();
@@ -239,7 +243,8 @@ export default async function Home({
       canonical.set("gameId", params.gameId);
       if (params.player) canonical.set("player", params.player);
       if (params.team) canonical.set("team", params.team);
-      if (params.actionNumber) canonical.set("actionNumber", params.actionNumber);
+      if (params.actionNumber)
+        canonical.set("actionNumber", params.actionNumber);
     }
     redirect(`/?${canonical.toString()}`);
   }
@@ -264,7 +269,9 @@ export default async function Home({
 
   const actionNumberParam = Number(params.actionNumber ?? "");
   const actionNumber =
-    params.actionNumber && Number.isFinite(actionNumberParam) && actionNumberParam > 0
+    params.actionNumber &&
+    Number.isFinite(actionNumberParam) &&
+    actionNumberParam > 0
       ? actionNumberParam
       : null;
 
@@ -272,7 +279,10 @@ export default async function Home({
     <main className="min-h-screen bg-black text-white">
       <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-2">
         <SeasonSelector selectedSeason={selectedSeason} />
-        <DatePicker selectedDate={selectedDate} selectedSeason={selectedSeason} />
+        <DatePicker
+          selectedDate={selectedDate}
+          selectedSeason={selectedSeason}
+        />
         <GameSelector games={games} selectedGameId={selectedGameId} />
       </div>
 

@@ -45,7 +45,10 @@ export default function FilterBar({
   useEffect(() => {
     if (!isOverflowOpen) return;
     function handleOutside(e: MouseEvent) {
-      if (filterBarRef.current && !filterBarRef.current.contains(e.target as Node)) {
+      if (
+        filterBarRef.current &&
+        !filterBarRef.current.contains(e.target as Node)
+      ) {
         setIsOverflowOpen(false);
       }
     }
@@ -169,9 +172,7 @@ export default function FilterBar({
                 : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
           }`}
         >
-          {activeFilterCount > 0
-            ? `Filters (${activeFilterCount})`
-            : "Filters"}
+          {activeFilterCount > 0 ? `Filters (${activeFilterCount})` : "Filters"}
           {activeFilterCount > 0 && (
             <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-blue-500" />
           )}
@@ -225,7 +226,10 @@ export default function FilterBar({
                     playType,
                     quarter,
                     team: e.target.value,
-                    result: playType === DEFAULT_PLAY_TYPE ? shotResult : DEFAULT_RESULT,
+                    result:
+                      playType === DEFAULT_PLAY_TYPE
+                        ? shotResult
+                        : DEFAULT_RESULT,
                     player: "",
                   })
                 }
@@ -287,7 +291,8 @@ export default function FilterBar({
                         } else {
                           const exactMatch = players.find(
                             (p) =>
-                              p.name.toLowerCase() === playerInput.trim().toLowerCase(),
+                              p.name.toLowerCase() ===
+                              playerInput.trim().toLowerCase(),
                           );
                           applyPlayer(exactMatch?.name ?? playerInput.trim());
                         }
@@ -350,7 +355,10 @@ export default function FilterBar({
                     playType,
                     team,
                     quarter: e.target.value,
-                    result: playType === DEFAULT_PLAY_TYPE ? shotResult : DEFAULT_RESULT,
+                    result:
+                      playType === DEFAULT_PLAY_TYPE
+                        ? shotResult
+                        : DEFAULT_RESULT,
                     player: selectedPlayer,
                   })
                 }
