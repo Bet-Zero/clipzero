@@ -26,7 +26,7 @@ const ClipRailItem = forwardRef<HTMLButtonElement, Props>(
         ref={ref}
         onClick={onClick}
         aria-pressed={isActive}
-        className={`flex w-44 shrink-0 flex-col gap-1 rounded-lg border p-3 text-left transition ${
+        className={`flex w-44 shrink-0 flex-col gap-0.5 rounded-md border p-2 text-left transition ${
           isActive
             ? "border-white bg-zinc-800"
             : "border-zinc-800 bg-zinc-950 hover:border-zinc-700 hover:bg-zinc-900"
@@ -41,7 +41,7 @@ const ClipRailItem = forwardRef<HTMLButtonElement, Props>(
           </span>
         </div>
 
-        <p className="line-clamp-2 text-[11px] leading-snug text-zinc-400">
+        <p className="line-clamp-2 text-[11px] leading-tight text-zinc-400">
           {clip.description ?? "No description"}
         </p>
 
