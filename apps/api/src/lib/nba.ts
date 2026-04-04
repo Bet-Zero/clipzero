@@ -331,3 +331,119 @@ export async function getTodaysGames(): Promise<ScoreboardGame[]> {
 
   return response.data.scoreboard.games;
 }
+
+// --- Player-mode data sources ---
+
+export type PlayerDirectoryEntry = {
+  personId: number;
+  displayName: string;
+  teamId: number;
+  teamTricode: string;
+};
+
+export type PlayerGameLogEntry = {
+  gameId: string;
+  gameDate: string;
+  matchup: string;
+  wl: string;
+  min: number;
+  pts: number;
+  reb: number;
+  ast: number;
+};
+
+/**
+ * Fetch the full player directory for a season from stats.nba.com.
+ * Returns active players with personId, name, and team info.
+ */
+export async function getAllPlayers(
+  season: string,
+): Promise<PlayerDirectoryEntry[]> {
+  const url = "https://stats.nba.com/stats/commonallplayers";
+
+  const response = await axios.get(url, {
+    headers: NBA_HEADERS,
+    params: {
+      LeagueID: "00",
+      Season: season,
+      IsOnlyCurrentSeason: 1,
+    },
+    timeout: 30000,
+  });
+
+  const resultSet = response.data?.resultSets?.[0];
+  if (!resultSet) return [];
+
+  const headers: string[] = resultSet.headers ?? [];
+  const rows: unknown[][] = resultSet.rowSet ?? [];
+
+  const idx = (name: string) => headers.indexOf(name);
+  const iPersonId = idx("PERSON_ID");
+  const iDisplayName = idx("DISPLAY_FIRST_LAST");
+  const iTeamId = idx("TEAM_ID");
+  const iTeamAbbr = idx("TEAM_ABBREVIATION");
+
+  if (iPersonId === -1 || iDisplayName === -1) return [];
+
+  return rows
+    .filter((row) => {
+      const teamId = row[iTeamId];
+      return typeof teamId === "number" && teamId > 0;
+    })
+    .map((row) => ({
+      personId: row[iPersonId] as number,
+      displayName: row[iDisplayName] as string,
+      teamId: (row[iTeamId] as number) ?? 0,
+      teamTricode: (row[iTeamAbbr] as string) ?? "",
+    }));
+}
+
+/**
+ * Fetch a player's game log for a season from stats.nba.com.
+ * Returns games played with date, matchup, and basic stats.
+ */
+export async function getPlayerGameLog(
+  playerId: number,
+  season: string,
+): Promise<PlayerGameLogEntry[]> {
+  const url = "https://stats.nba.com/stats/playergamelog";
+
+  const response = await axios.get(url, {
+    headers: NBA_HEADERS,
+    params: {
+      PlayerID: playerId,
+      Season: season,
+      SeasonType: "Regular Season",
+    },
+    timeout: 30000,
+  });
+
+  const resultSet = response.data?.resultSets?.[0];
+  if (!resultSet) return [];
+
+  const headers: string[] = resultSet.headers ?? [];
+  const rows: unknown[][] = resultSet.rowSet ?? [];
+
+  const idx = (name: string) => headers.indexOf(name);
+  const iGameId = idx("Game_ID");
+  const iGameDate = idx("GAME_DATE");
+  const iMatchup = idx("MATCHUP");
+  const iWL = idx("WL");
+  const iMin = idx("MIN");
+  const iPts = idx("PTS");
+  const iReb = idx("REB");
+  const iAst = idx("AST");
+
+  if (iGameId === -1 || iGameDate === -1) return [];
+
+  return rows.map((row) => ({
+    gameId: row[iGameId] as string,
+    gameDate: row[iGameDate] as string,
+    matchup: (row[iMatchup] as string) ?? "",
+    wl: (row[iWL] as string) ?? "",
+    min: (row[iMin] as number) ?? 0,
+    pts: (row[iPts] as number) ?? 0,
+    reb: (row[iReb] as number) ?? 0,
+    ast: (row[iAst] as number) ?? 0,
+  }));
+}
