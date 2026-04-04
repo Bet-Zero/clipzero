@@ -96,9 +96,6 @@ function getTodayString() {
 function ClipsFallback() {
   return (
     <>
-      <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-1.5">
-        <div className="h-8 w-20 animate-pulse rounded bg-zinc-900" />
-      </div>
       <div className="mx-auto max-w-3xl px-4 py-4">
         {/* rail skeleton */}
         <div className="mb-4 flex gap-3 overflow-hidden">
@@ -284,6 +281,7 @@ export default async function Home({
           selectedSeason={selectedSeason}
         />
         <GameSelector games={games} selectedGameId={selectedGameId} />
+        <div id="filter-bar-portal" />
       </div>
 
       <Suspense fallback={<ClipsFallback />}>

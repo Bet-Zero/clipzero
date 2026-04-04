@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Player } from "@/lib/types";
 import { DEFAULT_PLAY_TYPE, DEFAULT_RESULT } from "@/lib/filters";
@@ -39,18 +40,27 @@ export default function FilterBar({
   const [activeIndex, setActiveIndex] = useState(-1);
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
-  const filterBarRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+  // Find portal target on mount
+  useEffect(() => {
+    setPortalTarget(document.getElementById("filter-bar-portal"));
+  }, []);
 
   // Close floating panel on outside click
   useEffect(() => {
     if (!isOverflowOpen) return;
     function handleOutside(e: MouseEvent) {
+      const target = e.target as Node;
       if (
-        filterBarRef.current &&
-        !filterBarRef.current.contains(e.target as Node)
+        triggerRef.current?.contains(target) ||
+        panelRef.current?.contains(target)
       ) {
-        setIsOverflowOpen(false);
+        return;
       }
+      setIsOverflowOpen(false);
     }
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
@@ -159,38 +169,47 @@ export default function FilterBar({
   }
 
   return (
-    <div ref={filterBarRef} className="relative border-b border-zinc-800">
-      {/* Compact trigger row — just the Filters toggle + clear */}
-      <div className="flex items-center gap-2 px-4 py-1.5">
-        <button
-          onClick={() => setIsOverflowOpen((o) => !o)}
-          className={`relative h-8 rounded px-3 text-sm transition-colors ${
-            isOverflowOpen
-              ? "bg-zinc-700 text-white"
-              : activeFilterCount > 0
-                ? "bg-zinc-800 text-white"
-                : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-          }`}
-        >
-          {activeFilterCount > 0 ? `Filters (${activeFilterCount})` : "Filters"}
-          {activeFilterCount > 0 && (
-            <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-blue-500" />
-          )}
-        </button>
+    <div className="relative" style={{ height: 0, overflow: "visible" }}>
+      {/* Trigger — portaled into the top-bar alongside Season / Date / Game */}
+      {portalTarget &&
+        createPortal(
+          <div ref={triggerRef} className="flex items-center gap-2">
+            <button
+              onClick={() => setIsOverflowOpen((o) => !o)}
+              className={`relative h-8 rounded px-3 text-sm transition-colors ${
+                isOverflowOpen
+                  ? "bg-zinc-700 text-white"
+                  : activeFilterCount > 0
+                    ? "bg-zinc-800 text-white"
+                    : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+              }`}
+            >
+              {activeFilterCount > 0
+                ? `Filters (${activeFilterCount})`
+                : "Filters"}
+              {activeFilterCount > 0 && (
+                <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-blue-500" />
+              )}
+            </button>
 
-        {isFiltered && (
-          <button
-            onClick={clearFilters}
-            className="h-8 rounded bg-zinc-800 px-3 text-sm text-zinc-300 hover:bg-zinc-700"
-          >
-            Clear filters
-          </button>
+            {isFiltered && (
+              <button
+                onClick={clearFilters}
+                className="h-8 rounded bg-zinc-800 px-3 text-sm text-zinc-300 hover:bg-zinc-700"
+              >
+                Clear
+              </button>
+            )}
+          </div>,
+          portalTarget,
         )}
-      </div>
 
-      {/* Floating filter panel — absolutely positioned so it does NOT push content down */}
+      {/* Floating filter panel — overlays content, never pushes it down */}
       {isOverflowOpen && (
-        <div className="absolute left-0 right-0 top-full z-50 border-b border-zinc-800 bg-zinc-950 px-4 py-3 shadow-xl">
+        <div
+          ref={panelRef}
+          className="absolute left-0 right-0 top-0 z-50 border-b border-zinc-800 bg-zinc-950 px-4 py-3 shadow-xl"
+        >
           <div className="flex flex-wrap items-start gap-3">
             {/* Play Type */}
             <label className="flex items-center gap-2 text-xs text-zinc-500">
