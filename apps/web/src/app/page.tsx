@@ -3,6 +3,7 @@ import ClipFeedPaginated from "@/components/ClipFeedPaginated";
 import DatePicker from "@/components/DatePicker";
 import FilterBar from "@/components/FilterBar";
 import GameSelector from "@/components/GameSelector";
+import ClipFeed from "@/components/ClipFeed";
 
 type Clip = {
   gameId: string;
