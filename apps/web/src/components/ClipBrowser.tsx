@@ -140,7 +140,7 @@ export default function ClipBrowser({
   ]);
 
   return (
-    <div className="flex flex-col gap-1.5 px-3 py-2">
+    <div className="mx-auto flex max-w-4xl flex-col gap-2 px-4 py-3">
       <ClipRail
         clips={clips}
         activeIndex={activeIndex}
