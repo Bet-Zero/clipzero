@@ -24,6 +24,7 @@ type Props = {
   quarter: string;
   team: string;
   initialActionNumber: number | null;
+  initialTargetIndex: number | null;
 };
 
 function setActionNumberInUrl(actionNumber: number | null) {
@@ -49,6 +50,7 @@ export default function ClipBrowser({
   quarter,
   team,
   initialActionNumber,
+  initialTargetIndex,
 }: Props) {
   const [clips, setClips] = useState<Clip[]>(initialClips);
   const [total, setTotal] = useState(initialTotal);
@@ -58,6 +60,15 @@ export default function ClipBrowser({
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Deep-link seek: true when the target clip is beyond the initial page
+  // and we need to load more clips before selecting it.
+  const needsSeek =
+    initialActionNumber !== null &&
+    !initialClips.some((c) => c.actionNumber === initialActionNumber) &&
+    initialTargetIndex !== null &&
+    initialTargetIndex >= 0;
+  const [seeking, setSeeking] = useState(needsSeek);
 
   // Initialize active index from the pinned actionNumber, fall back to 0.
   const [activeIndex, setActiveIndex] = useState(() => {
@@ -81,16 +92,76 @@ export default function ClipBrowser({
   hasMoreRef.current = hasMore;
   const pendingAdvanceRef = useRef(false);
 
-  // If the pinned actionNumber is not in this filter set's initial page,
-  // clear it from the URL so the address reflects what's actually selected.
+  // Deep-link restore: if the target actionNumber is beyond the initial page,
+  // load a single catch-up batch to fill from the initial page up through the
+  // target clip (plus a small buffer for forward navigation).
+  // If targetIndex is null the actionNumber doesn't exist in this filter set.
   useEffect(() => {
     if (initialActionNumber === null) return;
-    const found = initialClips.some(
-      (c) => c.actionNumber === initialActionNumber,
-    );
-    if (!found) {
+
+    // Already in the initial page — nothing to do.
+    if (initialClips.some((c) => c.actionNumber === initialActionNumber))
+      return;
+
+    // actionNumber not found in the full filtered set — clear it.
+    if (initialTargetIndex === null || initialTargetIndex < 0) {
       setActionNumberInUrl(null);
+      return;
     }
+
+    // Fetch the gap between the initial page and the target clip.
+    let cancelled = false;
+    (async () => {
+      try {
+        const gapOffset = initialClips.length;
+        const gapLimit = initialTargetIndex - gapOffset + initialLimit;
+
+        const search = buildClipSearchParams({
+          gameId,
+          limit: gapLimit,
+          offset: gapOffset,
+          player,
+          result,
+          playType,
+          quarter,
+          team,
+        });
+
+        const res = await fetch(buildApiUrl("/clips/game", search));
+        if (cancelled) return;
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        const allClips = [...initialClips, ...(data.clips ?? [])];
+        const targetIdx = allClips.findIndex(
+          (c) => c.actionNumber === initialActionNumber,
+        );
+
+        if (cancelled) return;
+
+        setClips(allClips);
+        setTotal(data.total ?? initialTotal);
+        setHasMore(data.hasMore ?? false);
+        setNextOffset(data.nextOffset ?? null);
+
+        if (targetIdx >= 0) {
+          setActiveIndex(targetIdx);
+        } else {
+          // Shouldn't happen, but be honest if it does.
+          setActiveIndex(0);
+          setActionNumberInUrl(allClips[0]?.actionNumber ?? null);
+        }
+      } catch {
+        // On failure, fall back to first clip and clear the stale actionNumber.
+        setActionNumberInUrl(initialClips[0]?.actionNumber ?? null);
+      } finally {
+        if (!cancelled) setSeeking(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
     // Intentionally run only on mount; initialClips/initialActionNumber are
     // stable props that define the remount boundary (via filterKey).
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -234,6 +305,23 @@ export default function ClipBrowser({
       }
     }
   }, [activeIndex, clips]);
+
+  if (seeking) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-6">
+        <div className="mb-2 text-sm text-zinc-400">Loading clip…</div>
+        <div className="mb-4 flex gap-3 overflow-hidden">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-24 w-44 shrink-0 animate-pulse rounded-lg bg-zinc-900"
+            />
+          ))}
+        </div>
+        <div className="aspect-video w-full animate-pulse rounded-xl bg-zinc-900" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4 px-4 py-4">

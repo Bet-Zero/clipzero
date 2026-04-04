@@ -226,10 +226,23 @@ app.get("/clips/game", async (req, res) => {
     const quarter =
       Number.isFinite(quarterParam) && quarterParam > 0 ? quarterParam : 0;
 
+    const actionNumberParam =
+      typeof req.query.actionNumber === "string"
+        ? Number(req.query.actionNumber)
+        : NaN;
+    const targetActionNumber =
+      Number.isFinite(actionNumberParam) && actionNumberParam > 0
+        ? actionNumberParam
+        : null;
+
     const cacheKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarter}:${limit}:${offset}`;
-    const cached = clipCache.get(cacheKey);
-    if (cached) {
-      return res.json(cached);
+    // Bypass response cache when an actionNumber lookup is requested,
+    // since targetIndex is not part of the cached payload.
+    if (!targetActionNumber) {
+      const cached = clipCache.get(cacheKey);
+      if (cached) {
+        return res.json(cached);
+      }
     }
 
     const actions = await getPlayByPlay(gameId);
@@ -317,6 +330,15 @@ app.get("/clips/game", async (req, res) => {
     const hasMore = offset + clips.length < filteredShots.length;
     const nextOffset = hasMore ? offset + clips.length : null;
 
+    // Compute the index of the target actionNumber in the full filtered set
+    let targetIndex: number | null | undefined;
+    if (targetActionNumber !== null) {
+      const idx = filteredShots.findIndex(
+        (s) => s.actionNumber === targetActionNumber,
+      );
+      targetIndex = idx >= 0 ? idx : null;
+    }
+
     const payload = {
       gameId,
       count: clips.length,
@@ -327,9 +349,13 @@ app.get("/clips/game", async (req, res) => {
       nextOffset,
       players,
       clips,
+      ...(targetIndex !== undefined ? { targetIndex } : {}),
     };
 
-    clipCache.set(cacheKey, payload);
+    // Only cache when no actionNumber lookup (to keep cache entries stable)
+    if (!targetActionNumber) {
+      clipCache.set(cacheKey, payload);
+    }
 
     console.log(
       `[clips] game=${gameId} playType=${playType} quarter=${quarter || "all"} team=${team || "all"} player=${player || "all"} result=${result} offset=${offset} count=${clips.length}/${filteredShots.length} hasMore=${hasMore} nextOffset=${nextOffset} assetHits=${assetCacheHits} assetMisses=${assetCacheMisses} time=${msSince(startedAt)}`,
@@ -512,11 +538,22 @@ app.get("/clips/player", async (req, res) => {
         : [],
     );
 
-    // Check response cache
+    const actionNumberParam =
+      typeof req.query.actionNumber === "string"
+        ? Number(req.query.actionNumber)
+        : NaN;
+    const targetActionNumber =
+      Number.isFinite(actionNumberParam) && actionNumberParam > 0
+        ? actionNumberParam
+        : null;
+
+    // Check response cache (bypass when actionNumber lookup is requested)
     const cacheKey = `${personId}:${season}:${playType}:${result}:${quarter}:${limit}:${offset}:${[...excludeDates].sort().join(",")}:${[...excludeGameIds].sort().join(",")}`;
-    const cached = playerClipCache.get(cacheKey);
-    if (cached) {
-      return res.json(cached);
+    if (!targetActionNumber) {
+      const cached = playerClipCache.get(cacheKey);
+      if (cached) {
+        return res.json(cached);
+      }
     }
 
     // 1. Get the player's game log
@@ -660,6 +697,15 @@ app.get("/clips/player", async (req, res) => {
     const hasMore = offset + clips.length < total;
     const nextOffset = hasMore ? offset + clips.length : null;
 
+    // Compute the index of the target actionNumber in the full filtered set
+    let targetIndex: number | null | undefined;
+    if (targetActionNumber !== null) {
+      const idx = filteredActions.findIndex(
+        (a) => a.actionNumber === targetActionNumber,
+      );
+      targetIndex = idx >= 0 ? idx : null;
+    }
+
     const payload = {
       personId,
       season,
@@ -676,9 +722,13 @@ app.get("/clips/player", async (req, res) => {
       gamesExcluded: excludedGames.length,
       exclusions: excludedGames,
       clips,
+      ...(targetIndex !== undefined ? { targetIndex } : {}),
     };
 
-    playerClipCache.set(cacheKey, payload);
+    // Only cache when no actionNumber lookup
+    if (!targetActionNumber) {
+      playerClipCache.set(cacheKey, payload);
+    }
 
     console.log(
       `[clips/player] personId=${personId} season=${season} playType=${playType} result=${result} quarter=${quarter || "all"} games=${gameLog.length - excludedGames.length}/${gameLog.length} offset=${offset} count=${clips.length}/${total} hasMore=${hasMore} assetHits=${assetCacheHits} assetMisses=${assetCacheMisses} seasonCached=${playerSeasonActionsCache.has(seasonCacheKey) ? "hit" : "miss"} time=${msSince(startedAt)}`,

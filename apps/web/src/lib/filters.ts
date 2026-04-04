@@ -10,6 +10,7 @@ type ClipQueryParams = {
   playType?: string;
   quarter?: string;
   team?: string;
+  actionNumber?: number | null;
 };
 
 export function buildClipSearchParams(
@@ -25,6 +26,8 @@ export function buildClipSearchParams(
   if (params.playType) search.set("playType", params.playType);
   if (params.quarter) search.set("quarter", params.quarter);
   if (params.team) search.set("team", params.team);
+  if (params.actionNumber)
+    search.set("actionNumber", String(params.actionNumber));
   return search;
 }
 
@@ -38,6 +41,7 @@ type PlayerClipQueryParams = {
   quarter?: string;
   excludeDates?: string[];
   excludeGameIds?: string[];
+  actionNumber?: number | null;
 };
 
 export function buildPlayerClipSearchParams(
@@ -56,5 +60,7 @@ export function buildPlayerClipSearchParams(
     search.set("excludeDates", params.excludeDates.join(","));
   if (params.excludeGameIds && params.excludeGameIds.length > 0)
     search.set("excludeGameIds", params.excludeGameIds.join(","));
+  if (params.actionNumber)
+    search.set("actionNumber", String(params.actionNumber));
   return search;
 }

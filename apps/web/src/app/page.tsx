@@ -49,6 +49,7 @@ async function getClips(
   quarter?: string,
   team?: string,
   offset?: number,
+  actionNumber?: number | null,
 ): Promise<ClipsResponse> {
   const search = buildClipSearchParams({
     gameId,
@@ -59,6 +60,7 @@ async function getClips(
     playType,
     quarter,
     team,
+    actionNumber,
   });
 
   const empty: ClipsResponse = {
@@ -85,6 +87,7 @@ async function getClips(
       limit: data.limit ?? limit,
       hasMore: data.hasMore ?? false,
       nextOffset: data.nextOffset ?? null,
+      targetIndex: data.targetIndex ?? undefined,
     };
   } catch {
     return empty;
@@ -154,7 +157,18 @@ async function ClipsSection({
     offset: initialOffset,
     hasMore: initialHasMore,
     nextOffset: initialNextOffset,
-  } = await getClips(gameId, limit, player, result, playType, quarter, team);
+    targetIndex: initialTargetIndex,
+  } = await getClips(
+    gameId,
+    limit,
+    player,
+    result,
+    playType,
+    quarter,
+    team,
+    undefined,
+    actionNumber,
+  );
 
   const filterKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarter}:${limit}`;
 
@@ -176,6 +190,7 @@ async function ClipsSection({
         quarter={quarter}
         team={team}
         initialActionNumber={actionNumber}
+        initialTargetIndex={initialTargetIndex ?? null}
       />
     </>
   );

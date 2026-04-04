@@ -43,6 +43,7 @@ export type ClipsResponse = {
   limit: number;
   hasMore: boolean;
   nextOffset: number | null;
+  targetIndex?: number | null;
 };
 
 // Player-mode types
@@ -80,4 +81,5 @@ export type PlayerClipsResponse = {
   gamesExcluded: number;
   exclusions: { gameId: string; gameDate: string; reason: string }[];
   clips: Clip[];
+  targetIndex?: number | null;
 };
