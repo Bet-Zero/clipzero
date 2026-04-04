@@ -149,6 +149,14 @@ app.get("/clips/game", async (req, res) => {
     const limit =
       Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 12;
 
+    const offsetParam =
+      typeof req.query.offset === "string" ? Number(req.query.offset) : 0;
+
+    const offset =
+      Number.isFinite(offsetParam) && offsetParam >= 0
+        ? Math.floor(offsetParam)
+        : 0;
+
     const playType =
       typeof req.query.playType === "string" && req.query.playType.trim() !== ""
         ? req.query.playType
@@ -160,7 +168,7 @@ app.get("/clips/game", async (req, res) => {
     const quarter =
       Number.isFinite(quarterParam) && quarterParam > 0 ? quarterParam : 0;
 
-    const cacheKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarter}:${limit}`;
+    const cacheKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarter}:${limit}:${offset}`;
     const cached = clipCache.get(cacheKey);
     if (cached) {
       return res.json(cached);
@@ -194,7 +202,7 @@ app.get("/clips/game", async (req, res) => {
       return matchesPlayer;
     });
 
-    const shots = filteredShots.slice(0, limit);
+    const shots = filteredShots.slice(offset, offset + limit);
 
     const clips = await mapWithConcurrency(shots, 6, async (shot) => {
       if (!shot.actionNumber) {
@@ -248,10 +256,17 @@ app.get("/clips/game", async (req, res) => {
       }
     });
 
+    const hasMore = offset + clips.length < filteredShots.length;
+    const nextOffset = hasMore ? offset + clips.length : null;
+
     const payload = {
       gameId,
       count: clips.length,
       total: filteredShots.length,
+      offset,
+      limit,
+      hasMore,
+      nextOffset,
       players,
       clips,
     };
@@ -259,7 +274,7 @@ app.get("/clips/game", async (req, res) => {
     clipCache.set(cacheKey, payload);
 
     console.log(
-      `[clips] game=${gameId} playType=${playType} quarter=${quarter || "all"} team=${team || "all"} player=${player || "all"} result=${result} count=${clips.length}/${filteredShots.length} assetHits=${assetCacheHits} assetMisses=${assetCacheMisses} time=${msSince(startedAt)}`,
+      `[clips] game=${gameId} playType=${playType} quarter=${quarter || "all"} team=${team || "all"} player=${player || "all"} result=${result} offset=${offset} count=${clips.length}/${filteredShots.length} hasMore=${hasMore} nextOffset=${nextOffset} assetHits=${assetCacheHits} assetMisses=${assetCacheMisses} time=${msSince(startedAt)}`,
     );
     res.json(payload);
   } catch (error: any) {
