@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import ClipFeedPaginated from "@/components/ClipFeedPaginated";
 import DatePicker from "@/components/DatePicker";
 import FilterBar from "@/components/FilterBar";
@@ -267,6 +268,36 @@ export default async function Home({
       : seasonDefault;
 
   const games = await getGames(selectedDate);
+
+  // Canonicalize URL: redirect whenever the resolved state diverges from the raw params.
+  // Triggers when: season was inferred or coerced, date was inferred or corrected, or
+  // gameId is not present in the resolved game list for the selected date.
+  const gameIdIsValid =
+    !params.gameId || games.some((g) => g.gameId === params.gameId);
+  const needsRedirect =
+    !params.season ||
+    params.season !== selectedSeason ||
+    !params.date ||
+    params.date !== selectedDate ||
+    !gameIdIsValid;
+
+  if (needsRedirect) {
+    const canonical = new URLSearchParams();
+    canonical.set("season", selectedSeason);
+    canonical.set("date", selectedDate);
+    // Preserve non-empty filter params as-is
+    if (params.limit) canonical.set("limit", params.limit);
+    if (params.playType) canonical.set("playType", params.playType);
+    if (params.quarter) canonical.set("quarter", params.quarter);
+    if (params.result) canonical.set("result", params.result);
+    // Keep gameId only if it resolves to a real game; drop player/team when gameId is dropped
+    if (gameIdIsValid && params.gameId) {
+      canonical.set("gameId", params.gameId);
+      if (params.player) canonical.set("player", params.player);
+      if (params.team) canonical.set("team", params.team);
+    }
+    redirect(`/?${canonical.toString()}`);
+  }
 
   const limitParam = Number(params.limit ?? "12");
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 12;
