@@ -167,8 +167,22 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
         if (append) {
           setClips((prev) => [...prev, ...(data.clips ?? [])]);
         } else {
-          setClips(data.clips ?? []);
-          setActiveIndex(0);
+          const newClips: Clip[] = data.clips ?? [];
+          setClips(newClips);
+          // Restore pinned actionNumber from URL if valid
+          const pinnedAction = params.get("actionNumber");
+          if (pinnedAction) {
+            const pinnedNum = Number(pinnedAction);
+            const idx = newClips.findIndex((c) => c.actionNumber === pinnedNum);
+            if (idx >= 0) {
+              setActiveIndex(idx);
+            } else {
+              setActiveIndex(0);
+              setActionNumberInUrl(newClips[0]?.actionNumber ?? null);
+            }
+          } else {
+            setActiveIndex(0);
+          }
         }
         setTotal(data.total ?? 0);
         setHasMore(data.hasMore ?? false);
@@ -302,21 +316,49 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     }
   }, [activeIndex, clips]);
 
-  // Update URL with player state
-  function updateUrl(overrides: Record<string, string>) {
+  // Build a complete player-mode URL from current state + overrides.
+  // Always includes exclusions so they are never silently dropped.
+  function buildPlayerUrl(
+    overrides: Record<string, string> = {},
+    {
+      player = selectedPlayer,
+      gameIdExclusions = excludedGameIds,
+      dateExclusions = excludedDates,
+    }: {
+      player?: PlayerSearchResult | null;
+      gameIdExclusions?: Set<string>;
+      dateExclusions?: Set<string>;
+    } = {},
+  ): string {
     const search = new URLSearchParams();
     search.set("mode", "player");
     search.set("season", season);
-    if (selectedPlayer) {
-      search.set("personId", String(selectedPlayer.personId));
-      search.set("playerName", selectedPlayer.displayName);
-      if (selectedPlayer.teamTricode)
-        search.set("teamTricode", selectedPlayer.teamTricode);
+    if (player) {
+      search.set("personId", String(player.personId));
+      search.set("playerName", player.displayName);
+      if (player.teamTricode) search.set("teamTricode", player.teamTricode);
     }
-    Object.entries(overrides).forEach(([k, v]) => {
-      if (v) search.set(k, v);
-    });
-    router.push(`/?${search.toString()}`, { scroll: false });
+    // Current filter values as base, then overrides
+    const pt = overrides.playType ?? playType;
+    if (pt && pt !== DEFAULT_PLAY_TYPE) search.set("playType", pt);
+    const res = overrides.result ?? result;
+    if (res && res !== DEFAULT_RESULT) search.set("result", res);
+    const q = overrides.quarter ?? quarter;
+    if (q) search.set("quarter", q);
+    // Exclusions
+    const gameIds = [...gameIdExclusions].filter(Boolean);
+    if (gameIds.length > 0) search.set("excludeGameIds", gameIds.join(","));
+    const dates = [...dateExclusions].filter(Boolean);
+    if (dates.length > 0) search.set("excludeDates", dates.join(","));
+    // actionNumber — preserve if present and no filter change
+    const an = params.get("actionNumber");
+    if (an && !overrides.playType && !overrides.result && !overrides.quarter)
+      search.set("actionNumber", an);
+    return `/?${search.toString()}`;
+  }
+
+  function updateUrl(overrides: Record<string, string>) {
+    router.push(buildPlayerUrl(overrides), { scroll: false });
   }
 
   function handlePlayerSelect(player: PlayerSearchResult) {
@@ -325,15 +367,17 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     setExcludedDates(new Set());
     setClips([]);
     setTotal(0);
-    const search = new URLSearchParams();
-    search.set("mode", "player");
-    search.set("season", season);
-    search.set("personId", String(player.personId));
-    search.set("playerName", player.displayName);
-    if (player.teamTricode) search.set("teamTricode", player.teamTricode);
-    const pt = params.get("playType");
-    if (pt) search.set("playType", pt);
-    router.push(`/?${search.toString()}`, { scroll: false });
+    router.push(
+      buildPlayerUrl(
+        {},
+        {
+          player,
+          gameIdExclusions: new Set(),
+          dateExclusions: new Set(),
+        },
+      ),
+      { scroll: false },
+    );
   }
 
   function handlePlayerClear() {
@@ -343,33 +387,42 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     setTotal(0);
     setExcludedGameIds(new Set());
     setExcludedDates(new Set());
-    const search = new URLSearchParams();
-    search.set("mode", "player");
-    search.set("season", season);
-    router.push(`/?${search.toString()}`, { scroll: false });
+    router.push(
+      buildPlayerUrl(
+        {},
+        {
+          player: null,
+          gameIdExclusions: new Set(),
+          dateExclusions: new Set(),
+        },
+      ),
+      { scroll: false },
+    );
   }
 
   function toggleGameId(gameId: string) {
-    setExcludedGameIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(gameId)) {
-        next.delete(gameId);
-      } else {
-        next.add(gameId);
-      }
-      return next;
+    const next = new Set(excludedGameIds);
+    if (next.has(gameId)) {
+      next.delete(gameId);
+    } else {
+      next.add(gameId);
+    }
+    setExcludedGameIds(next);
+    router.push(buildPlayerUrl({}, { gameIdExclusions: next }), {
+      scroll: false,
     });
   }
 
   function toggleDate(date: string) {
-    setExcludedDates((prev) => {
-      const next = new Set(prev);
-      if (next.has(date)) {
-        next.delete(date);
-      } else {
-        next.add(date);
-      }
-      return next;
+    const next = new Set(excludedDates);
+    if (next.has(date)) {
+      next.delete(date);
+    } else {
+      next.add(date);
+    }
+    setExcludedDates(next);
+    router.push(buildPlayerUrl({}, { dateExclusions: next }), {
+      scroll: false,
     });
   }
 
