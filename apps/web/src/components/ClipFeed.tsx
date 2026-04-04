@@ -65,7 +65,14 @@ export default function ClipFeed({ clips }: ClipFeedProps) {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6">
       {clips.map((clip) => {
-        const key = `${clip.gameId}-${clip.actionNumber ?? clip.description ?? Math.random()}`;
+        const key = [
+          clip.gameId,
+          clip.actionNumber ?? "na",
+          clip.period ?? "na",
+          clip.clock ?? "na",
+          clip.playerName ?? "na",
+          clip.description ?? "na",
+        ].join(":");
 
         return (
           <article
