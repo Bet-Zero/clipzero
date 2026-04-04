@@ -11,7 +11,11 @@ import {
   getAllPlayers,
   getPlayerGameLog,
 } from "./lib/nba";
-import type { PlayerDirectoryEntry, PlayerGameLogEntry } from "./lib/nba";
+import type {
+  PlayerDirectoryEntry,
+  PlayerGameLogEntry,
+  RawAction,
+} from "./lib/nba";
 
 const app = express();
 const port = 4000;
@@ -24,9 +28,57 @@ const videoAssetCache = new Map<
 const playerDirectoryCache = new Map<string, PlayerDirectoryEntry[]>();
 const playerGameLogCache = new Map<string, PlayerGameLogEntry[]>();
 const playerClipCache = new Map<string, unknown>();
+const playByPlayCache = new Map<string, RawAction[]>();
+const boxScoreCache = new Map<string, Map<number, string>>();
+
+type PlayerActionWithGame = {
+  gameId: string;
+  gameDate: string;
+  matchup: string;
+  actionNumber?: number;
+  period?: number;
+  clock?: string;
+  teamId?: number;
+  teamTricode?: string;
+  personId?: number;
+  playerName?: string;
+  actionType?: string;
+  subType?: string;
+  shotResult?: string;
+  shotDistance?: number;
+  x?: number;
+  y?: number;
+  description?: string;
+};
+
+const playerSeasonActionsCache = new Map<string, PlayerActionWithGame[]>();
 
 function msSince(start: number) {
   return `${Date.now() - start}ms`;
+}
+
+function normalizeDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toISOString().slice(0, 10);
+}
+
+async function getCachedPlayByPlay(gameId: string): Promise<RawAction[]> {
+  const cached = playByPlayCache.get(gameId);
+  if (cached) return cached;
+  const actions = await getPlayByPlay(gameId);
+  playByPlayCache.set(gameId, actions);
+  return actions;
+}
+
+async function getCachedPlayerNameMap(
+  gameId: string,
+): Promise<Map<number, string>> {
+  const cached = boxScoreCache.get(gameId);
+  if (cached) return cached;
+  const nameMap = await getPlayerNameMapForGame(gameId);
+  boxScoreCache.set(gameId, nameMap);
+  return nameMap;
 }
 
 async function mapWithConcurrency<T, R>(
@@ -475,116 +527,99 @@ app.get("/clips/player", async (req, res) => {
       playerGameLogCache.set(gameLogCacheKey, gameLog);
     }
 
-    // 2. Apply exclusions
-    function normalizeDate(dateStr: string): string {
-      // Game log dates can be "MAR 15, 2026" or "2026-03-15" — normalize both
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return dateStr;
-      return d.toISOString().slice(0, 10);
+    // 2. Get or build season-level actions cache
+    //    Keyed by personId:season:playType — reused across result/quarter/exclusion/page changes
+    const seasonCacheKey = `${personId}:${season}:${playType}`;
+    let seasonActions = playerSeasonActionsCache.get(seasonCacheKey);
+
+    if (!seasonActions) {
+      const collected: PlayerActionWithGame[] = [];
+
+      // Process ALL games (concurrency 5, parallel PBP+boxscore per game)
+      await mapWithConcurrency(gameLog, 5, async (game) => {
+        try {
+          const gameDateNorm = normalizeDate(game.gameDate);
+
+          const [actions, playerNameMap] = await Promise.all([
+            getCachedPlayByPlay(game.gameId),
+            getCachedPlayerNameMap(game.gameId),
+          ]);
+
+          const filtered = getFilteredActions(game.gameId, actions, playType);
+
+          const playerActions = filtered
+            .map((action) => ({
+              ...action,
+              playerName:
+                (action.personId
+                  ? playerNameMap.get(action.personId)
+                  : undefined) ?? action.playerName,
+            }))
+            .filter((action) => action.personId === personId)
+            .map((action) => ({
+              ...action,
+              gameDate: gameDateNorm,
+              matchup: game.matchup,
+            }));
+
+          collected.push(...playerActions);
+        } catch (err) {
+          console.warn(
+            `[clips/player] Failed to fetch game ${game.gameId}: ${err instanceof Error ? err.message : "unknown"}`,
+          );
+        }
+      });
+
+      collected.sort((a, b) => {
+        const dateCompare = (b.gameDate ?? "").localeCompare(a.gameDate ?? "");
+        if (dateCompare !== 0) return dateCompare;
+        const periodCompare = (a.period ?? 0) - (b.period ?? 0);
+        if (periodCompare !== 0) return periodCompare;
+        return (b.clock ?? "").localeCompare(a.clock ?? "");
+      });
+
+      seasonActions = collected;
+      playerSeasonActionsCache.set(seasonCacheKey, seasonActions);
     }
 
-    const includedGames: typeof gameLog = [];
+    // 3. Apply exclusions + result/quarter filters from cached season data
     const excludedGames: {
       gameId: string;
       gameDate: string;
       reason: string;
     }[] = [];
+    const excludedGameIdSet = new Set<string>();
 
     for (const game of gameLog) {
-      const normalizedDate = normalizeDate(game.gameDate);
+      const nd = normalizeDate(game.gameDate);
       if (excludeGameIds.has(game.gameId)) {
         excludedGames.push({
           gameId: game.gameId,
-          gameDate: normalizedDate,
+          gameDate: nd,
           reason: "excludeGameIds",
         });
-      } else if (excludeDates.has(normalizedDate)) {
+        excludedGameIdSet.add(game.gameId);
+      } else if (excludeDates.has(nd)) {
         excludedGames.push({
           gameId: game.gameId,
-          gameDate: normalizedDate,
+          gameDate: nd,
           reason: "excludeDates",
         });
-      } else {
-        includedGames.push(game);
+        excludedGameIdSet.add(game.gameId);
       }
     }
 
-    // 3. Fetch play-by-play for each included game and collect actions for this player
-    type ActionWithGame = {
-      gameId: string;
-      gameDate: string;
-      matchup: string;
-      actionNumber?: number;
-      period?: number;
-      clock?: string;
-      teamId?: number;
-      teamTricode?: string;
-      personId?: number;
-      playerName?: string;
-      actionType?: string;
-      subType?: string;
-      shotResult?: string;
-      shotDistance?: number;
-      x?: number;
-      y?: number;
-      description?: string;
-    };
-
-    let allActions: ActionWithGame[] = [];
-
-    // Fetch games with concurrency limit of 3 to avoid hammering CDN
-    await mapWithConcurrency(includedGames, 3, async (game) => {
-      try {
-        const normalizedDate = normalizeDate(game.gameDate);
-        const actions = await getPlayByPlay(game.gameId);
-        const filtered = getFilteredActions(game.gameId, actions, playType);
-
-        const playerNameMap = await getPlayerNameMapForGame(game.gameId);
-
-        // Filter to actions by this specific player (by personId)
-        const playerActions = filtered
-          .map((action) => ({
-            ...action,
-            playerName:
-              (action.personId
-                ? playerNameMap.get(action.personId)
-                : undefined) ?? action.playerName,
-          }))
-          .filter((action) => action.personId === personId)
-          .filter((action) => {
-            const matchesResult =
-              result === "all" || action.shotResult === result;
-            const matchesQuarter = !quarter || action.period === quarter;
-            return matchesResult && matchesQuarter;
-          })
-          .map((action) => ({
-            ...action,
-            gameDate: normalizedDate,
-            matchup: game.matchup,
-          }));
-
-        allActions = allActions.concat(playerActions);
-      } catch (err) {
-        // Skip games that fail (e.g. play-by-play not yet available)
-        console.warn(
-          `[clips/player] Failed to fetch game ${game.gameId}: ${err instanceof Error ? err.message : "unknown"}`,
-        );
-      }
+    const filteredActions = seasonActions.filter((action) => {
+      if (excludedGameIdSet.has(action.gameId)) return false;
+      const matchesResult = result === "all" || action.shotResult === result;
+      const matchesQuarter = !quarter || action.period === quarter;
+      return matchesResult && matchesQuarter;
     });
 
-    // 4. Sort by game date descending, then by period + clock within game
-    allActions.sort((a, b) => {
-      const dateCompare = (b.gameDate ?? "").localeCompare(a.gameDate ?? "");
-      if (dateCompare !== 0) return dateCompare;
-      const periodCompare = (a.period ?? 0) - (b.period ?? 0);
-      if (periodCompare !== 0) return periodCompare;
-      return (b.clock ?? "").localeCompare(a.clock ?? "");
-    });
+    const total = filteredActions.length;
 
-    const total = allActions.length;
-
-    // 5. Paginate
-    const pageActions = allActions.slice(offset, offset + limit);
+    // 4. Paginate
+    const pageActions = filteredActions.slice(offset, offset + limit);
 
     // 6. Resolve video URLs for the page
     let assetCacheHits = 0;
@@ -637,7 +672,7 @@ app.get("/clips/player", async (req, res) => {
       limit,
       hasMore,
       nextOffset,
-      gamesIncluded: includedGames.length,
+      gamesIncluded: gameLog.length - excludedGames.length,
       gamesExcluded: excludedGames.length,
       exclusions: excludedGames,
       clips,
@@ -646,7 +681,7 @@ app.get("/clips/player", async (req, res) => {
     playerClipCache.set(cacheKey, payload);
 
     console.log(
-      `[clips/player] personId=${personId} season=${season} playType=${playType} result=${result} quarter=${quarter || "all"} games=${includedGames.length}/${gameLog.length} offset=${offset} count=${clips.length}/${total} hasMore=${hasMore} assetHits=${assetCacheHits} assetMisses=${assetCacheMisses} time=${msSince(startedAt)}`,
+      `[clips/player] personId=${personId} season=${season} playType=${playType} result=${result} quarter=${quarter || "all"} games=${gameLog.length - excludedGames.length}/${gameLog.length} offset=${offset} count=${clips.length}/${total} hasMore=${hasMore} assetHits=${assetCacheHits} assetMisses=${assetCacheMisses} seasonCached=${playerSeasonActionsCache.has(seasonCacheKey) ? "hit" : "miss"} time=${msSince(startedAt)}`,
     );
 
     res.json(payload);
