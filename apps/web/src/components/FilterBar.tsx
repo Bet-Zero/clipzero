@@ -136,8 +136,11 @@ export default function FilterBar({
     selectedPlayer !== "" ||
     team !== "";
 
-  // Count of active secondary filters (Quarter + Shot Result)
-  const secondaryActiveCount =
+  // Count of all active clip filters
+  const activeFilterCount =
+    (playType !== DEFAULT_PLAY_TYPE ? 1 : 0) +
+    (team !== "" ? 1 : 0) +
+    (selectedPlayer !== "" ? 1 : 0) +
     (quarter !== "" ? 1 : 0) +
     (shotResult !== DEFAULT_RESULT && playType === DEFAULT_PLAY_TYPE ? 1 : 0);
 
@@ -154,161 +157,22 @@ export default function FilterBar({
 
   return (
     <div ref={filterBarRef} className="relative border-b border-zinc-800">
-      {/* Main filter row — always visible */}
-      <div className="flex items-center gap-2 px-4 py-2">
-        <select
-          value={playType}
-          onChange={(e) =>
-            update({
-              playType: e.target.value,
-              team,
-              quarter,
-              result: DEFAULT_RESULT,
-              player: "",
-            })
-          }
-          className="h-8 rounded bg-zinc-900 px-2 text-sm text-white"
-        >
-          {PLAY_TYPES.map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={team}
-          onChange={(e) =>
-            update({
-              playType,
-              quarter,
-              team: e.target.value,
-              result: playType === DEFAULT_PLAY_TYPE ? shotResult : DEFAULT_RESULT,
-              player: "",
-            })
-          }
-          className="h-8 rounded bg-zinc-900 px-2 text-sm text-white"
-        >
-          <option value="">All Teams</option>
-          {teams.map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
-        </select>
-
-        {/* Player search */}
-        <div className="relative min-w-[200px]">
-          <div className="flex items-center gap-1">
-            <input
-              value={playerInput}
-              onChange={(e) => {
-                setPlayerInput(e.target.value);
-                setIsPlayerOpen(true);
-              }}
-              onFocus={() => setIsPlayerOpen(true)}
-              onBlur={() => {
-                setTimeout(() => setIsPlayerOpen(false), 150);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "ArrowDown") {
-                  e.preventDefault();
-                  if (!isPlayerOpen) setIsPlayerOpen(true);
-                  setActiveIndex((i) =>
-                    filteredPlayers.length === 0
-                      ? -1
-                      : (i + 1) % filteredPlayers.length,
-                  );
-                  return;
-                }
-
-                if (e.key === "ArrowUp") {
-                  e.preventDefault();
-                  if (!isPlayerOpen) setIsPlayerOpen(true);
-                  setActiveIndex((i) =>
-                    filteredPlayers.length === 0
-                      ? -1
-                      : i <= 0
-                        ? filteredPlayers.length - 1
-                        : i - 1,
-                  );
-                  return;
-                }
-
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  if (isPlayerOpen && activeIndex >= 0) {
-                    applyPlayer(filteredPlayers[activeIndex].name);
-                  } else {
-                    const exactMatch = players.find(
-                      (p) =>
-                        p.name.toLowerCase() === playerInput.trim().toLowerCase(),
-                    );
-                    applyPlayer(exactMatch?.name ?? playerInput.trim());
-                  }
-                  return;
-                }
-
-                if (e.key === "Escape") {
-                  if (isPlayerOpen) {
-                    setIsPlayerOpen(false);
-                    setActiveIndex(-1);
-                  } else {
-                    clearPlayer();
-                  }
-                }
-              }}
-              placeholder="Search player"
-              className="h-8 w-full rounded bg-zinc-900 px-3 text-sm text-white placeholder:text-zinc-500"
-            />
-
-            {selectedPlayer && (
-              <button
-                onClick={clearPlayer}
-                className="h-8 rounded bg-zinc-900 px-2 text-sm text-zinc-400 hover:text-zinc-200"
-                aria-label="Clear player"
-              >
-                ×
-              </button>
-            )}
-          </div>
-
-          {isPlayerOpen && filteredPlayers.length > 0 && (
-            <div
-              ref={listRef}
-              className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg"
-            >
-              {filteredPlayers.map((p, i) => (
-                <button
-                  key={p.name}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => applyPlayer(p.name)}
-                  className={`block w-full px-3 py-2 text-left text-sm text-white ${
-                    i === activeIndex ? "bg-zinc-700" : "hover:bg-zinc-800"
-                  }`}
-                >
-                  {p.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* +Filters toggle — shows count when secondary filters are active */}
+      {/* Compact trigger row — just the Filters toggle + clear */}
+      <div className="flex items-center gap-2 px-4 py-1.5">
         <button
           onClick={() => setIsOverflowOpen((o) => !o)}
           className={`relative h-8 rounded px-3 text-sm transition-colors ${
             isOverflowOpen
               ? "bg-zinc-700 text-white"
-              : secondaryActiveCount > 0
+              : activeFilterCount > 0
                 ? "bg-zinc-800 text-white"
                 : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
           }`}
         >
-          {secondaryActiveCount > 0
-            ? `+Filters (${secondaryActiveCount})`
-            : "+Filters"}
-          {secondaryActiveCount > 0 && (
+          {activeFilterCount > 0
+            ? `Filters (${activeFilterCount})`
+            : "Filters"}
+          {activeFilterCount > 0 && (
             <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-blue-500" />
           )}
         </button>
@@ -325,61 +189,224 @@ export default function FilterBar({
 
       {/* Floating filter panel — absolutely positioned so it does NOT push content down */}
       {isOverflowOpen && (
-        <div className="absolute left-0 right-0 top-full z-50 flex items-center gap-5 border-b border-zinc-800 bg-zinc-950 px-4 py-3 shadow-xl">
-          <label className="flex items-center gap-2 text-xs text-zinc-500">
-            Quarter
-            <select
-              value={quarter}
-              onChange={(e) =>
-                update({
-                  playType,
-                  team,
-                  quarter: e.target.value,
-                  result: playType === DEFAULT_PLAY_TYPE ? shotResult : DEFAULT_RESULT,
-                  player: selectedPlayer,
-                })
-              }
-              className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
-            >
-              <option value="">All</option>
-              <option value="1">Q1</option>
-              <option value="2">Q2</option>
-              <option value="3">Q3</option>
-              <option value="4">Q4</option>
-              <option value="5">OT1</option>
-              <option value="6">OT2</option>
-              <option value="7">OT3</option>
-            </select>
-          </label>
-
-          {playType === DEFAULT_PLAY_TYPE && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-zinc-500">Shot Result</span>
-              <div className="flex gap-1">
-                {[DEFAULT_RESULT, "Made", "Missed"].map((value) => (
-                  <button
-                    key={value}
-                    onClick={() =>
-                      update({
-                        playType,
-                        team,
-                        quarter,
-                        result: value,
-                        player: selectedPlayer,
-                      })
-                    }
-                    className={`rounded px-3 py-0.5 text-sm ${
-                      shotResult === value
-                        ? "bg-white text-black"
-                        : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
-                    }`}
-                  >
+        <div className="absolute left-0 right-0 top-full z-50 border-b border-zinc-800 bg-zinc-950 px-4 py-3 shadow-xl">
+          <div className="flex flex-wrap items-start gap-3">
+            {/* Play Type */}
+            <label className="flex items-center gap-2 text-xs text-zinc-500">
+              Play Type
+              <select
+                value={playType}
+                onChange={(e) =>
+                  update({
+                    playType: e.target.value,
+                    team,
+                    quarter,
+                    result: DEFAULT_RESULT,
+                    player: "",
+                  })
+                }
+                className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
+              >
+                {PLAY_TYPES.map((value) => (
+                  <option key={value} value={value}>
                     {value}
-                  </button>
+                  </option>
                 ))}
+              </select>
+            </label>
+
+            {/* Team */}
+            <label className="flex items-center gap-2 text-xs text-zinc-500">
+              Team
+              <select
+                value={team}
+                onChange={(e) =>
+                  update({
+                    playType,
+                    quarter,
+                    team: e.target.value,
+                    result: playType === DEFAULT_PLAY_TYPE ? shotResult : DEFAULT_RESULT,
+                    player: "",
+                  })
+                }
+                className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
+              >
+                <option value="">All Teams</option>
+                {teams.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {/* Player search */}
+            <div className="relative min-w-[200px]">
+              <div className="flex items-center gap-2 text-xs text-zinc-500">
+                <span className="shrink-0">Player</span>
+                <div className="flex items-center gap-1">
+                  <input
+                    value={playerInput}
+                    onChange={(e) => {
+                      setPlayerInput(e.target.value);
+                      setIsPlayerOpen(true);
+                    }}
+                    onFocus={() => setIsPlayerOpen(true)}
+                    onBlur={() => {
+                      setTimeout(() => setIsPlayerOpen(false), 150);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        if (!isPlayerOpen) setIsPlayerOpen(true);
+                        setActiveIndex((i) =>
+                          filteredPlayers.length === 0
+                            ? -1
+                            : (i + 1) % filteredPlayers.length,
+                        );
+                        return;
+                      }
+
+                      if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        if (!isPlayerOpen) setIsPlayerOpen(true);
+                        setActiveIndex((i) =>
+                          filteredPlayers.length === 0
+                            ? -1
+                            : i <= 0
+                              ? filteredPlayers.length - 1
+                              : i - 1,
+                        );
+                        return;
+                      }
+
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (isPlayerOpen && activeIndex >= 0) {
+                          applyPlayer(filteredPlayers[activeIndex].name);
+                        } else {
+                          const exactMatch = players.find(
+                            (p) =>
+                              p.name.toLowerCase() === playerInput.trim().toLowerCase(),
+                          );
+                          applyPlayer(exactMatch?.name ?? playerInput.trim());
+                        }
+                        return;
+                      }
+
+                      if (e.key === "Escape") {
+                        if (isPlayerOpen) {
+                          setIsPlayerOpen(false);
+                          setActiveIndex(-1);
+                        } else {
+                          clearPlayer();
+                        }
+                      }
+                    }}
+                    placeholder="Search player"
+                    className="h-7 w-full rounded bg-zinc-900 px-3 text-sm text-white placeholder:text-zinc-500"
+                  />
+
+                  {selectedPlayer && (
+                    <button
+                      onClick={clearPlayer}
+                      className="h-7 rounded bg-zinc-900 px-2 text-sm text-zinc-400 hover:text-zinc-200"
+                      aria-label="Clear player"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {isPlayerOpen && filteredPlayers.length > 0 && (
+                <div
+                  ref={listRef}
+                  className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg"
+                >
+                  {filteredPlayers.map((p, i) => (
+                    <button
+                      key={p.name}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => applyPlayer(p.name)}
+                      className={`block w-full px-3 py-2 text-left text-sm text-white ${
+                        i === activeIndex ? "bg-zinc-700" : "hover:bg-zinc-800"
+                      }`}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+
+            {/* Quarter */}
+            <label className="flex items-center gap-2 text-xs text-zinc-500">
+              Quarter
+              <select
+                value={quarter}
+                onChange={(e) =>
+                  update({
+                    playType,
+                    team,
+                    quarter: e.target.value,
+                    result: playType === DEFAULT_PLAY_TYPE ? shotResult : DEFAULT_RESULT,
+                    player: selectedPlayer,
+                  })
+                }
+                className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
+              >
+                <option value="">All</option>
+                <option value="1">Q1</option>
+                <option value="2">Q2</option>
+                <option value="3">Q3</option>
+                <option value="4">Q4</option>
+                <option value="5">OT1</option>
+                <option value="6">OT2</option>
+                <option value="7">OT3</option>
+              </select>
+            </label>
+
+            {/* Shot Result — only when Play Type is shots */}
+            {playType === DEFAULT_PLAY_TYPE && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-zinc-500">Shot Result</span>
+                <div className="flex gap-1">
+                  {[DEFAULT_RESULT, "Made", "Missed"].map((value) => (
+                    <button
+                      key={value}
+                      onClick={() =>
+                        update({
+                          playType,
+                          team,
+                          quarter,
+                          result: value,
+                          player: selectedPlayer,
+                        })
+                      }
+                      className={`rounded px-3 py-0.5 text-sm ${
+                        shotResult === value
+                          ? "bg-white text-black"
+                          : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
+                      }`}
+                    >
+                      {value}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Clear all filters inside panel */}
+            {isFiltered && (
+              <button
+                onClick={clearFilters}
+                className="h-7 rounded bg-zinc-800 px-3 text-sm text-zinc-300 hover:bg-zinc-700"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

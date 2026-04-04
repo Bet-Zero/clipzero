@@ -92,11 +92,8 @@ function getTodayString() {
 function ClipsFallback() {
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3 border-b border-zinc-800 px-4 py-3">
-        <div className="h-9 w-28 animate-pulse rounded bg-zinc-900" />
-        <div className="h-9 w-28 animate-pulse rounded bg-zinc-900" />
-        <div className="h-9 w-28 animate-pulse rounded bg-zinc-900" />
-        <div className="h-9 w-40 animate-pulse rounded bg-zinc-900" />
+      <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-1.5">
+        <div className="h-8 w-20 animate-pulse rounded bg-zinc-900" />
       </div>
       <div className="mx-auto max-w-3xl px-4 py-4">
         {/* rail skeleton */}
@@ -273,7 +270,7 @@ export default async function Home({
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-4">
+      <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-2">
         <SeasonSelector selectedSeason={selectedSeason} />
         <DatePicker selectedDate={selectedDate} selectedSeason={selectedSeason} />
         <GameSelector games={games} selectedGameId={selectedGameId} />
