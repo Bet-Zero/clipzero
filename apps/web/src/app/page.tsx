@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import ClipFeed from "@/components/ClipFeed";
+import ClipFeedPaginated from "@/components/ClipFeedPaginated";
 import DatePicker from "@/components/DatePicker";
 import FilterBar from "@/components/FilterBar";
 import GameSelector from "@/components/GameSelector";
@@ -66,16 +66,36 @@ async function getClips(
   playType?: string,
   quarter?: string,
   team?: string,
-): Promise<{ clips: Clip[]; total: number; players: Player[] }> {
+  offset?: number,
+): Promise<{
+  clips: Clip[];
+  total: number;
+  players: Player[];
+  offset: number;
+  limit: number;
+  hasMore: boolean;
+  nextOffset: number | null;
+}> {
   const search = new URLSearchParams();
   search.set("gameId", gameId);
   search.set("limit", String(limit));
+  search.set("offset", String(offset ?? 0));
 
   if (player) search.set("player", player);
   if (result && result !== "all") search.set("result", result);
   if (playType) search.set("playType", playType);
   if (quarter) search.set("quarter", quarter);
   if (team) search.set("team", team);
+
+  const empty = {
+    clips: [] as Clip[],
+    total: 0,
+    players: [] as Player[],
+    offset: offset ?? 0,
+    limit,
+    hasMore: false,
+    nextOffset: null,
+  };
 
   try {
     const res = await fetch(
@@ -84,15 +104,19 @@ async function getClips(
         cache: "no-store",
       },
     );
-    if (!res.ok) return { clips: [], total: 0, players: [] };
+    if (!res.ok) return empty;
     const data = await res.json();
     return {
       clips: data.clips ?? [],
       total: data.total ?? 0,
       players: data.players ?? [],
+      offset: data.offset ?? offset ?? 0,
+      limit: data.limit ?? limit,
+      hasMore: data.hasMore ?? false,
+      nextOffset: data.nextOffset ?? null,
     };
   } catch {
-    return { clips: [], total: 0, players: [] };
+    return empty;
   }
 }
 
@@ -171,31 +195,36 @@ async function ClipsSection({
     );
   }
 
-  const { clips, total, players } = await getClips(
-    gameId,
-    limit,
-    player,
-    result,
-    playType,
-    quarter,
-    team,
-  );
+  const {
+    clips,
+    total,
+    players,
+    offset: initialOffset,
+    hasMore: initialHasMore,
+    nextOffset: initialNextOffset,
+  } = await getClips(gameId, limit, player, result, playType, quarter, team);
+
+  const filterKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarter}:${limit}`;
+
   return (
     <>
       <FilterBar players={players} teams={teams} />
 
-      <div className="mx-auto max-w-3xl px-4 pt-2 text-sm text-zinc-400">
-        Showing {clips.length} of {total} clips
-      </div>
-
-      <div className="mx-auto max-w-3xl px-4 pt-1 text-xs text-zinc-500">
-        {team || "All Teams"} • {quarter ? `Q${quarter}` : "All Quarters"} •{" "}
-        {playType}
-        {player ? ` • ${player}` : ""}
-        {playType === "shots" && result !== "all" ? ` • ${result}` : ""}
-      </div>
-
-      <ClipFeed clips={clips} />
+      <ClipFeedPaginated
+        key={filterKey}
+        initialClips={clips}
+        initialTotal={total}
+        initialOffset={initialOffset}
+        initialLimit={limit}
+        initialHasMore={initialHasMore}
+        initialNextOffset={initialNextOffset}
+        gameId={gameId}
+        player={player}
+        result={result}
+        playType={playType}
+        quarter={quarter}
+        team={team}
+      />
     </>
   );
 }
