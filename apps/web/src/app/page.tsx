@@ -272,7 +272,7 @@ export default async function Home({
 
   return (
     <main className="flex min-h-screen flex-col bg-black text-white">
-      <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center gap-3 px-4 py-2">
+      <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center gap-3 px-4 py-2">
         <SeasonSelector selectedSeason={selectedSeason} />
         <DatePicker
           selectedDate={selectedDate}
@@ -282,7 +282,7 @@ export default async function Home({
         <div id="filter-bar-portal" />
       </div>
 
-      <div className="mx-auto mt-2 flex w-full max-w-5xl flex-1 flex-col px-3 pb-3">
+      <div className="mx-auto mt-1.5 flex w-full max-w-4xl flex-1 flex-col px-4 pb-3">
         <div className="flex flex-1 flex-col rounded-xl border border-zinc-800/60 bg-zinc-950/80">
           <Suspense fallback={<ClipsFallback />}>
             <ClipsSection
