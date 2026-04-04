@@ -53,14 +53,18 @@ export default function ClipBrowser({
   const [clips, setClips] = useState<Clip[]>(initialClips);
   const [total, setTotal] = useState(initialTotal);
   const [hasMore, setHasMore] = useState(initialHasMore);
-  const [nextOffset, setNextOffset] = useState<number | null>(initialNextOffset);
+  const [nextOffset, setNextOffset] = useState<number | null>(
+    initialNextOffset,
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Initialize active index from the pinned actionNumber, fall back to 0.
   const [activeIndex, setActiveIndex] = useState(() => {
     if (initialActionNumber === null) return 0;
-    const idx = initialClips.findIndex((c) => c.actionNumber === initialActionNumber);
+    const idx = initialClips.findIndex(
+      (c) => c.actionNumber === initialActionNumber,
+    );
     return idx >= 0 ? idx : 0;
   });
 
@@ -74,7 +78,9 @@ export default function ClipBrowser({
   // clear it from the URL so the address reflects what's actually selected.
   useEffect(() => {
     if (initialActionNumber === null) return;
-    const found = initialClips.some((c) => c.actionNumber === initialActionNumber);
+    const found = initialClips.some(
+      (c) => c.actionNumber === initialActionNumber,
+    );
     if (!found) {
       setActionNumberInUrl(null);
     }
@@ -135,19 +141,6 @@ export default function ClipBrowser({
 
   return (
     <div className="flex flex-col gap-4 px-4 py-4">
-      <div className="text-xs text-zinc-500">
-        <span className="text-sm text-zinc-400">
-          {clips.length} of {total} clips
-        </span>
-        {"  ·  "}
-        {team || "All Teams"} · {quarter ? `Q${quarter}` : "All Quarters"} ·{" "}
-        {playType}
-        {player ? ` · ${player}` : ""}
-        {playType === DEFAULT_PLAY_TYPE && result !== DEFAULT_RESULT
-          ? ` · ${result}`
-          : ""}
-      </div>
-
       <ClipRail
         clips={clips}
         activeIndex={activeIndex}
@@ -160,6 +153,17 @@ export default function ClipBrowser({
 
       <div className="mx-auto w-full max-w-4xl">
         <ClipPlayer clip={clips[activeIndex] ?? null} />
+      </div>
+
+      <div className="text-center text-xs text-zinc-600">
+        {clips.length} of {total} clips
+        {"  ·  "}
+        {team || "All Teams"} · {quarter ? `Q${quarter}` : "All Quarters"} ·{" "}
+        {playType}
+        {player ? ` · ${player}` : ""}
+        {playType === DEFAULT_PLAY_TYPE && result !== DEFAULT_RESULT
+          ? ` · ${result}`
+          : ""}
       </div>
     </div>
   );
