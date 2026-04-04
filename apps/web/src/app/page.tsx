@@ -321,7 +321,7 @@ export default async function Home({
     <main className="min-h-screen bg-black text-white">
       <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-4">
         <SeasonSelector selectedSeason={selectedSeason} />
-        <DatePicker selectedDate={selectedDate} />
+        <DatePicker selectedDate={selectedDate} selectedSeason={selectedSeason} />
         <GameSelector games={games} selectedGameId={selectedGameId} />
       </div>
 
