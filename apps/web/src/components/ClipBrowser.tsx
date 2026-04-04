@@ -140,7 +140,7 @@ export default function ClipBrowser({
   ]);
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-2 px-4 py-3">
+    <div className="flex flex-col gap-4 px-4 py-4">
       <ClipRail
         clips={clips}
         activeIndex={activeIndex}
@@ -151,7 +151,7 @@ export default function ClipBrowser({
         onLoadMore={loadMore}
       />
 
-      <div className="w-full">
+      <div className="mx-auto w-full max-w-4xl">
         <ClipPlayer clip={clips[activeIndex] ?? null} />
       </div>
 
