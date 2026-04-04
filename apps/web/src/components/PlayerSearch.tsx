@@ -22,6 +22,7 @@ export default function PlayerSearch({
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -40,20 +41,31 @@ export default function PlayerSearch({
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (q.trim().length < 2) {
       setResults([]);
+      setSearchError(null);
       setIsOpen(false);
       return;
     }
     debounceRef.current = setTimeout(async () => {
       setLoading(true);
+      setSearchError(null);
       try {
         const params = new URLSearchParams({ q: q.trim(), season });
         const res = await fetch(buildApiUrl("/players", params));
-        if (!res.ok) return;
+        if (!res.ok) {
+          setResults([]);
+          setSearchError(`Search failed (HTTP ${res.status})`);
+          return;
+        }
         const data = await res.json();
         setResults(data.players ?? []);
         setIsOpen(true);
-      } catch {
+      } catch (err) {
         setResults([]);
+        setSearchError(
+          err instanceof TypeError
+            ? "API unavailable — is the backend running on localhost:4000?"
+            : "Search failed",
+        );
       } finally {
         setLoading(false);
       }
@@ -121,6 +133,10 @@ export default function PlayerSearch({
         )}
         {loading && <span className="text-xs text-zinc-500">...</span>}
       </div>
+
+      {searchError && (
+        <p className="mt-1 text-xs text-red-400">{searchError}</p>
+      )}
 
       {isOpen && results.length > 0 && (
         <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg">

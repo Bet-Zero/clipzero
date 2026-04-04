@@ -43,6 +43,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     useState<PlayerSearchResult | null>(null);
   const [gameLog, setGameLog] = useState<PlayerGameLogEntry[]>([]);
   const [gameLogLoading, setGameLogLoading] = useState(false);
+  const [gameLogError, setGameLogError] = useState<string | null>(null);
 
   // Exclusions
   const [excludedGameIds, setExcludedGameIds] = useState<Set<string>>(
@@ -102,6 +103,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   useEffect(() => {
     if (!selectedPlayer) {
       setGameLog([]);
+      setGameLogError(null);
       setClips([]);
       setTotal(0);
       return;
@@ -109,6 +111,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
 
     let cancelled = false;
     setGameLogLoading(true);
+    setGameLogError(null);
 
     (async () => {
       try {
@@ -122,8 +125,15 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
         if (!cancelled) {
           setGameLog(data.games ?? []);
         }
-      } catch {
-        if (!cancelled) setGameLog([]);
+      } catch (err) {
+        if (!cancelled) {
+          setGameLog([]);
+          setGameLogError(
+            err instanceof TypeError
+              ? "API unavailable — is the backend running on localhost:4000?"
+              : `Could not load game log (${err instanceof Error ? err.message : "error"})`,
+          );
+        }
       } finally {
         if (!cancelled) setGameLogLoading(false);
       }
@@ -197,7 +207,11 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
           }
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load clips");
+        setError(
+          err instanceof TypeError
+            ? "API unavailable — is the backend running on localhost:4000?"
+            : `Could not load clips (${err instanceof Error ? err.message : "error"})`,
+        );
       } finally {
         loadingRef.current = false;
         setClipsLoading(false);
@@ -515,6 +529,12 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       {gameLogLoading && (
         <div className="mx-auto max-w-3xl px-4 py-6 text-sm text-zinc-400">
           Loading game log...
+        </div>
+      )}
+
+      {gameLogError && !gameLogLoading && (
+        <div className="mx-auto max-w-3xl px-4 py-2 text-sm text-red-400">
+          {gameLogError}
         </div>
       )}
 

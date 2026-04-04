@@ -6,11 +6,13 @@ import type { Game } from "@/lib/types";
 type GameSelectorProps = {
   games: Game[];
   selectedGameId: string;
+  apiError?: boolean;
 };
 
 export default function GameSelector({
   games,
   selectedGameId,
+  apiError,
 }: GameSelectorProps) {
   const router = useRouter();
   const params = useSearchParams();
@@ -21,7 +23,11 @@ export default function GameSelector({
         className="h-9 rounded bg-zinc-900 px-3 text-sm text-zinc-500 cursor-not-allowed"
         disabled
       >
-        <option>No games for this date</option>
+        <option>
+          {apiError
+            ? "API unavailable — check localhost:4000"
+            : "No games for this date"}
+        </option>
       </select>
     );
   }

@@ -21,7 +21,9 @@ import {
   buildClipSearchParams,
 } from "@/lib/filters";
 
-async function getGames(date?: string): Promise<Game[]> {
+async function getGames(
+  date?: string,
+): Promise<{ games: Game[]; apiError: boolean }> {
   const search = new URLSearchParams();
   if (date) search.set("date", date);
 
@@ -32,13 +34,15 @@ async function getGames(date?: string): Promise<Game[]> {
         cache: "no-store",
       },
     );
-    if (!res.ok) return [];
+    if (!res.ok) return { games: [], apiError: true };
     const data = await res.json();
-    return data.games ?? [];
+    return { games: data.games ?? [], apiError: false };
   } catch {
-    return [];
+    return { games: [], apiError: true };
   }
 }
+
+type ClipsResult = ClipsResponse & { apiError: boolean };
 
 async function getClips(
   gameId: string,
@@ -50,7 +54,7 @@ async function getClips(
   team?: string,
   offset?: number,
   actionNumber?: number | null,
-): Promise<ClipsResponse> {
+): Promise<ClipsResult> {
   const search = buildClipSearchParams({
     gameId,
     limit,
@@ -63,7 +67,7 @@ async function getClips(
     actionNumber,
   });
 
-  const empty: ClipsResponse = {
+  const empty: ClipsResult = {
     clips: [],
     total: 0,
     players: [],
@@ -71,13 +75,14 @@ async function getClips(
     limit,
     hasMore: false,
     nextOffset: null,
+    apiError: false,
   };
 
   try {
     const res = await fetch(buildApiUrl("/clips/game", search), {
       cache: "no-store",
     });
-    if (!res.ok) return empty;
+    if (!res.ok) return { ...empty, apiError: true };
     const data = await res.json();
     return {
       clips: data.clips ?? [],
@@ -88,9 +93,10 @@ async function getClips(
       hasMore: data.hasMore ?? false,
       nextOffset: data.nextOffset ?? null,
       targetIndex: data.targetIndex ?? undefined,
+      apiError: false,
     };
   } catch {
-    return empty;
+    return { ...empty, apiError: true };
   }
 }
 
@@ -120,6 +126,7 @@ function ClipsFallback() {
 
 async function ClipsSection({
   gameId,
+  gamesApiError,
   limit,
   player,
   result,
@@ -130,6 +137,7 @@ async function ClipsSection({
   actionNumber,
 }: {
   gameId: string;
+  gamesApiError: boolean;
   limit: number;
   player: string;
   result: string;
@@ -139,6 +147,17 @@ async function ClipsSection({
   teams: string[];
   actionNumber: number | null;
 }) {
+  if (gamesApiError) {
+    return (
+      <>
+        <FilterBar players={[]} teams={[]} />
+        <div className="mx-auto max-w-3xl px-4 py-6 text-sm text-red-400">
+          API unavailable — is the backend running on localhost:4000?
+        </div>
+      </>
+    );
+  }
+
   if (!gameId) {
     return (
       <>
@@ -150,14 +169,7 @@ async function ClipsSection({
     );
   }
 
-  const {
-    clips,
-    total,
-    players,
-    offset: initialOffset,
-    hasMore: initialHasMore,
-    nextOffset: initialNextOffset,
-  } = await getClips(
+  const clipsData = await getClips(
     gameId,
     limit,
     player,
@@ -168,6 +180,25 @@ async function ClipsSection({
     undefined,
     actionNumber,
   );
+
+  if (clipsData.apiError) {
+    return (
+      <>
+        <FilterBar players={[]} teams={[]} />
+        <div className="mx-auto max-w-3xl px-4 py-6 text-sm text-red-400">
+          Could not load clips — is the backend running on localhost:4000?
+        </div>
+      </>
+    );
+  }
+
+  const {
+    clips,
+    total,
+    players,
+    hasMore: initialHasMore,
+    nextOffset: initialNextOffset,
+  } = clipsData;
 
   const filterKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarter}:${limit}`;
 
@@ -250,7 +281,7 @@ export default async function Home({
       ? params.date
       : seasonDefault;
 
-  const games = await getGames(selectedDate);
+  const { games, apiError: gamesApiError } = await getGames(selectedDate);
 
   // Canonicalize URL: redirect whenever the resolved state diverges from the raw params.
   // Triggers when: season was inferred or coerced, date was inferred or corrected, or
@@ -319,13 +350,14 @@ export default async function Home({
           selectedDate={selectedDate}
           selectedSeason={selectedSeason}
         />
-        <GameSelector games={games} selectedGameId={selectedGameId} />
+        <GameSelector games={games} selectedGameId={selectedGameId} apiError={gamesApiError} />
         <div id="filter-bar-portal" />
       </div>
 
       <Suspense fallback={<ClipsFallback />}>
         <ClipsSection
           gameId={selectedGameId}
+          gamesApiError={gamesApiError}
           limit={limit}
           player={playerFilter}
           result={resultFilter}

@@ -150,7 +150,11 @@ export default function ClipBrowser({
       setHasMore(data.hasMore ?? false);
       setNextOffset(data.nextOffset ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load clips");
+      setError(
+        err instanceof TypeError
+          ? "API unavailable — is the backend running on localhost:4000?"
+          : `Could not load clips (${err instanceof Error ? err.message : "error"})`,
+      );
     } finally {
       loadingRef.current = false;
       setLoading(false);
