@@ -156,11 +156,19 @@ const ClipRailItem = forwardRef<HTMLButtonElement, Props>(
                     const isMade = clip.shotResult === "Made";
                     return (
                       <>
-                        <span className={isMade && !isHome ? "font-bold text-white" : ""}>
+                        <span
+                          className={
+                            isMade && !isHome ? "font-bold text-white" : ""
+                          }
+                        >
                           {clip.scoreAway}
                         </span>
                         –
-                        <span className={isMade && isHome ? "font-bold text-white" : ""}>
+                        <span
+                          className={
+                            isMade && isHome ? "font-bold text-white" : ""
+                          }
+                        >
                           {clip.scoreHome}
                         </span>
                       </>
