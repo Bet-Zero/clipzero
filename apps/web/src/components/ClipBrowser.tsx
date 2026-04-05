@@ -23,6 +23,9 @@ type Props = {
   playType: string;
   quarter: string;
   team: string;
+  shotValue: string;
+  subType: string;
+  distanceBucket: string;
   initialActionNumber: number | null;
 };
 
@@ -48,6 +51,9 @@ export default function ClipBrowser({
   playType,
   quarter,
   team,
+  shotValue,
+  subType,
+  distanceBucket,
   initialActionNumber,
 }: Props) {
   const [clips, setClips] = useState<Clip[]>(initialClips);
@@ -139,6 +145,9 @@ export default function ClipBrowser({
         playType,
         quarter,
         team,
+        shotValue,
+        subType,
+        distanceBucket,
       });
 
       const res = await fetch(buildApiUrl("/clips/game", search));
@@ -168,6 +177,9 @@ export default function ClipBrowser({
     playType,
     quarter,
     team,
+    shotValue,
+    subType,
+    distanceBucket,
     initialLimit,
   ]);
 

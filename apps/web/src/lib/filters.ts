@@ -12,6 +12,9 @@ type ClipQueryParams = {
   playType?: string;
   quarter?: string;
   team?: string;
+  shotValue?: string;
+  subType?: string;
+  distanceBucket?: string;
   actionNumber?: number | null;
 };
 
@@ -28,6 +31,9 @@ export function buildClipSearchParams(
   if (params.playType) search.set("playType", params.playType);
   if (params.quarter) search.set("quarter", params.quarter);
   if (params.team) search.set("team", params.team);
+  if (params.shotValue) search.set("shotValue", params.shotValue);
+  if (params.subType) search.set("subType", params.subType);
+  if (params.distanceBucket) search.set("distanceBucket", params.distanceBucket);
   if (params.actionNumber)
     search.set("actionNumber", String(params.actionNumber));
   return search;
@@ -41,6 +47,9 @@ type PlayerClipQueryParams = {
   playType?: string;
   result?: string;
   quarter?: string;
+  shotValue?: string;
+  subType?: string;
+  distanceBucket?: string;
   excludeDates?: string[];
   excludeGameIds?: string[];
   actionNumber?: number | null;
@@ -58,6 +67,9 @@ export function buildPlayerClipSearchParams(
   if (params.result && params.result !== DEFAULT_RESULT)
     search.set("result", params.result);
   if (params.quarter) search.set("quarter", params.quarter);
+  if (params.shotValue) search.set("shotValue", params.shotValue);
+  if (params.subType) search.set("subType", params.subType);
+  if (params.distanceBucket) search.set("distanceBucket", params.distanceBucket);
   if (params.excludeDates && params.excludeDates.length > 0)
     search.set("excludeDates", params.excludeDates.join(","));
   if (params.excludeGameIds && params.excludeGameIds.length > 0)
@@ -91,6 +103,9 @@ export function parsePlayerModeParams(
     playType: params.get("playType") || DEFAULT_PLAY_TYPE,
     result: params.get("result") || DEFAULT_RESULT,
     quarter: params.get("quarter") || "",
+    shotValue: params.get("shotValue") || "",
+    subType: params.get("subType") || "",
+    distanceBucket: params.get("distanceBucket") || "",
     excludedGameIds: parseCommaSeparatedSet(params.get("excludeGameIds")),
     excludedDates: parseCommaSeparatedSet(params.get("excludeDates")),
     actionNumber: actionNumberStr ? Number(actionNumberStr) : null,
@@ -117,6 +132,9 @@ export function buildPlayerModeUrl(
   if (state.result && state.result !== DEFAULT_RESULT)
     search.set("result", state.result);
   if (state.quarter) search.set("quarter", state.quarter);
+  if (state.shotValue) search.set("shotValue", state.shotValue);
+  if (state.subType) search.set("subType", state.subType);
+  if (state.distanceBucket) search.set("distanceBucket", state.distanceBucket);
 
   const gameIds = [...state.excludedGameIds].filter(Boolean);
   if (gameIds.length > 0) search.set("excludeGameIds", gameIds.join(","));

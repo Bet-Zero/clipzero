@@ -48,6 +48,9 @@ async function getClips(
   playType?: string,
   quarter?: string,
   team?: string,
+  shotValue?: string,
+  subType?: string,
+  distanceBucket?: string,
   offset?: number,
   actionNumber?: number | null,
 ): Promise<ClipsResult> {
@@ -60,6 +63,9 @@ async function getClips(
     playType,
     quarter,
     team,
+    shotValue,
+    subType,
+    distanceBucket,
     actionNumber,
   });
 
@@ -130,6 +136,9 @@ async function ClipsSection({
   quarter,
   team,
   teams,
+  shotValue,
+  subType,
+  distanceBucket,
   actionNumber,
 }: {
   gameId: string;
@@ -141,6 +150,9 @@ async function ClipsSection({
   quarter: string;
   team: string;
   teams: string[];
+  shotValue: string;
+  subType: string;
+  distanceBucket: string;
   actionNumber: number | null;
 }) {
   if (gamesApiError) {
@@ -173,6 +185,9 @@ async function ClipsSection({
     playType,
     quarter,
     team,
+    shotValue,
+    subType,
+    distanceBucket,
     undefined,
     actionNumber,
   );
@@ -196,7 +211,7 @@ async function ClipsSection({
     nextOffset: initialNextOffset,
   } = clipsData;
 
-  const filterKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarter}:${limit}`;
+  const filterKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarter}:${shotValue}:${subType}:${distanceBucket}:${limit}`;
 
   return (
     <>
@@ -215,6 +230,9 @@ async function ClipsSection({
         playType={playType}
         quarter={quarter}
         team={team}
+        shotValue={shotValue}
+        subType={subType}
+        distanceBucket={distanceBucket}
         initialActionNumber={actionNumber}
       />
     </>
@@ -236,6 +254,9 @@ export default async function Home({
     team?: string;
     season?: string;
     actionNumber?: string;
+    shotValue?: string;
+    subType?: string;
+    distanceBucket?: string;
     personId?: string;
     playerName?: string;
     teamTricode?: string;
@@ -301,6 +322,10 @@ export default async function Home({
     if (params.playType) canonical.set("playType", params.playType);
     if (params.quarter) canonical.set("quarter", params.quarter);
     if (params.result) canonical.set("result", params.result);
+    if (params.shotValue) canonical.set("shotValue", params.shotValue);
+    if (params.subType) canonical.set("subType", params.subType);
+    if (params.distanceBucket)
+      canonical.set("distanceBucket", params.distanceBucket);
     // Keep gameId only if it resolves to a real game; drop player/team/actionNumber when gameId is dropped
     if (gameIdIsValid && params.gameId) {
       canonical.set("gameId", params.gameId);
@@ -321,6 +346,9 @@ export default async function Home({
   const playType = params.playType || DEFAULT_PLAY_TYPE;
   const quarter = params.quarter || "";
   const team = params.team || "";
+  const shotValue = params.shotValue || "";
+  const subType = params.subType || "";
+  const distanceBucket = params.distanceBucket || "";
 
   const selectedGame = selectedGameId
     ? games.find((game) => game.gameId === selectedGameId)
@@ -359,6 +387,9 @@ export default async function Home({
           quarter={quarter}
           team={team}
           teams={teams}
+          shotValue={shotValue}
+          subType={subType}
+          distanceBucket={distanceBucket}
           actionNumber={actionNumber}
         />
       </Suspense>

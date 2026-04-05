@@ -109,6 +109,25 @@ async function mapWithConcurrency<T, R>(
 app.use(cors());
 app.use(express.json());
 
+function matchesDistanceBucket(
+  distance: number | undefined,
+  bucket: string,
+): boolean {
+  if (distance === undefined || distance === null) return false;
+  switch (bucket) {
+    case "0-9":
+      return distance >= 0 && distance <= 9;
+    case "10-19":
+      return distance >= 10 && distance <= 19;
+    case "20-29":
+      return distance >= 20 && distance <= 29;
+    case "30+":
+      return distance >= 30;
+    default:
+      return true;
+  }
+}
+
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
@@ -228,6 +247,19 @@ app.get("/clips/game", async (req, res) => {
     const quarter =
       Number.isFinite(quarterParam) && quarterParam > 0 ? quarterParam : 0;
 
+    const shotValue =
+      typeof req.query.shotValue === "string"
+        ? req.query.shotValue.trim().toLowerCase()
+        : "";
+
+    const subType =
+      typeof req.query.subType === "string" ? req.query.subType.trim() : "";
+
+    const distanceBucket =
+      typeof req.query.distanceBucket === "string"
+        ? req.query.distanceBucket.trim()
+        : "";
+
     const actionNumberParam =
       typeof req.query.actionNumber === "string"
         ? Number(req.query.actionNumber)
@@ -237,7 +269,7 @@ app.get("/clips/game", async (req, res) => {
         ? actionNumberParam
         : null;
 
-    const cacheKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarter}:${limit}:${offset}`;
+    const cacheKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarter}:${shotValue}:${subType}:${distanceBucket}:${limit}:${offset}`;
     // Bypass response cache when an actionNumber lookup is requested,
     // since targetIndex is not part of the cached payload.
     if (!targetActionNumber) {
@@ -265,7 +297,21 @@ app.get("/clips/game", async (req, res) => {
       const matchesResult =
         playType !== "shots" || result === "all" || shot.shotResult === result;
       const matchesQuarter = !quarter || shot.period === quarter;
-      return matchesTeam && matchesResult && matchesQuarter;
+      const matchesShotValue =
+        !shotValue || shot.actionType?.toLowerCase() === shotValue;
+      const matchesSubType =
+        !subType ||
+        shot.subType?.toLowerCase() === subType.toLowerCase();
+      const matchesDistance =
+        !distanceBucket || matchesDistanceBucket(shot.shotDistance, distanceBucket);
+      return (
+        matchesTeam &&
+        matchesResult &&
+        matchesQuarter &&
+        matchesShotValue &&
+        matchesSubType &&
+        matchesDistance
+      );
     });
 
     const playerMap = new Map<string, { name: string; teamTricode: string }>();
@@ -523,6 +569,19 @@ app.get("/clips/player", async (req, res) => {
     const quarter =
       Number.isFinite(quarterParam) && quarterParam > 0 ? quarterParam : 0;
 
+    const shotValue =
+      typeof req.query.shotValue === "string"
+        ? req.query.shotValue.trim().toLowerCase()
+        : "";
+
+    const subType =
+      typeof req.query.subType === "string" ? req.query.subType.trim() : "";
+
+    const distanceBucket =
+      typeof req.query.distanceBucket === "string"
+        ? req.query.distanceBucket.trim()
+        : "";
+
     const limitParam =
       typeof req.query.limit === "string" ? Number(req.query.limit) : 12;
     const limit =
@@ -559,7 +618,7 @@ app.get("/clips/player", async (req, res) => {
         : null;
 
     // Check response cache (bypass when actionNumber lookup is requested)
-    const cacheKey = `${personId}:${season}:${playType}:${result}:${quarter}:${limit}:${offset}:${[...excludeDates].sort().join(",")}:${[...excludeGameIds].sort().join(",")}`;
+    const cacheKey = `${personId}:${season}:${playType}:${result}:${quarter}:${shotValue}:${subType}:${distanceBucket}:${limit}:${offset}:${[...excludeDates].sort().join(",")}:${[...excludeGameIds].sort().join(",")}`;
     if (!targetActionNumber) {
       const cached = playerClipCache.get(cacheKey);
       if (cached) {
@@ -666,7 +725,21 @@ app.get("/clips/player", async (req, res) => {
         result === "all" ||
         action.shotResult === result;
       const matchesQuarter = !quarter || action.period === quarter;
-      return matchesResult && matchesQuarter;
+      const matchesShotValue =
+        !shotValue || action.actionType?.toLowerCase() === shotValue;
+      const matchesSubType =
+        !subType ||
+        action.subType?.toLowerCase() === subType.toLowerCase();
+      const matchesDistance =
+        !distanceBucket ||
+        matchesDistanceBucket(action.shotDistance, distanceBucket);
+      return (
+        matchesResult &&
+        matchesQuarter &&
+        matchesShotValue &&
+        matchesSubType &&
+        matchesDistance
+      );
     });
 
     const total = filteredActions.length;

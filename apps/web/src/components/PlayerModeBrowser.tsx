@@ -21,16 +21,7 @@ import ClipPlayer from "@/components/ClipPlayer";
 import ClipRail from "@/components/ClipRail";
 import PlayerSearch from "@/components/PlayerSearch";
 import PlayerGameList from "@/components/PlayerGameList";
-
-const PLAY_TYPES = [
-  DEFAULT_PLAY_TYPE,
-  "assists",
-  "rebounds",
-  "turnovers",
-  "fouls",
-  "steals",
-  "blocks",
-];
+import { PLAY_TYPES, getFiltersForPlayType } from "@/lib/filterConfig";
 
 function setActionNumberInUrl(actionNumber: number | null) {
   const url = new URL(window.location.href);
@@ -73,6 +64,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   const playType = params.get("playType") || DEFAULT_PLAY_TYPE;
   const result = params.get("result") || DEFAULT_RESULT;
   const quarter = params.get("quarter") || "";
+  const shotValue = params.get("shotValue") || "";
+  const subType = params.get("subType") || "";
+  const distanceBucket = params.get("distanceBucket") || "";
 
   const limit = 12;
 
@@ -174,6 +168,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
           playType,
           result,
           quarter,
+          shotValue,
+          subType,
+          distanceBucket,
           excludeDates: [...excludedDates],
           excludeGameIds: [...excludedGameIds],
         });
@@ -227,6 +224,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       playType,
       result,
       quarter,
+      shotValue,
+      subType,
+      distanceBucket,
       excludedDates,
       excludedGameIds,
     ],
@@ -244,6 +244,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     playType,
     result,
     quarter,
+    shotValue,
+    subType,
+    distanceBucket,
     // Serialize exclusion sets so effect re-fires on changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [...excludedGameIds].sort().join(","),
@@ -355,7 +358,10 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     const hasFilterChange =
       "playType" in overrides ||
       "result" in overrides ||
-      "quarter" in overrides;
+      "quarter" in overrides ||
+      "shotValue" in overrides ||
+      "subType" in overrides ||
+      "distanceBucket" in overrides;
 
     return {
       player:
@@ -363,6 +369,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       playType: overrides.playType ?? playType,
       result: overrides.result ?? result,
       quarter: overrides.quarter ?? quarter,
+      shotValue: overrides.shotValue ?? shotValue,
+      subType: overrides.subType ?? subType,
+      distanceBucket: overrides.distanceBucket ?? distanceBucket,
       excludedGameIds: overrides.excludedGameIds ?? excludedGameIds,
       excludedDates: overrides.excludedDates ?? excludedDates,
       actionNumber:
@@ -444,6 +453,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                     navigateTo({
                       playType: e.target.value,
                       result: DEFAULT_RESULT,
+                      shotValue: "",
+                      subType: "",
+                      distanceBucket: "",
                     })
                   }
                   className="h-9 shrink-0 rounded bg-zinc-900 px-3 text-sm text-white"
@@ -466,6 +478,30 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                     <option value="Missed">Missed</option>
                   </select>
                 )}
+
+                {/* Play-type-specific filters from filterConfig */}
+                {getFiltersForPlayType(playType).map((filter) => {
+                  const currentValue =
+                    params.get(filter.param) || filter.defaultValue;
+                  return (
+                    <select
+                      key={filter.id}
+                      value={currentValue}
+                      onChange={(e) =>
+                        navigateTo({
+                          [filter.param]: e.target.value,
+                        } as Partial<PlayerModeFilterState>)
+                      }
+                      className="h-9 shrink-0 rounded bg-zinc-900 px-3 text-sm text-white"
+                    >
+                      {filter.options.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  );
+                })}
 
                 <select
                   value={quarter}

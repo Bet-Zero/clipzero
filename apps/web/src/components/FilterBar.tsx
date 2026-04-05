@@ -5,16 +5,11 @@ import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Player } from "@/lib/types";
 import { DEFAULT_PLAY_TYPE, DEFAULT_RESULT } from "@/lib/filters";
-
-const PLAY_TYPES = [
-  DEFAULT_PLAY_TYPE,
-  "assists",
-  "rebounds",
-  "turnovers",
-  "fouls",
-  "steals",
-  "blocks",
-];
+import {
+  PLAY_TYPES,
+  PLAY_TYPE_SPECIFIC_PARAMS,
+  getFiltersForPlayType,
+} from "@/lib/filterConfig";
 
 export default function FilterBar({
   players,
@@ -26,14 +21,24 @@ export default function FilterBar({
   const router = useRouter();
   const params = useSearchParams();
 
-  const shotResult = params.get("result") || DEFAULT_RESULT;
-  const selectedPlayer = params.get("player") || "";
+  // Persistent URL context — not filter state
   const date = params.get("date") || "";
   const gameId = params.get("gameId") || "";
   const season = params.get("season") || "";
+
+  // Universal filters
   const playType = params.get("playType") || DEFAULT_PLAY_TYPE;
   const quarter = params.get("quarter") || "";
   const team = params.get("team") || "";
+  const selectedPlayer = params.get("player") || "";
+
+  // Shot-specific filters
+  const shotResult = params.get("result") || DEFAULT_RESULT;
+
+  // Play-type-specific filters from config
+  const shotValue = params.get("shotValue") || "";
+  const subType = params.get("subType") || "";
+  const distanceBucket = params.get("distanceBucket") || "";
 
   const [playerInput, setPlayerInput] = useState(selectedPlayer);
   const [isPlayerOpen, setIsPlayerOpen] = useState(false);
@@ -44,12 +49,10 @@ export default function FilterBar({
   const panelRef = useRef<HTMLDivElement>(null);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 
-  // Find portal target on mount
   useEffect(() => {
     setPortalTarget(document.getElementById("filter-bar-portal"));
   }, []);
 
-  // Close floating panel on outside click
   useEffect(() => {
     if (!isOverflowOpen) return;
     function handleOutside(e: MouseEvent) {
@@ -71,40 +74,61 @@ export default function FilterBar({
     setIsPlayerOpen(false);
   }, [selectedPlayer, gameId, team, playType, quarter]);
 
-  // Reset highlight whenever the visible list changes
   useEffect(() => {
     setActiveIndex(-1);
   }, [playerInput]);
 
-  function update(paramsObj: Record<string, string | null>) {
+  // Build a URL with the given overrides merged into current filter state.
+  // Omitting a key preserves its current value; passing "" clears it.
+  function navigate(overrides: Record<string, string>) {
     const search = new URLSearchParams();
-
     if (season) search.set("season", season);
     if (date) search.set("date", date);
     if (gameId) search.set("gameId", gameId);
 
-    Object.entries(paramsObj).forEach(([key, value]) => {
-      if (value && value !== DEFAULT_RESULT) {
-        search.set(key, value);
-      }
-    });
+    const state: Record<string, string> = {
+      playType,
+      team,
+      quarter,
+      player: selectedPlayer,
+      result: shotResult,
+      shotValue,
+      subType,
+      distanceBucket,
+      ...overrides,
+    };
+
+    if (state.playType && state.playType !== DEFAULT_PLAY_TYPE)
+      search.set("playType", state.playType);
+    if (state.team) search.set("team", state.team);
+    if (state.player) search.set("player", state.player);
+    if (state.quarter) search.set("quarter", state.quarter);
+    if (state.result && state.result !== DEFAULT_RESULT)
+      search.set("result", state.result);
+    if (state.shotValue) search.set("shotValue", state.shotValue);
+    if (state.subType) search.set("subType", state.subType);
+    if (state.distanceBucket) search.set("distanceBucket", state.distanceBucket);
 
     router.push(`/?${search.toString()}`);
   }
 
+  // When play type changes, clear every play-type-specific param.
+  function changePlayType(newPlayType: string) {
+    const clears = Object.fromEntries(
+      PLAY_TYPE_SPECIFIC_PARAMS.map((p) => [p, ""]),
+    );
+    navigate({ ...clears, playType: newPlayType, player: "" });
+  }
+
   const filteredPlayers = useMemo(() => {
     const q = playerInput.trim().toLowerCase();
-
     if (!q) return players.slice(0, 8);
-
     const queryParts = q.split(/\s+/).filter(Boolean);
-
     return players
       .filter((p) => {
         const name = p.name.toLowerCase();
         const nameParts = name.split(/\s+/).filter(Boolean);
         const reversedName = nameParts.slice().reverse().join(" ");
-
         return (
           name.includes(q) ||
           reversedName.includes(q) ||
@@ -119,27 +143,13 @@ export default function FilterBar({
   function applyPlayer(name: string) {
     setPlayerInput(name);
     setIsPlayerOpen(false);
-
-    update({
-      playType,
-      team,
-      quarter,
-      player: name,
-      result: playType === DEFAULT_PLAY_TYPE ? shotResult : DEFAULT_RESULT,
-    });
+    navigate({ player: name });
   }
 
   function clearPlayer() {
     setPlayerInput("");
     setIsPlayerOpen(false);
-
-    update({
-      playType,
-      team,
-      quarter,
-      player: "",
-      result: playType === DEFAULT_PLAY_TYPE ? shotResult : DEFAULT_RESULT,
-    });
+    navigate({ player: "" });
   }
 
   const isFiltered =
@@ -147,15 +157,20 @@ export default function FilterBar({
     shotResult !== DEFAULT_RESULT ||
     quarter !== "" ||
     selectedPlayer !== "" ||
-    team !== "";
+    team !== "" ||
+    shotValue !== "" ||
+    subType !== "" ||
+    distanceBucket !== "";
 
-  // Count of all active clip filters
   const activeFilterCount =
     (playType !== DEFAULT_PLAY_TYPE ? 1 : 0) +
     (team !== "" ? 1 : 0) +
     (selectedPlayer !== "" ? 1 : 0) +
     (quarter !== "" ? 1 : 0) +
-    (shotResult !== DEFAULT_RESULT && playType === DEFAULT_PLAY_TYPE ? 1 : 0);
+    (shotResult !== DEFAULT_RESULT && playType === DEFAULT_PLAY_TYPE ? 1 : 0) +
+    (shotValue !== "" ? 1 : 0) +
+    (subType !== "" ? 1 : 0) +
+    (distanceBucket !== "" ? 1 : 0);
 
   function clearFilters() {
     const search = new URLSearchParams();
@@ -168,9 +183,10 @@ export default function FilterBar({
     router.push(`/?${search.toString()}`);
   }
 
+  const playTypeFilters = getFiltersForPlayType(playType);
+
   return (
     <div className="relative" style={{ height: 0, overflow: "visible" }}>
-      {/* Trigger — portaled into the top-bar alongside Season / Date / Game */}
       {portalTarget &&
         createPortal(
           <div ref={triggerRef} className="flex items-center gap-2">
@@ -178,23 +194,11 @@ export default function FilterBar({
             {players.length > 0 && (
               <select
                 value={selectedPlayer}
-                onChange={(e) =>
-                  update({
-                    playType,
-                    team,
-                    quarter,
-                    player: e.target.value,
-                    result:
-                      playType === DEFAULT_PLAY_TYPE
-                        ? shotResult
-                        : DEFAULT_RESULT,
-                  })
-                }
+                onChange={(e) => navigate({ player: e.target.value })}
                 className="h-8 rounded bg-zinc-900 px-2 text-sm text-white"
               >
                 <option value="">All Players</option>
                 {(() => {
-                  // Derive unique tricodes from players, ordered by the teams prop
                   const playerTricodes = Array.from(
                     new Set(players.map((p) => p.teamTricode ?? "")),
                   );
@@ -207,7 +211,6 @@ export default function FilterBar({
                   const ungrouped = players.filter(
                     (p) => !p.teamTricode || p.teamTricode === "",
                   );
-
                   return (
                     <>
                       {orderedTricodes.map((t) => {
@@ -265,7 +268,7 @@ export default function FilterBar({
           portalTarget,
         )}
 
-      {/* Floating filter panel — overlays content, never pushes it down */}
+      {/* Floating filter panel */}
       {isOverflowOpen && (
         <div
           ref={panelRef}
@@ -277,15 +280,7 @@ export default function FilterBar({
               Play Type
               <select
                 value={playType}
-                onChange={(e) =>
-                  update({
-                    playType: e.target.value,
-                    team,
-                    quarter,
-                    result: DEFAULT_RESULT,
-                    player: "",
-                  })
-                }
+                onChange={(e) => changePlayType(e.target.value)}
                 className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
               >
                 {PLAY_TYPES.map((value) => (
@@ -301,18 +296,7 @@ export default function FilterBar({
               Team
               <select
                 value={team}
-                onChange={(e) =>
-                  update({
-                    playType,
-                    quarter,
-                    team: e.target.value,
-                    result:
-                      playType === DEFAULT_PLAY_TYPE
-                        ? shotResult
-                        : DEFAULT_RESULT,
-                    player: "",
-                  })
-                }
+                onChange={(e) => navigate({ team: e.target.value, player: "" })}
                 className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
               >
                 <option value="">All Teams</option>
@@ -350,7 +334,6 @@ export default function FilterBar({
                         );
                         return;
                       }
-
                       if (e.key === "ArrowUp") {
                         e.preventDefault();
                         if (!isPlayerOpen) setIsPlayerOpen(true);
@@ -363,7 +346,6 @@ export default function FilterBar({
                         );
                         return;
                       }
-
                       if (e.key === "Enter") {
                         e.preventDefault();
                         if (isPlayerOpen && activeIndex >= 0) {
@@ -378,7 +360,6 @@ export default function FilterBar({
                         }
                         return;
                       }
-
                       if (e.key === "Escape") {
                         if (isPlayerOpen) {
                           setIsPlayerOpen(false);
@@ -391,7 +372,6 @@ export default function FilterBar({
                     placeholder="Search player"
                     className="h-7 w-full rounded bg-zinc-900 px-3 text-sm text-white placeholder:text-zinc-500"
                   />
-
                   {selectedPlayer && (
                     <button
                       onClick={clearPlayer}
@@ -430,18 +410,7 @@ export default function FilterBar({
               Quarter
               <select
                 value={quarter}
-                onChange={(e) =>
-                  update({
-                    playType,
-                    team,
-                    quarter: e.target.value,
-                    result:
-                      playType === DEFAULT_PLAY_TYPE
-                        ? shotResult
-                        : DEFAULT_RESULT,
-                    player: selectedPlayer,
-                  })
-                }
+                onChange={(e) => navigate({ quarter: e.target.value })}
                 className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
               >
                 <option value="">All</option>
@@ -455,23 +424,15 @@ export default function FilterBar({
               </select>
             </label>
 
-            {/* Shot Result — only when Play Type is shots */}
+            {/* Shot Result — only for shots */}
             {playType === DEFAULT_PLAY_TYPE && (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500">Shot Result</span>
+                <span className="text-xs text-zinc-500">Result</span>
                 <div className="flex gap-1">
                   {[DEFAULT_RESULT, "Made", "Missed"].map((value) => (
                     <button
                       key={value}
-                      onClick={() =>
-                        update({
-                          playType,
-                          team,
-                          quarter,
-                          result: value,
-                          player: selectedPlayer,
-                        })
-                      }
+                      onClick={() => navigate({ result: value })}
                       className={`rounded px-3 py-0.5 text-sm ${
                         shotResult === value
                           ? "bg-white text-black"
@@ -485,7 +446,60 @@ export default function FilterBar({
               </div>
             )}
 
-            {/* Clear all filters inside panel */}
+            {/* Play-type-specific filters from filterConfig */}
+            {playTypeFilters.map((filter) => {
+              const currentValue =
+                params.get(filter.param) || filter.defaultValue;
+
+              if (filter.style === "buttons") {
+                return (
+                  <div key={filter.id} className="flex items-center gap-2">
+                    <span className="text-xs text-zinc-500">{filter.label}</span>
+                    <div className="flex gap-1">
+                      {filter.options.map((opt) => (
+                        <button
+                          key={opt.value}
+                          onClick={() =>
+                            navigate({ [filter.param]: opt.value })
+                          }
+                          className={`rounded px-3 py-0.5 text-sm ${
+                            currentValue === opt.value
+                              ? "bg-white text-black"
+                              : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <label
+                  key={filter.id}
+                  className="flex items-center gap-2 text-xs text-zinc-500"
+                >
+                  {filter.label}
+                  <select
+                    value={currentValue}
+                    onChange={(e) =>
+                      navigate({ [filter.param]: e.target.value })
+                    }
+                    className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
+                  >
+                    {filter.options.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              );
+            })}
+
+            {/* Clear all */}
             {isFiltered && (
               <button
                 onClick={clearFilters}
