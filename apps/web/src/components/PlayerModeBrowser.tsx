@@ -98,8 +98,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     if (initial.player) setSelectedPlayer(initial.player);
     if (initial.excludedGameIds.size > 0)
       setExcludedGameIds(initial.excludedGameIds);
-    if (initial.excludedDates.size > 0)
-      setExcludedDates(initial.excludedDates);
+    if (initial.excludedDates.size > 0) setExcludedDates(initial.excludedDates);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -459,9 +458,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                 {playType === DEFAULT_PLAY_TYPE && (
                   <select
                     value={result}
-                    onChange={(e) =>
-                      navigateTo({ result: e.target.value })
-                    }
+                    onChange={(e) => navigateTo({ result: e.target.value })}
                     className="h-9 shrink-0 rounded bg-zinc-900 px-3 text-sm text-white"
                   >
                     <option value="all">All Results</option>
@@ -472,9 +469,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
 
                 <select
                   value={quarter}
-                  onChange={(e) =>
-                    navigateTo({ quarter: e.target.value })
-                  }
+                  onChange={(e) => navigateTo({ quarter: e.target.value })}
                   className="h-9 shrink-0 rounded bg-zinc-900 px-3 text-sm text-white"
                 >
                   <option value="">All Quarters</option>
