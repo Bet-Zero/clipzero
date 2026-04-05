@@ -539,21 +539,25 @@ export default function FilterBar({
 
             {/* ── Section 2: Play type + type-specific controls ── */}
             <div className="px-4 py-2.5">
+              <div className="mb-2 text-[10px] uppercase tracking-wider text-zinc-600">
+                Play type
+              </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                {/* Play Type selector — dropdown */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-zinc-500">Play Type</span>
-                  <select
-                    value={playType}
-                    onChange={(e) => changePlayType(e.target.value)}
-                    className="h-7 rounded bg-zinc-800 px-2 text-xs text-white capitalize cursor-pointer hover:bg-zinc-700 transition-colors"
-                  >
-                    {PLAY_TYPES.map((value) => (
-                      <option key={value} value={value} className="capitalize">
-                        {value}
-                      </option>
-                    ))}
-                  </select>
+                {/* Play Type selector */}
+                <div className="flex gap-1">
+                  {PLAY_TYPES.map((value) => (
+                    <button
+                      key={value}
+                      onClick={() => changePlayType(value)}
+                      className={`rounded px-2.5 py-1 text-xs capitalize transition-colors ${
+                        playType === value
+                          ? "bg-white text-black font-medium"
+                          : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
+                      }`}
+                    >
+                      {value}
+                    </button>
+                  ))}
                 </div>
 
                 {/* Play-type-specific filters from filterConfig */}
@@ -700,68 +704,76 @@ export default function FilterBar({
 
             <div className="mx-4 border-t border-zinc-800" />
 
-            {/* ── Section 3: Scope — team, quarter, player ── */}
+            {/* ── Section 3: Scope — team, player, quarter ── */}
             <div className="px-4 py-2.5">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                {/* Team — multi-select dropdown */}
-                <MultiSelectDropdown
-                  label="Team"
-                  summaryLabel={(() => {
-                    const sel = splitMultiValue(team);
-                    if (sel.length === 0) return "All";
-                    return sel.join(", ");
-                  })()}
-                  options={teams.map((t) => ({ label: t, value: t }))}
-                  selectedValues={splitMultiValue(team)}
-                  onToggle={(val) =>
-                    navigate({
-                      team: toggleMultiValue(team, val),
-                      player: "",
-                    })
-                  }
-                  onClear={
-                    team ? () => navigate({ team: "", player: "" }) : undefined
-                  }
-                />
+              <div className="mb-2 text-[10px] uppercase tracking-wider text-zinc-600">
+                Scope
+              </div>
+              <div className="flex flex-wrap items-start gap-x-5 gap-y-2">
+                {/* Team — multi-select toggle buttons */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-500">Team</span>
+                  <div className="flex gap-1">
+                    {teams.map((t) => {
+                      const active = hasMultiValue(team, t);
+                      return (
+                        <button
+                          key={t}
+                          onClick={() =>
+                            navigate({
+                              team: toggleMultiValue(team, t),
+                              player: "",
+                            })
+                          }
+                          className={`rounded px-2.5 py-1 text-xs transition-colors ${
+                            active
+                              ? "bg-white text-black"
+                              : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 <div className="h-5 w-px bg-zinc-800 shrink-0 self-center" />
 
-                {/* Quarter — multi-select dropdown */}
-                <MultiSelectDropdown
-                  label="Quarter"
-                  summaryLabel={(() => {
-                    const sel = splitMultiValue(quarter);
-                    if (sel.length === 0) return "All";
-                    return sel
-                      .map((q) => {
-                        const n = Number(q);
-                        return n >= 1 && n <= 4
-                          ? `Q${n}`
-                          : n >= 5
-                            ? `OT${n - 4}`
-                            : q;
-                      })
-                      .join(", ");
-                  })()}
-                  options={[
-                    { label: "Q1", value: "1" },
-                    { label: "Q2", value: "2" },
-                    { label: "Q3", value: "3" },
-                    { label: "Q4", value: "4" },
-                    { label: "OT1", value: "5" },
-                    { label: "OT2", value: "6" },
-                    { label: "OT3", value: "7" },
-                  ]}
-                  selectedValues={splitMultiValue(quarter)}
-                  onToggle={(val) =>
-                    navigate({
-                      quarter: toggleMultiValue(quarter, val),
-                    })
-                  }
-                  onClear={
-                    quarter ? () => navigate({ quarter: "" }) : undefined
-                  }
-                />
+                {/* Quarter — multi-select toggle buttons */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-500">Quarter</span>
+                  <div className="flex gap-1">
+                    {[
+                      { label: "Q1", value: "1" },
+                      { label: "Q2", value: "2" },
+                      { label: "Q3", value: "3" },
+                      { label: "Q4", value: "4" },
+                      { label: "OT1", value: "5" },
+                      { label: "OT2", value: "6" },
+                      { label: "OT3", value: "7" },
+                    ].map((q) => {
+                      const active = hasMultiValue(quarter, q.value);
+                      return (
+                        <button
+                          key={q.value}
+                          onClick={() =>
+                            navigate({
+                              quarter: toggleMultiValue(quarter, q.value),
+                            })
+                          }
+                          className={`rounded px-2 py-1 text-xs transition-colors ${
+                            active
+                              ? "bg-white text-black"
+                              : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                          }`}
+                        >
+                          {q.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 <div className="h-5 w-px bg-zinc-800 shrink-0 self-center" />
 
