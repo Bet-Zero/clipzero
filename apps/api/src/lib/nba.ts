@@ -15,6 +15,8 @@ export type RawAction = {
   shotDistance?: number;
   x?: number;
   y?: number;
+  scoreHome?: string;
+  scoreAway?: string;
 };
 
 export type ClipRecord = {
@@ -35,6 +37,8 @@ export type ClipRecord = {
   description?: string;
   videoUrl?: string | null;
   thumbnailUrl?: string | null;
+  scoreHome?: string;
+  scoreAway?: string;
 };
 
 export type ScoreboardGame = {
@@ -173,6 +177,8 @@ export function getFilteredActions(
         x: action.x,
         y: action.y,
         description: action.description,
+        scoreHome: action.scoreHome,
+        scoreAway: action.scoreAway,
       };
     });
 }
@@ -198,6 +204,8 @@ function getShotActions(gameId: string, actions: RawAction[]) {
       x: action.x,
       y: action.y,
       description: action.description,
+      scoreHome: action.scoreHome,
+      scoreAway: action.scoreAway,
     }));
 }
 

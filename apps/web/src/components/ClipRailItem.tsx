@@ -74,12 +74,11 @@ function cleanDescription(
 type Props = {
   clip: Clip;
   isActive: boolean;
-  index: number;
   onClick: () => void;
 };
 
 const ClipRailItem = forwardRef<HTMLButtonElement, Props>(
-  ({ clip, isActive, index, onClick }, ref) => {
+  ({ clip, isActive, onClick }, ref) => {
     const teamColor = getTeamColor(clip.teamTricode);
     const actionLabel =
       cleanDescription(clip.description, clip.playerName) ??
@@ -126,7 +125,7 @@ const ClipRailItem = forwardRef<HTMLButtonElement, Props>(
             {actionLabel}
           </p>
 
-          {/* Period · clock · index */}
+          {/* Period · clock · score */}
           <div className="mt-auto flex items-center justify-between pt-0.5 text-[10px] text-zinc-500">
             <div className="flex items-center gap-1.5">
               <span
@@ -137,7 +136,11 @@ const ClipRailItem = forwardRef<HTMLButtonElement, Props>(
                 Q{clip.period ?? "—"} · {formatClock(clip.clock)}
               </span>
             </div>
-            <span className="tabular-nums">#{index + 1}</span>
+            <span className="tabular-nums">
+              {clip.scoreAway != null && clip.scoreHome != null
+                ? `${clip.scoreAway}–${clip.scoreHome}`
+                : "—"}
+            </span>
           </div>
         </div>
       </button>

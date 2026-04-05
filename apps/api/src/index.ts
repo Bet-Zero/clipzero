@@ -49,6 +49,8 @@ type PlayerActionWithGame = {
   x?: number;
   y?: number;
   description?: string;
+  scoreHome?: string;
+  scoreAway?: string;
 };
 
 const playerSeasonActionsCache = new Map<string, PlayerActionWithGame[]>();
@@ -266,9 +268,16 @@ app.get("/clips/game", async (req, res) => {
       return matchesTeam && matchesResult && matchesQuarter;
     });
 
-    const players = Array.from(
-      new Set(playerOptionPool.map((shot) => shot.playerName).filter(Boolean)),
-    ).map((name) => ({ name }));
+    const playerMap = new Map<string, { name: string; teamTricode: string }>();
+    for (const shot of playerOptionPool) {
+      if (shot.playerName && !playerMap.has(shot.playerName)) {
+        playerMap.set(shot.playerName, {
+          name: shot.playerName,
+          teamTricode: shot.teamTricode ?? "",
+        });
+      }
+    }
+    const players = Array.from(playerMap.values());
 
     const filteredShots = playerOptionPool.filter((shot) => {
       const matchesPlayer = !player || shot.playerName === player;
@@ -653,7 +662,9 @@ app.get("/clips/player", async (req, res) => {
       if (excludedGameIdSet.has(action.gameId)) return false;
       // result filter is only meaningful for shots; ignore it for other play types
       const matchesResult =
-        playType !== "shots" || result === "all" || action.shotResult === result;
+        playType !== "shots" ||
+        result === "all" ||
+        action.shotResult === result;
       const matchesQuarter = !quarter || action.period === quarter;
       return matchesResult && matchesQuarter;
     });

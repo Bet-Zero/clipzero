@@ -97,7 +97,6 @@ export default function ClipRail({
               key={key}
               ref={setItemRef(i)}
               clip={clip}
-              index={i}
               isActive={i === activeIndex}
               onClick={() => onSelect(i)}
             />

@@ -18,6 +18,8 @@ export type Clip = {
   thumbnailUrl?: string | null;
   gameDate?: string;
   matchup?: string;
+  scoreHome?: string;
+  scoreAway?: string;
 };
 
 export type Game = {
@@ -33,6 +35,7 @@ export type Game = {
 
 export type Player = {
   name: string;
+  teamTricode?: string;
 };
 
 export type ClipsResponse = {

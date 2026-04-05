@@ -174,6 +174,67 @@ export default function FilterBar({
       {portalTarget &&
         createPortal(
           <div ref={triggerRef} className="flex items-center gap-2">
+            {/* Player dropdown grouped by team */}
+            {players.length > 0 && (
+              <select
+                value={selectedPlayer}
+                onChange={(e) =>
+                  update({
+                    playType,
+                    team,
+                    quarter,
+                    player: e.target.value,
+                    result:
+                      playType === DEFAULT_PLAY_TYPE
+                        ? shotResult
+                        : DEFAULT_RESULT,
+                  })
+                }
+                className="h-8 rounded bg-zinc-900 px-2 text-sm text-white"
+              >
+                <option value="">All Players</option>
+                {(() => {
+                  // Derive unique tricodes from players, ordered by the teams prop
+                  const playerTricodes = Array.from(
+                    new Set(players.map((p) => p.teamTricode ?? "")),
+                  );
+                  const orderedTricodes = [
+                    ...teams.filter((t) => playerTricodes.includes(t)),
+                    ...playerTricodes.filter(
+                      (t) => t !== "" && !teams.includes(t),
+                    ),
+                  ];
+                  const ungrouped = players.filter(
+                    (p) => !p.teamTricode || p.teamTricode === "",
+                  );
+
+                  return (
+                    <>
+                      {orderedTricodes.map((t) => {
+                        const group = players.filter(
+                          (p) => p.teamTricode === t,
+                        );
+                        return (
+                          <optgroup key={t} label={t}>
+                            {group.map((p) => (
+                              <option key={p.name} value={p.name}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        );
+                      })}
+                      {ungrouped.map((p) => (
+                        <option key={p.name} value={p.name}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </>
+                  );
+                })()}
+              </select>
+            )}
+
             <button
               onClick={() => setIsOverflowOpen((o) => !o)}
               className={`relative h-8 rounded px-3 text-sm transition-colors ${
