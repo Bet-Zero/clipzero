@@ -147,9 +147,11 @@ export default function FilterBar({
   const triggerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  const [overlayTarget, setOverlayTarget] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     setPortalTarget(document.getElementById("filter-bar-portal"));
+    setOverlayTarget(document.getElementById("filter-overlay-anchor"));
   }, []);
 
   useEffect(() => {
@@ -411,73 +413,75 @@ export default function FilterBar({
 
   return (
     <>
-      <div className="relative" style={{ height: 0, overflow: "visible" }}>
-        {portalTarget &&
-          createPortal(
-            <div ref={triggerRef} className="flex items-center gap-2">
-              {/* Player multi-select dropdown */}
-              {players.length > 0 && (
-                <MultiSelectDropdown
-                  label=""
-                  summaryLabel={(() => {
-                    const sel = splitMultiValue(selectedPlayer);
-                    if (sel.length === 0) return "All Players";
-                    if (sel.length <= 2) return sel.join(", ");
-                    return `${sel.length} players`;
-                  })()}
-                  options={players.map((p) => ({
-                    label: `${p.name}${p.teamTricode ? " (" + p.teamTricode + ")" : ""}`,
-                    value: p.name,
-                  }))}
-                  selectedValues={splitMultiValue(selectedPlayer)}
-                  onToggle={(val) =>
-                    navigate({
-                      player: toggleMultiValue(selectedPlayer, val),
-                    })
-                  }
-                  onClear={
-                    selectedPlayer ? () => navigate({ player: "" }) : undefined
-                  }
-                />
-              )}
+      {/* Buttons portaled into top bar — always one line */}
+      {portalTarget &&
+        createPortal(
+          <div ref={triggerRef} className="flex items-center gap-2">
+            {/* Player multi-select dropdown */}
+            {players.length > 0 && (
+              <MultiSelectDropdown
+                label=""
+                summaryLabel={(() => {
+                  const sel = splitMultiValue(selectedPlayer);
+                  if (sel.length === 0) return "All Players";
+                  if (sel.length <= 2) return sel.join(", ");
+                  return `${sel.length} players`;
+                })()}
+                options={players.map((p) => ({
+                  label: `${p.name}${p.teamTricode ? " (" + p.teamTricode + ")" : ""}`,
+                  value: p.name,
+                }))}
+                selectedValues={splitMultiValue(selectedPlayer)}
+                onToggle={(val) =>
+                  navigate({
+                    player: toggleMultiValue(selectedPlayer, val),
+                  })
+                }
+                onClear={
+                  selectedPlayer ? () => navigate({ player: "" }) : undefined
+                }
+              />
+            )}
 
+            <button
+              onClick={() => setIsOverflowOpen((o) => !o)}
+              className={`relative h-8 rounded px-3 text-sm transition-colors ${
+                isOverflowOpen
+                  ? "bg-zinc-700 text-white"
+                  : activeFilterCount > 0
+                    ? "bg-zinc-800 text-white"
+                    : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+              }`}
+            >
+              {activeFilterCount > 0
+                ? `Filters (${activeFilterCount})`
+                : "Filters"}
+              {activeFilterCount > 0 && (
+                <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-blue-500" />
+              )}
+            </button>
+
+            {isFiltered && (
               <button
-                onClick={() => setIsOverflowOpen((o) => !o)}
-                className={`relative h-8 rounded px-3 text-sm transition-colors ${
-                  isOverflowOpen
-                    ? "bg-zinc-700 text-white"
-                    : activeFilterCount > 0
-                      ? "bg-zinc-800 text-white"
-                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-                }`}
+                onClick={clearFilters}
+                className="h-8 rounded bg-zinc-800 px-3 text-sm text-zinc-300 hover:bg-zinc-700"
               >
-                {activeFilterCount > 0
-                  ? `Filters (${activeFilterCount})`
-                  : "Filters"}
-                {activeFilterCount > 0 && (
-                  <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-blue-500" />
-                )}
+                Clear
               </button>
+            )}
+          </div>,
+          portalTarget,
+        )}
 
-              {isFiltered && (
-                <button
-                  onClick={clearFilters}
-                  className="h-8 rounded bg-zinc-800 px-3 text-sm text-zinc-300 hover:bg-zinc-700"
-                >
-                  Clear
-                </button>
-              )}
-            </div>,
-            portalTarget,
-          )}
-
-        {/* Floating filter panel */}
-        {isOverflowOpen && (
+      {/* Floating filter panel — portaled into overlay anchor so it never pushes content */}
+      {isOverflowOpen &&
+        overlayTarget &&
+        createPortal(
           <div
             ref={panelRef}
-            className="absolute left-0 right-0 top-0 z-50 border-b-2 border-zinc-600 bg-zinc-800 px-4 py-3 shadow-2xl"
+            className="absolute left-0 right-0 top-0 z-50 border-b-2 border-zinc-600 bg-zinc-800 shadow-2xl"
           >
-            <div className="flex flex-wrap items-start gap-3">
+            <div className="flex flex-wrap items-start gap-3 px-4 py-3">
               {/* Play Type */}
               <label className="flex items-center gap-2 text-xs text-zinc-500">
                 Play Type
@@ -693,7 +697,6 @@ export default function FilterBar({
 
                 if (filter.style === "buttons") {
                   if (filter.multiSelect) {
-                    // Multi-select toggle buttons (skip the "All" option)
                     return (
                       <div key={filter.id} className="flex items-center gap-2">
                         <span className="text-xs text-zinc-500">
@@ -760,7 +763,6 @@ export default function FilterBar({
                 }
 
                 if (filter.multiSelect) {
-                  // Multi-select dropdown with checkmarks
                   const selectedValues = splitMultiValue(currentValue);
                   const count = selectedValues.length;
                   const nonEmptyOptions = filter.options.filter(
@@ -832,36 +834,44 @@ export default function FilterBar({
                 </button>
               )}
             </div>
-          </div>
+
+            {/* Active filter chips — inside panel, not in page flow */}
+            {activeChips.length > 0 && (
+              <div className="border-t border-zinc-700">
+                <ActiveFilterChips
+                  chips={activeChips}
+                  onRemove={removeChip}
+                  onClearAll={clearFilters}
+                />
+              </div>
+            )}
+
+            {/* Presets — inside panel, not in page flow */}
+            <div
+              className="flex flex-wrap items-center gap-1.5 border-t border-zinc-700 px-4 py-2"
+              data-testid="filter-presets"
+            >
+              <span className="text-[10px] uppercase tracking-wider text-zinc-600">
+                Quick:
+              </span>
+              {FILTER_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  data-testid={`preset-${preset.id}`}
+                  onClick={() => applyPreset(preset)}
+                  className={`rounded-full px-2.5 py-0.5 text-xs transition-colors ${
+                    isPresetActive(preset)
+                      ? "bg-blue-600 text-white"
+                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>,
+          overlayTarget,
         )}
-      </div>
-      <ActiveFilterChips
-        chips={activeChips}
-        onRemove={removeChip}
-        onClearAll={clearFilters}
-      />
-      <div
-        className="flex flex-wrap items-center gap-1.5 px-4 py-1"
-        data-testid="filter-presets"
-      >
-        <span className="text-[10px] uppercase tracking-wider text-zinc-600">
-          Quick:
-        </span>
-        {FILTER_PRESETS.map((preset) => (
-          <button
-            key={preset.id}
-            data-testid={`preset-${preset.id}`}
-            onClick={() => applyPreset(preset)}
-            className={`rounded-full px-2.5 py-0.5 text-xs transition-colors ${
-              isPresetActive(preset)
-                ? "bg-blue-600 text-white"
-                : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-            }`}
-          >
-            {preset.label}
-          </button>
-        ))}
-      </div>
     </>
   );
 }

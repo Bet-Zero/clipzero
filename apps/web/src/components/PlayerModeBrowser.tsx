@@ -163,9 +163,30 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   const limit = 12;
 
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  const [overlayTarget, setOverlayTarget] = useState<HTMLElement | null>(null);
+  const [isOverflowOpen, setIsOverflowOpen] = useState(false);
+  const playerTriggerRef = useRef<HTMLDivElement>(null);
+  const playerPanelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setPortalTarget(document.getElementById("player-filter-portal"));
+    setOverlayTarget(document.getElementById("filter-overlay-anchor"));
   }, []);
+
+  useEffect(() => {
+    if (!isOverflowOpen) return;
+    function handleOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      if (
+        playerTriggerRef.current?.contains(target) ||
+        playerPanelRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setIsOverflowOpen(false);
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [isOverflowOpen]);
 
   const loadingRef = useRef(false);
   const clipsRef = useRef(clips);
@@ -642,6 +663,18 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     });
   }
 
+  const isFiltered =
+    playType !== DEFAULT_PLAY_TYPE ||
+    result !== DEFAULT_RESULT ||
+    quarter !== "" ||
+    shotValue !== "" ||
+    subType !== "" ||
+    distanceBucket !== "" ||
+    excludedGameIds.size > 0 ||
+    excludedDates.size > 0;
+
+  const activeFilterCount = activeChips.length;
+
   function applyPreset(preset: (typeof FILTER_PRESETS)[number]) {
     navigateTo({
       result: "",
@@ -669,10 +702,10 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
 
   return (
     <div>
-      {/* Search + filter bar — portaled into the top bar */}
+      {/* Compact filter controls — portaled into the top bar (one line) */}
       {portalTarget &&
         createPortal(
-          <>
+          <div ref={playerTriggerRef} className="contents">
             <PlayerSearch
               season={season}
               selectedPlayer={selectedPlayer}
@@ -702,214 +735,260 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                   ))}
                 </select>
 
-                {/* Play-type-specific filters from filterConfig */}
-                {getFiltersForPlayType(playType).map((filter) => {
-                  const currentValue =
-                    params.get(filter.param) || filter.defaultValue;
+                <button
+                  onClick={() => setIsOverflowOpen((o) => !o)}
+                  className={`relative h-9 shrink-0 rounded px-3 text-sm transition-colors ${
+                    isOverflowOpen
+                      ? "bg-zinc-700 text-white"
+                      : activeFilterCount > 0
+                        ? "bg-zinc-800 text-white"
+                        : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                  }`}
+                >
+                  {activeFilterCount > 0
+                    ? `Filters (${activeFilterCount})`
+                    : "Filters"}
+                  {activeFilterCount > 0 && (
+                    <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-blue-500" />
+                  )}
+                </button>
 
-                  if (filter.style === "buttons") {
-                    if (filter.multiSelect) {
-                      return (
-                        <div
-                          key={filter.id}
-                          className="flex shrink-0 items-center gap-1"
-                        >
-                          <span className="mr-1 text-xs text-zinc-500">
-                            {filter.label}
-                          </span>
-                          {filter.options
-                            .filter((opt) => opt.value !== "")
-                            .map((opt) => {
-                              const active = hasMultiValue(
-                                currentValue,
-                                opt.value,
-                              );
-                              return (
-                                <button
-                                  key={opt.value}
-                                  onClick={() =>
-                                    navigateTo({
-                                      [filter.param]: toggleMultiValue(
-                                        currentValue,
-                                        opt.value,
-                                      ),
-                                    } as Partial<PlayerModeFilterState>)
-                                  }
-                                  className={`h-9 shrink-0 rounded px-3 text-sm ${
-                                    active
-                                      ? "bg-white text-black"
-                                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
-                                  }`}
-                                >
-                                  {opt.label}
-                                </button>
-                              );
-                            })}
-                        </div>
-                      );
-                    }
+                {isFiltered && (
+                  <button
+                    onClick={clearAllChips}
+                    className="h-9 shrink-0 rounded bg-zinc-800 px-3 text-sm text-zinc-300 hover:bg-zinc-700"
+                  >
+                    Clear
+                  </button>
+                )}
+              </>
+            )}
+          </div>,
+          portalTarget,
+        )}
 
+      {/* Floating filter panel — portaled into overlay anchor, never pushes content */}
+      {isOverflowOpen &&
+        overlayTarget &&
+        selectedPlayer &&
+        createPortal(
+          <div
+            ref={playerPanelRef}
+            className="absolute left-0 right-0 top-0 z-50 border-b-2 border-zinc-600 bg-zinc-800 shadow-2xl"
+          >
+            <div className="flex flex-wrap items-start gap-3 px-4 py-3">
+              {/* Play-type-specific filters from filterConfig */}
+              {getFiltersForPlayType(playType).map((filter) => {
+                const currentValue =
+                  params.get(filter.param) || filter.defaultValue;
+
+                if (filter.style === "buttons") {
+                  if (filter.multiSelect) {
                     return (
-                      <div
-                        key={filter.id}
-                        className="flex shrink-0 items-center gap-1"
-                      >
+                      <div key={filter.id} className="flex items-center gap-1">
                         <span className="mr-1 text-xs text-zinc-500">
                           {filter.label}
                         </span>
-                        {filter.options.map((opt) => (
-                          <button
-                            key={opt.value}
-                            onClick={() =>
-                              navigateTo({
-                                [filter.param]: opt.value,
-                              } as Partial<PlayerModeFilterState>)
-                            }
-                            className={`h-9 shrink-0 rounded px-3 text-sm ${
-                              currentValue === opt.value
-                                ? "bg-white text-black"
-                                : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
-                            }`}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
+                        {filter.options
+                          .filter((opt) => opt.value !== "")
+                          .map((opt) => {
+                            const active = hasMultiValue(
+                              currentValue,
+                              opt.value,
+                            );
+                            return (
+                              <button
+                                key={opt.value}
+                                onClick={() =>
+                                  navigateTo({
+                                    [filter.param]: toggleMultiValue(
+                                      currentValue,
+                                      opt.value,
+                                    ),
+                                  } as Partial<PlayerModeFilterState>)
+                                }
+                                className={`rounded px-3 py-0.5 text-sm ${
+                                  active
+                                    ? "bg-white text-black"
+                                    : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            );
+                          })}
                       </div>
                     );
                   }
 
-                  if (filter.multiSelect) {
-                    const selectedValues = splitMultiValue(currentValue);
-                    const count = selectedValues.length;
-                    const nonEmptyOptions = filter.options.filter(
-                      (o) => o.value !== "",
-                    );
-                    const summaryLabel =
-                      count === 0
-                        ? (filter.options[0]?.label ?? "All")
-                        : count <= 2
-                          ? selectedValues
-                              .map(
-                                (v) =>
-                                  nonEmptyOptions.find((o) => o.value === v)
-                                    ?.label ?? v,
-                              )
-                              .join(", ")
-                          : `${count} selected`;
-                    return (
-                      <PlayerMultiSelectDropdown
-                        key={filter.id}
-                        summaryLabel={summaryLabel}
-                        options={nonEmptyOptions}
-                        selectedValues={selectedValues}
-                        onToggle={(val) =>
-                          navigateTo({
-                            [filter.param]: toggleMultiValue(currentValue, val),
-                          } as Partial<PlayerModeFilterState>)
-                        }
-                        onClear={
-                          count > 0
-                            ? () =>
-                                navigateTo({
-                                  [filter.param]: "",
-                                } as Partial<PlayerModeFilterState>)
-                            : undefined
-                        }
-                      />
-                    );
-                  }
-
                   return (
-                    <select
+                    <div key={filter.id} className="flex items-center gap-1">
+                      <span className="mr-1 text-xs text-zinc-500">
+                        {filter.label}
+                      </span>
+                      {filter.options.map((opt) => (
+                        <button
+                          key={opt.value}
+                          onClick={() =>
+                            navigateTo({
+                              [filter.param]: opt.value,
+                            } as Partial<PlayerModeFilterState>)
+                          }
+                          className={`rounded px-3 py-0.5 text-sm ${
+                            currentValue === opt.value
+                              ? "bg-white text-black"
+                              : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                }
+
+                if (filter.multiSelect) {
+                  const selectedValues = splitMultiValue(currentValue);
+                  const count = selectedValues.length;
+                  const nonEmptyOptions = filter.options.filter(
+                    (o) => o.value !== "",
+                  );
+                  const summaryLabel =
+                    count === 0
+                      ? (filter.options[0]?.label ?? "All")
+                      : count <= 2
+                        ? selectedValues
+                            .map(
+                              (v) =>
+                                nonEmptyOptions.find((o) => o.value === v)
+                                  ?.label ?? v,
+                            )
+                            .join(", ")
+                        : `${count} selected`;
+                  return (
+                    <PlayerMultiSelectDropdown
                       key={filter.id}
-                      value={currentValue}
-                      onChange={(e) =>
+                      summaryLabel={summaryLabel}
+                      options={nonEmptyOptions}
+                      selectedValues={selectedValues}
+                      onToggle={(val) =>
                         navigateTo({
-                          [filter.param]: e.target.value,
+                          [filter.param]: toggleMultiValue(currentValue, val),
                         } as Partial<PlayerModeFilterState>)
                       }
-                      className="h-9 shrink-0 rounded bg-zinc-900 px-3 text-sm text-white"
+                      onClear={
+                        count > 0
+                          ? () =>
+                              navigateTo({
+                                [filter.param]: "",
+                              } as Partial<PlayerModeFilterState>)
+                          : undefined
+                      }
+                    />
+                  );
+                }
+
+                return (
+                  <select
+                    key={filter.id}
+                    value={currentValue}
+                    onChange={(e) =>
+                      navigateTo({
+                        [filter.param]: e.target.value,
+                      } as Partial<PlayerModeFilterState>)
+                    }
+                    className="h-7 rounded bg-zinc-900 px-3 text-sm text-white"
+                  >
+                    {filter.options.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                );
+              })}
+
+              {/* Quarter — multi-select toggle buttons */}
+              <div className="flex items-center gap-1">
+                <span className="mr-1 text-xs text-zinc-500">Quarter</span>
+                {[
+                  { label: "Q1", value: "1" },
+                  { label: "Q2", value: "2" },
+                  { label: "Q3", value: "3" },
+                  { label: "Q4", value: "4" },
+                  { label: "OT1", value: "5" },
+                  { label: "OT2", value: "6" },
+                  { label: "OT3", value: "7" },
+                ].map((q) => {
+                  const active = hasMultiValue(quarter, q.value);
+                  return (
+                    <button
+                      key={q.value}
+                      onClick={() =>
+                        navigateTo({
+                          quarter: toggleMultiValue(quarter, q.value),
+                        })
+                      }
+                      className={`rounded px-2 py-0.5 text-sm ${
+                        active
+                          ? "bg-white text-black"
+                          : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
+                      }`}
                     >
-                      {filter.options.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
+                      {q.label}
+                    </button>
                   );
                 })}
+              </div>
 
-                <div className="flex shrink-0 items-center gap-1">
-                  <span className="mr-1 text-xs text-zinc-500">Quarter</span>
-                  {[
-                    { label: "Q1", value: "1" },
-                    { label: "Q2", value: "2" },
-                    { label: "Q3", value: "3" },
-                    { label: "Q4", value: "4" },
-                    { label: "OT1", value: "5" },
-                    { label: "OT2", value: "6" },
-                    { label: "OT3", value: "7" },
-                  ].map((q) => {
-                    const active = hasMultiValue(quarter, q.value);
-                    return (
-                      <button
-                        key={q.value}
-                        onClick={() =>
-                          navigateTo({
-                            quarter: toggleMultiValue(quarter, q.value),
-                          })
-                        }
-                        className={`h-9 shrink-0 rounded px-2 text-sm ${
-                          active
-                            ? "bg-white text-black"
-                            : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
-                        }`}
-                      >
-                        {q.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
+              {/* Clear all */}
+              {isFiltered && (
+                <button
+                  onClick={clearAllChips}
+                  className="h-7 rounded bg-zinc-800 px-3 text-sm text-zinc-300 hover:bg-zinc-700"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+
+            {/* Active filter chips — inside panel, not in page flow */}
+            {activeChips.length > 0 && (
+              <div className="border-t border-zinc-700">
+                <ActiveFilterChips
+                  chips={activeChips}
+                  onRemove={removeChip}
+                  onClearAll={clearAllChips}
+                />
+              </div>
             )}
-          </>,
-          portalTarget,
-        )}
 
-      {/* Active filter chips */}
-      {selectedPlayer && (
-        <ActiveFilterChips
-          chips={activeChips}
-          onRemove={removeChip}
-          onClearAll={clearAllChips}
-        />
-      )}
-
-      {/* Presets */}
-      {selectedPlayer && (
-        <div
-          className="flex flex-wrap items-center gap-1.5 px-4 py-1"
-          data-testid="filter-presets"
-        >
-          <span className="text-[10px] uppercase tracking-wider text-zinc-600">
-            Quick:
-          </span>
-          {FILTER_PRESETS.map((preset) => (
-            <button
-              key={preset.id}
-              data-testid={`preset-${preset.id}`}
-              onClick={() => applyPreset(preset)}
-              className={`rounded-full px-2.5 py-0.5 text-xs transition-colors ${
-                isPresetActive(preset)
-                  ? "bg-blue-600 text-white"
-                  : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-              }`}
+            {/* Presets — inside panel, not in page flow */}
+            <div
+              className="flex flex-wrap items-center gap-1.5 border-t border-zinc-700 px-4 py-2"
+              data-testid="filter-presets"
             >
-              {preset.label}
-            </button>
-          ))}
-        </div>
-      )}
+              <span className="text-[10px] uppercase tracking-wider text-zinc-600">
+                Quick:
+              </span>
+              {FILTER_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  data-testid={`preset-${preset.id}`}
+                  onClick={() => applyPreset(preset)}
+                  className={`rounded-full px-2.5 py-0.5 text-xs transition-colors ${
+                    isPresetActive(preset)
+                      ? "bg-blue-600 text-white"
+                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>,
+          overlayTarget,
+        )}
 
       {/* Game list with exclusions */}
       {selectedPlayer && gameLog.length > 0 && (

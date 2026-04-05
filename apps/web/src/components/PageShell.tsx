@@ -92,6 +92,14 @@ export default function PageShell({
         )}
       </div>
 
+      {/* Overlay anchor for filter panels — sits between the top bar and content.
+          height: 0 keeps it out of flow; position: relative lets absolute children overlay content. */}
+      <div
+        id="filter-overlay-anchor"
+        className="relative shrink-0"
+        style={{ height: 0 }}
+      />
+
       <div className="flex flex-1 min-h-0 flex-col">
         {mode === "game" ? (
           children
