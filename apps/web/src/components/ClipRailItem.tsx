@@ -115,11 +115,8 @@ const ClipRailItem = forwardRef<HTMLButtonElement, Props>(
 
         {/* Card content */}
         <div className="flex flex-1 flex-col gap-1 px-2.5 pt-2 pb-2.5">
-          {/* Row 1: player name + index + shot result */}
+          {/* Row 1: index + shot result */}
           <div className="flex items-center justify-between gap-1">
-            <span className="truncate text-xs font-semibold text-white">
-              {clip.playerName ?? "Unknown"}
-            </span>
             <span className="flex shrink-0 items-center gap-1.5">
               {clip.shotResult === "Made" && (
                 <span className="rounded-full bg-green-500/20 px-1.5 py-0.5 text-[9px] font-bold text-green-400">
@@ -131,9 +128,9 @@ const ClipRailItem = forwardRef<HTMLButtonElement, Props>(
                   MISS
                 </span>
               )}
-              <span className="text-[10px] tabular-nums text-zinc-500">
-                #{index + 1}
-              </span>
+            </span>
+            <span className="text-[10px] tabular-nums text-zinc-500">
+              #{index + 1}
             </span>
           </div>
 
