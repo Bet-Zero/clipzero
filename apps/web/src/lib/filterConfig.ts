@@ -43,6 +43,18 @@ export const PLAY_TYPE_SPECIFIC_PARAMS = [
 export const PLAY_TYPE_FILTERS: Partial<Record<PlayType, FilterDef[]>> = {
   shots: [
     {
+      id: "result",
+      param: "result",
+      label: "Result",
+      defaultValue: "all",
+      style: "buttons",
+      options: [
+        { label: "All", value: "all" },
+        { label: "Made", value: "Made" },
+        { label: "Missed", value: "Missed" },
+      ],
+    },
+    {
       id: "shotValue",
       param: "shotValue",
       label: "Value",
@@ -52,6 +64,26 @@ export const PLAY_TYPE_FILTERS: Partial<Record<PlayType, FilterDef[]>> = {
         { label: "All", value: "" },
         { label: "2PT", value: "2pt" },
         { label: "3PT", value: "3pt" },
+      ],
+    },
+    {
+      id: "shotSubType",
+      param: "subType",
+      label: "Shot Type",
+      defaultValue: "",
+      style: "select",
+      options: [
+        { label: "All Shot Types", value: "" },
+        { label: "Layup", value: "Layup" },
+        { label: "Dunk", value: "Dunk" },
+        { label: "Jump Shot", value: "Jump Shot" },
+        { label: "Hook Shot", value: "Hook" },
+        { label: "Fadeaway", value: "Fadeaway" },
+        { label: "Pull-up", value: "Pullup" },
+        { label: "Floater", value: "Floating" },
+        { label: "Step Back", value: "Step Back" },
+        { label: "Tip Shot", value: "Tip" },
+        { label: "Bank Shot", value: "Bank" },
       ],
     },
     {

@@ -467,22 +467,41 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                   ))}
                 </select>
 
-                {playType === DEFAULT_PLAY_TYPE && (
-                  <select
-                    value={result}
-                    onChange={(e) => navigateTo({ result: e.target.value })}
-                    className="h-9 shrink-0 rounded bg-zinc-900 px-3 text-sm text-white"
-                  >
-                    <option value="all">All Results</option>
-                    <option value="Made">Made</option>
-                    <option value="Missed">Missed</option>
-                  </select>
-                )}
-
                 {/* Play-type-specific filters from filterConfig */}
                 {getFiltersForPlayType(playType).map((filter) => {
                   const currentValue =
                     params.get(filter.param) || filter.defaultValue;
+
+                  if (filter.style === "buttons") {
+                    return (
+                      <div
+                        key={filter.id}
+                        className="flex shrink-0 items-center gap-1"
+                      >
+                        <span className="mr-1 text-xs text-zinc-500">
+                          {filter.label}
+                        </span>
+                        {filter.options.map((opt) => (
+                          <button
+                            key={opt.value}
+                            onClick={() =>
+                              navigateTo({
+                                [filter.param]: opt.value,
+                              } as Partial<PlayerModeFilterState>)
+                            }
+                            className={`h-9 shrink-0 rounded px-3 text-sm ${
+                              currentValue === opt.value
+                                ? "bg-white text-black"
+                                : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  }
+
                   return (
                     <select
                       key={filter.id}

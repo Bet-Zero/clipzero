@@ -301,9 +301,10 @@ app.get("/clips/game", async (req, res) => {
         !shotValue || shot.actionType?.toLowerCase() === shotValue;
       const matchesSubType =
         !subType ||
-        shot.subType?.toLowerCase() === subType.toLowerCase();
+        (shot.subType?.toLowerCase().includes(subType.toLowerCase()) ?? false);
       const matchesDistance =
-        !distanceBucket || matchesDistanceBucket(shot.shotDistance, distanceBucket);
+        !distanceBucket ||
+        matchesDistanceBucket(shot.shotDistance, distanceBucket);
       return (
         matchesTeam &&
         matchesResult &&
@@ -729,7 +730,8 @@ app.get("/clips/player", async (req, res) => {
         !shotValue || action.actionType?.toLowerCase() === shotValue;
       const matchesSubType =
         !subType ||
-        action.subType?.toLowerCase() === subType.toLowerCase();
+        (action.subType?.toLowerCase().includes(subType.toLowerCase()) ??
+          false);
       const matchesDistance =
         !distanceBucket ||
         matchesDistanceBucket(action.shotDistance, distanceBucket);

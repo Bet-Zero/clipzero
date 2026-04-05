@@ -107,7 +107,8 @@ export default function FilterBar({
       search.set("result", state.result);
     if (state.shotValue) search.set("shotValue", state.shotValue);
     if (state.subType) search.set("subType", state.subType);
-    if (state.distanceBucket) search.set("distanceBucket", state.distanceBucket);
+    if (state.distanceBucket)
+      search.set("distanceBucket", state.distanceBucket);
 
     router.push(`/?${search.toString()}`);
   }
@@ -424,28 +425,6 @@ export default function FilterBar({
               </select>
             </label>
 
-            {/* Shot Result — only for shots */}
-            {playType === DEFAULT_PLAY_TYPE && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500">Result</span>
-                <div className="flex gap-1">
-                  {[DEFAULT_RESULT, "Made", "Missed"].map((value) => (
-                    <button
-                      key={value}
-                      onClick={() => navigate({ result: value })}
-                      className={`rounded px-3 py-0.5 text-sm ${
-                        shotResult === value
-                          ? "bg-white text-black"
-                          : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
-                      }`}
-                    >
-                      {value}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Play-type-specific filters from filterConfig */}
             {playTypeFilters.map((filter) => {
               const currentValue =
@@ -454,7 +433,9 @@ export default function FilterBar({
               if (filter.style === "buttons") {
                 return (
                   <div key={filter.id} className="flex items-center gap-2">
-                    <span className="text-xs text-zinc-500">{filter.label}</span>
+                    <span className="text-xs text-zinc-500">
+                      {filter.label}
+                    </span>
                     <div className="flex gap-1">
                       {filter.options.map((opt) => (
                         <button
