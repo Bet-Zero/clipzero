@@ -15,6 +15,7 @@ import {
   DEFAULT_PLAY_TYPE,
   DEFAULT_RESULT,
   buildClipSearchParams,
+  cleanSearchString,
 } from "@/lib/filters";
 
 async function getGames(
@@ -334,7 +335,7 @@ export default async function Home({
       if (params.actionNumber)
         canonical.set("actionNumber", params.actionNumber);
     }
-    redirect(`/?${canonical.toString()}`);
+    redirect(`/?${cleanSearchString(canonical)}`);
   }
 
   const limitParam = Number(params.limit ?? "12");

@@ -26,6 +26,7 @@ export type FilterDef = {
   defaultValue: string; // "" = off
   style: "buttons" | "select";
   options: FilterOption[];
+  multiSelect?: boolean;
 };
 
 // Params that are play-type-specific.
@@ -76,6 +77,7 @@ export const PLAY_TYPE_FILTERS: Partial<Record<PlayType, FilterDef[]>> = {
       label: "Shot Type",
       defaultValue: "",
       style: "select",
+      multiSelect: true,
       options: [
         { label: "All Shot Types", value: "" },
         { label: "Layup", value: "layup" },
@@ -97,6 +99,7 @@ export const PLAY_TYPE_FILTERS: Partial<Record<PlayType, FilterDef[]>> = {
       label: "Distance",
       defaultValue: "",
       style: "select",
+      multiSelect: true,
       options: [
         { label: "All Distances", value: "" },
         { label: "0–9 ft", value: "0-9" },
@@ -114,6 +117,7 @@ export const PLAY_TYPE_FILTERS: Partial<Record<PlayType, FilterDef[]>> = {
       label: "Type",
       defaultValue: "",
       style: "buttons",
+      multiSelect: true,
       options: [
         { label: "All", value: "" },
         { label: "Off", value: "offensive" },
@@ -130,6 +134,7 @@ export const PLAY_TYPE_FILTERS: Partial<Record<PlayType, FilterDef[]>> = {
       label: "Foul Type",
       defaultValue: "",
       style: "select",
+      multiSelect: true,
       options: [
         { label: "All Fouls", value: "" },
         { label: "Personal", value: "personal" },
@@ -150,6 +155,7 @@ export const PLAY_TYPE_FILTERS: Partial<Record<PlayType, FilterDef[]>> = {
       label: "Type",
       defaultValue: "",
       style: "select",
+      multiSelect: true,
       options: [
         { label: "All Turnovers", value: "" },
         { label: "Bad Pass", value: "bad-pass" },

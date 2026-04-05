@@ -4,7 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Player } from "@/lib/types";
-import { DEFAULT_PLAY_TYPE, DEFAULT_RESULT } from "@/lib/filters";
+import {
+  DEFAULT_PLAY_TYPE,
+  DEFAULT_RESULT,
+  cleanSearchString,
+  toggleMultiValue,
+  hasMultiValue,
+  splitMultiValue,
+  removeMultiValue,
+} from "@/lib/filters";
 import {
   PLAY_TYPES,
   PLAY_TYPE_SPECIFIC_PARAMS,
@@ -13,6 +21,78 @@ import {
 import ActiveFilterChips, {
   type FilterChip,
 } from "@/components/ActiveFilterChips";
+
+// Reusable multi-select dropdown for filter options with checkmarks.
+function MultiSelectDropdown({
+  label,
+  summaryLabel,
+  options,
+  selectedValues,
+  onToggle,
+}: {
+  label: string;
+  summaryLabel: string;
+  options: { label: string; value: string }[];
+  selectedValues: string[];
+  onToggle: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="flex items-center gap-2 text-xs text-zinc-500">
+        <span>{label}</span>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="h-7 rounded bg-zinc-900 px-2 text-sm text-white hover:bg-zinc-800"
+        >
+          {summaryLabel}
+          <span className="ml-1 text-zinc-500">▾</span>
+        </button>
+      </div>
+      {open && (
+        <div className="absolute z-30 mt-1 min-w-[180px] overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg">
+          {options.map((opt) => {
+            const checked = selectedValues.includes(opt.value);
+            return (
+              <button
+                key={opt.value}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => onToggle(opt.value)}
+                className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm ${
+                  checked
+                    ? "bg-zinc-800 text-white"
+                    : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+                }`}
+              >
+                <span
+                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
+                    checked
+                      ? "border-white bg-white text-black"
+                      : "border-zinc-600"
+                  }`}
+                >
+                  {checked ? "✓" : ""}
+                </span>
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function FilterBar({
   players,
@@ -113,7 +193,7 @@ export default function FilterBar({
     if (state.distanceBucket)
       search.set("distanceBucket", state.distanceBucket);
 
-    router.push(`/?${search.toString()}`);
+    router.push(`/?${cleanSearchString(search)}`);
   }
 
   // When play type changes, clear every play-type-specific param.
@@ -168,13 +248,13 @@ export default function FilterBar({
 
   const activeFilterCount =
     (playType !== DEFAULT_PLAY_TYPE ? 1 : 0) +
-    (team !== "" ? 1 : 0) +
+    (team !== "" ? splitMultiValue(team).length : 0) +
     (selectedPlayer !== "" ? 1 : 0) +
-    (quarter !== "" ? 1 : 0) +
+    (quarter !== "" ? splitMultiValue(quarter).length : 0) +
     (shotResult !== DEFAULT_RESULT && playType === DEFAULT_PLAY_TYPE ? 1 : 0) +
     (shotValue !== "" ? 1 : 0) +
-    (subType !== "" ? 1 : 0) +
-    (distanceBucket !== "" ? 1 : 0);
+    (subType !== "" ? splitMultiValue(subType).length : 0) +
+    (distanceBucket !== "" ? splitMultiValue(distanceBucket).length : 0);
 
   function clearFilters() {
     const search = new URLSearchParams();
@@ -197,16 +277,19 @@ export default function FilterBar({
       chips.push({ key: "playType", label: playType });
     }
     if (team) {
-      chips.push({ key: "team", label: `Team: ${team}` });
+      for (const t of splitMultiValue(team)) {
+        chips.push({ key: "team", label: `Team: ${t}`, value: t });
+      }
     }
     if (selectedPlayer) {
       chips.push({ key: "player", label: selectedPlayer });
     }
     if (quarter) {
-      const n = Number(quarter);
-      const qLabel =
-        n >= 1 && n <= 4 ? `Q${n}` : n >= 5 ? `OT${n - 4}` : quarter;
-      chips.push({ key: "quarter", label: qLabel });
+      for (const q of splitMultiValue(quarter)) {
+        const n = Number(q);
+        const qLabel = n >= 1 && n <= 4 ? `Q${n}` : n >= 5 ? `OT${n - 4}` : q;
+        chips.push({ key: "quarter", label: qLabel, value: q });
+      }
     }
 
     const values: Record<string, string> = {
@@ -218,12 +301,24 @@ export default function FilterBar({
     for (const filter of filters) {
       const val = values[filter.param] ?? "";
       if (val && val !== filter.defaultValue) {
-        const optLabel =
-          filter.options.find((o) => o.value === val)?.label ?? val;
-        chips.push({
-          key: filter.param,
-          label: `${filter.label}: ${optLabel}`,
-        });
+        if (filter.multiSelect) {
+          for (const v of splitMultiValue(val)) {
+            const optLabel =
+              filter.options.find((o) => o.value === v)?.label ?? v;
+            chips.push({
+              key: filter.param,
+              label: `${filter.label}: ${optLabel}`,
+              value: v,
+            });
+          }
+        } else {
+          const optLabel =
+            filter.options.find((o) => o.value === val)?.label ?? val;
+          chips.push({
+            key: filter.param,
+            label: `${filter.label}: ${optLabel}`,
+          });
+        }
       }
     }
 
@@ -239,7 +334,7 @@ export default function FilterBar({
     distanceBucket,
   ]);
 
-  function removeChip(key: string) {
+  function removeChip(key: string, value?: string) {
     if (key === "playType") {
       changePlayType(DEFAULT_PLAY_TYPE);
       return;
@@ -247,6 +342,19 @@ export default function FilterBar({
     if (key === "player") {
       clearPlayer();
       return;
+    }
+    // Multi-select params: remove one value from the comma-separated list
+    if (value) {
+      const multiParams: Record<string, string> = {
+        team,
+        quarter,
+        subType,
+        distanceBucket,
+      };
+      if (key in multiParams) {
+        navigate({ [key]: removeMultiValue(multiParams[key], value) });
+        return;
+      }
     }
     const filter = playTypeFilters.find((f) => f.param === key);
     navigate({ [key]: filter?.defaultValue ?? "" });
@@ -359,24 +467,33 @@ export default function FilterBar({
                 </select>
               </label>
 
-              {/* Team */}
-              <label className="flex items-center gap-2 text-xs text-zinc-500">
-                Team
-                <select
-                  value={team}
-                  onChange={(e) =>
-                    navigate({ team: e.target.value, player: "" })
-                  }
-                  className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
-                >
-                  <option value="">All Teams</option>
-                  {teams.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {/* Team — multi-select toggle buttons */}
+              <div className="flex items-center gap-2 text-xs text-zinc-500">
+                <span>Team</span>
+                <div className="flex gap-1">
+                  {teams.map((t) => {
+                    const active = hasMultiValue(team, t);
+                    return (
+                      <button
+                        key={t}
+                        onClick={() =>
+                          navigate({
+                            team: toggleMultiValue(team, t),
+                            player: "",
+                          })
+                        }
+                        className={`rounded px-3 py-0.5 text-sm ${
+                          active
+                            ? "bg-white text-black"
+                            : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               {/* Player search */}
               <div className="relative min-w-[200px]">
@@ -477,24 +594,40 @@ export default function FilterBar({
                 )}
               </div>
 
-              {/* Quarter */}
-              <label className="flex items-center gap-2 text-xs text-zinc-500">
-                Quarter
-                <select
-                  value={quarter}
-                  onChange={(e) => navigate({ quarter: e.target.value })}
-                  className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
-                >
-                  <option value="">All</option>
-                  <option value="1">Q1</option>
-                  <option value="2">Q2</option>
-                  <option value="3">Q3</option>
-                  <option value="4">Q4</option>
-                  <option value="5">OT1</option>
-                  <option value="6">OT2</option>
-                  <option value="7">OT3</option>
-                </select>
-              </label>
+              {/* Quarter — multi-select toggle buttons */}
+              <div className="flex items-center gap-2 text-xs text-zinc-500">
+                <span>Quarter</span>
+                <div className="flex gap-1">
+                  {[
+                    { label: "Q1", value: "1" },
+                    { label: "Q2", value: "2" },
+                    { label: "Q3", value: "3" },
+                    { label: "Q4", value: "4" },
+                    { label: "OT1", value: "5" },
+                    { label: "OT2", value: "6" },
+                    { label: "OT3", value: "7" },
+                  ].map((q) => {
+                    const active = hasMultiValue(quarter, q.value);
+                    return (
+                      <button
+                        key={q.value}
+                        onClick={() =>
+                          navigate({
+                            quarter: toggleMultiValue(quarter, q.value),
+                          })
+                        }
+                        className={`rounded px-2 py-0.5 text-sm ${
+                          active
+                            ? "bg-white text-black"
+                            : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
+                        }`}
+                      >
+                        {q.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               {/* Play-type-specific filters from filterConfig */}
               {playTypeFilters.map((filter) => {
@@ -502,6 +635,47 @@ export default function FilterBar({
                   params.get(filter.param) || filter.defaultValue;
 
                 if (filter.style === "buttons") {
+                  if (filter.multiSelect) {
+                    // Multi-select toggle buttons (skip the "All" option)
+                    return (
+                      <div key={filter.id} className="flex items-center gap-2">
+                        <span className="text-xs text-zinc-500">
+                          {filter.label}
+                        </span>
+                        <div className="flex gap-1">
+                          {filter.options
+                            .filter((opt) => opt.value !== "")
+                            .map((opt) => {
+                              const active = hasMultiValue(
+                                currentValue,
+                                opt.value,
+                              );
+                              return (
+                                <button
+                                  key={opt.value}
+                                  onClick={() =>
+                                    navigate({
+                                      [filter.param]: toggleMultiValue(
+                                        currentValue,
+                                        opt.value,
+                                      ),
+                                    })
+                                  }
+                                  className={`rounded px-3 py-0.5 text-sm ${
+                                    active
+                                      ? "bg-white text-black"
+                                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <div key={filter.id} className="flex items-center gap-2">
                       <span className="text-xs text-zinc-500">
@@ -525,6 +699,34 @@ export default function FilterBar({
                         ))}
                       </div>
                     </div>
+                  );
+                }
+
+                if (filter.multiSelect) {
+                  // Multi-select dropdown with checkmarks
+                  const selectedValues = splitMultiValue(currentValue);
+                  const count = selectedValues.length;
+                  const summaryLabel =
+                    count === 0
+                      ? (filter.options[0]?.label ?? "All")
+                      : count === 1
+                        ? (filter.options.find(
+                            (o) => o.value === selectedValues[0],
+                          )?.label ?? selectedValues[0])
+                        : `${count} selected`;
+                  return (
+                    <MultiSelectDropdown
+                      key={filter.id}
+                      label={filter.label}
+                      summaryLabel={summaryLabel}
+                      options={filter.options.filter((o) => o.value !== "")}
+                      selectedValues={selectedValues}
+                      onToggle={(val) =>
+                        navigate({
+                          [filter.param]: toggleMultiValue(currentValue, val),
+                        })
+                      }
+                    />
                   );
                 }
 

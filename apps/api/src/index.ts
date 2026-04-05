@@ -218,6 +218,15 @@ app.get("/clips/game", async (req, res) => {
     const team =
       typeof req.query.team === "string" ? req.query.team.trim() : "";
 
+    // Parse comma-separated multi-select values into arrays.
+    // Empty string means "all" (no filter).
+    const teamValues = team
+      ? team
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : [];
+
     const result =
       typeof req.query.result === "string" && req.query.result.trim() !== ""
         ? req.query.result
@@ -243,10 +252,14 @@ app.get("/clips/game", async (req, res) => {
         : "shots";
 
     const quarterParam =
-      typeof req.query.quarter === "string" ? Number(req.query.quarter) : 0;
+      typeof req.query.quarter === "string" ? req.query.quarter.trim() : "";
 
-    const quarter =
-      Number.isFinite(quarterParam) && quarterParam > 0 ? quarterParam : 0;
+    const quarterValues = quarterParam
+      ? quarterParam
+          .split(",")
+          .map((q) => Number(q.trim()))
+          .filter((n) => Number.isFinite(n) && n > 0)
+      : [];
 
     const shotValue =
       typeof req.query.shotValue === "string"
@@ -258,10 +271,24 @@ app.get("/clips/game", async (req, res) => {
         ? req.query.subType.trim().toLowerCase()
         : "";
 
+    const subTypeValues = subType
+      ? subType
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
+
     const distanceBucket =
       typeof req.query.distanceBucket === "string"
         ? req.query.distanceBucket.trim()
         : "";
+
+    const distanceBucketValues = distanceBucket
+      ? distanceBucket
+          .split(",")
+          .map((d) => d.trim())
+          .filter(Boolean)
+      : [];
 
     const actionNumberParam =
       typeof req.query.actionNumber === "string"
@@ -272,7 +299,7 @@ app.get("/clips/game", async (req, res) => {
         ? actionNumberParam
         : null;
 
-    const cacheKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarter}:${shotValue}:${subType}:${distanceBucket}:${limit}:${offset}`;
+    const cacheKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${limit}:${offset}`;
     // Bypass response cache when an actionNumber lookup is requested,
     // since targetIndex is not part of the cached payload.
     if (!targetActionNumber) {
@@ -295,24 +322,25 @@ app.get("/clips/game", async (req, res) => {
     }));
 
     const playerOptionPool = normalizedShots.filter((shot) => {
-      const matchesTeam = !team || shot.teamTricode === team;
+      const matchesTeam =
+        teamValues.length === 0 || teamValues.includes(shot.teamTricode ?? "");
       // result filter is only meaningful for shots; ignore it for other play types
       const matchesResult =
         playType !== "shots" || result === "all" || shot.shotResult === result;
-      const matchesQuarter = !quarter || shot.period === quarter;
+      const matchesQuarter =
+        quarterValues.length === 0 || quarterValues.includes(shot.period ?? 0);
       const matchesShotValue =
         !shotValue || shot.actionType?.toLowerCase() === shotValue;
       const matchesSubType =
-        !subType ||
-        matchesNormalizedGroup(
-          playType,
-          subType,
-          shot.subType,
-          shot.description,
+        subTypeValues.length === 0 ||
+        subTypeValues.some((st) =>
+          matchesNormalizedGroup(playType, st, shot.subType, shot.description),
         );
       const matchesDistance =
-        !distanceBucket ||
-        matchesDistanceBucket(shot.shotDistance, distanceBucket);
+        distanceBucketValues.length === 0 ||
+        distanceBucketValues.some((db) =>
+          matchesDistanceBucket(shot.shotDistance, db),
+        );
       return (
         matchesTeam &&
         matchesResult &&
@@ -424,7 +452,7 @@ app.get("/clips/game", async (req, res) => {
     }
 
     console.log(
-      `[clips] game=${gameId} playType=${playType} quarter=${quarter || "all"} team=${team || "all"} player=${player || "all"} result=${result} offset=${offset} count=${clips.length}/${filteredShots.length} hasMore=${hasMore} nextOffset=${nextOffset} assetHits=${assetCacheHits} assetMisses=${assetCacheMisses} time=${msSince(startedAt)}`,
+      `[clips] game=${gameId} playType=${playType} quarter=${quarterParam || "all"} team=${team || "all"} player=${player || "all"} result=${result} offset=${offset} count=${clips.length}/${filteredShots.length} hasMore=${hasMore} nextOffset=${nextOffset} assetHits=${assetCacheHits} assetMisses=${assetCacheMisses} time=${msSince(startedAt)}`,
     );
     res.json(payload);
   } catch (error: any) {
@@ -574,9 +602,13 @@ app.get("/clips/player", async (req, res) => {
         : "all";
 
     const quarterParam =
-      typeof req.query.quarter === "string" ? Number(req.query.quarter) : 0;
-    const quarter =
-      Number.isFinite(quarterParam) && quarterParam > 0 ? quarterParam : 0;
+      typeof req.query.quarter === "string" ? req.query.quarter.trim() : "";
+    const quarterValues = quarterParam
+      ? quarterParam
+          .split(",")
+          .map((q) => Number(q.trim()))
+          .filter((n) => Number.isFinite(n) && n > 0)
+      : [];
 
     const shotValue =
       typeof req.query.shotValue === "string"
@@ -588,10 +620,24 @@ app.get("/clips/player", async (req, res) => {
         ? req.query.subType.trim().toLowerCase()
         : "";
 
+    const subTypeValues = subType
+      ? subType
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
+
     const distanceBucket =
       typeof req.query.distanceBucket === "string"
         ? req.query.distanceBucket.trim()
         : "";
+
+    const distanceBucketValues = distanceBucket
+      ? distanceBucket
+          .split(",")
+          .map((d) => d.trim())
+          .filter(Boolean)
+      : [];
 
     const limitParam =
       typeof req.query.limit === "string" ? Number(req.query.limit) : 12;
@@ -629,7 +675,7 @@ app.get("/clips/player", async (req, res) => {
         : null;
 
     // Check response cache (bypass when actionNumber lookup is requested)
-    const cacheKey = `${personId}:${season}:${playType}:${result}:${quarter}:${shotValue}:${subType}:${distanceBucket}:${limit}:${offset}:${[...excludeDates].sort().join(",")}:${[...excludeGameIds].sort().join(",")}`;
+    const cacheKey = `${personId}:${season}:${playType}:${result}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${limit}:${offset}:${[...excludeDates].sort().join(",")}:${[...excludeGameIds].sort().join(",")}`;
     if (!targetActionNumber) {
       const cached = playerClipCache.get(cacheKey);
       if (cached) {
@@ -735,20 +781,26 @@ app.get("/clips/player", async (req, res) => {
         playType !== "shots" ||
         result === "all" ||
         action.shotResult === result;
-      const matchesQuarter = !quarter || action.period === quarter;
+      const matchesQuarter =
+        quarterValues.length === 0 ||
+        quarterValues.includes(action.period ?? 0);
       const matchesShotValue =
         !shotValue || action.actionType?.toLowerCase() === shotValue;
       const matchesSubType =
-        !subType ||
-        matchesNormalizedGroup(
-          playType,
-          subType,
-          action.subType,
-          action.description,
+        subTypeValues.length === 0 ||
+        subTypeValues.some((st) =>
+          matchesNormalizedGroup(
+            playType,
+            st,
+            action.subType,
+            action.description,
+          ),
         );
       const matchesDistance =
-        !distanceBucket ||
-        matchesDistanceBucket(action.shotDistance, distanceBucket);
+        distanceBucketValues.length === 0 ||
+        distanceBucketValues.some((db) =>
+          matchesDistanceBucket(action.shotDistance, db),
+        );
       return (
         matchesResult &&
         matchesQuarter &&
@@ -816,7 +868,7 @@ app.get("/clips/player", async (req, res) => {
       season,
       playType,
       result,
-      quarter: quarter || "all",
+      quarter: quarterParam || "all",
       count: clips.length,
       total,
       offset,
@@ -836,7 +888,7 @@ app.get("/clips/player", async (req, res) => {
     }
 
     console.log(
-      `[clips/player] personId=${personId} season=${season} playType=${playType} result=${result} quarter=${quarter || "all"} games=${gameLog.length - excludedGames.length}/${gameLog.length} offset=${offset} count=${clips.length}/${total} hasMore=${hasMore} assetHits=${assetCacheHits} assetMisses=${assetCacheMisses} seasonCache=${seasonCacheHit ? "hit" : "miss"} time=${msSince(startedAt)}`,
+      `[clips/player] personId=${personId} season=${season} playType=${playType} result=${result} quarter=${quarterParam || "all"} games=${gameLog.length - excludedGames.length}/${gameLog.length} offset=${offset} count=${clips.length}/${total} hasMore=${hasMore} assetHits=${assetCacheHits} assetMisses=${assetCacheMisses} seasonCache=${seasonCacheHit ? "hit" : "miss"} time=${msSince(startedAt)}`,
     );
 
     res.json(payload);

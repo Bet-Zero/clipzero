@@ -136,10 +136,10 @@ const ClipRailItem = forwardRef<HTMLButtonElement, Props>(
                 Q{clip.period ?? "—"} · {formatClock(clip.clock)}
               </span>
             </div>
-            <span className="tabular-nums">
-              {clip.scoreAway != null && clip.scoreHome != null
+            <span className="tabular-nums text-zinc-400">
+              {clip.scoreAway && clip.scoreHome
                 ? `${clip.scoreAway}–${clip.scoreHome}`
-                : "—"}
+                : ""}
             </span>
           </div>
         </div>

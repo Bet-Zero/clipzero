@@ -3,6 +3,46 @@ import type { PlayerSearchResult, PlayerModeFilterState } from "./types";
 export const DEFAULT_PLAY_TYPE = "shots";
 export const DEFAULT_RESULT = "all";
 
+// ── Multi-select helpers ────────────────────────────────────────────
+// Multi-select params use comma-separated values in URLs: team=LAL,GSW
+
+/** Split a comma-separated URL value into individual values. */
+export function splitMultiValue(val: string): string[] {
+  return val
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+/** Check if a value is present in a comma-separated string. */
+export function hasMultiValue(current: string, value: string): boolean {
+  return splitMultiValue(current).includes(value);
+}
+
+/** Toggle a value in a comma-separated string. Returns the updated string. */
+export function toggleMultiValue(current: string, value: string): string {
+  const values = splitMultiValue(current);
+  const idx = values.indexOf(value);
+  if (idx >= 0) {
+    values.splice(idx, 1);
+  } else {
+    values.push(value);
+  }
+  return values.join(",");
+}
+
+/** Remove a specific value from a comma-separated string. */
+export function removeMultiValue(current: string, value: string): string {
+  return splitMultiValue(current)
+    .filter((v) => v !== value)
+    .join(",");
+}
+
+/** Clean URL string: decode commas that URLSearchParams encodes. */
+export function cleanSearchString(search: URLSearchParams): string {
+  return search.toString().replace(/%2C/g, ",");
+}
+
 type ClipQueryParams = {
   gameId: string;
   limit: number;
@@ -33,7 +73,8 @@ export function buildClipSearchParams(
   if (params.team) search.set("team", params.team);
   if (params.shotValue) search.set("shotValue", params.shotValue);
   if (params.subType) search.set("subType", params.subType);
-  if (params.distanceBucket) search.set("distanceBucket", params.distanceBucket);
+  if (params.distanceBucket)
+    search.set("distanceBucket", params.distanceBucket);
   if (params.actionNumber)
     search.set("actionNumber", String(params.actionNumber));
   return search;
@@ -69,7 +110,8 @@ export function buildPlayerClipSearchParams(
   if (params.quarter) search.set("quarter", params.quarter);
   if (params.shotValue) search.set("shotValue", params.shotValue);
   if (params.subType) search.set("subType", params.subType);
-  if (params.distanceBucket) search.set("distanceBucket", params.distanceBucket);
+  if (params.distanceBucket)
+    search.set("distanceBucket", params.distanceBucket);
   if (params.excludeDates && params.excludeDates.length > 0)
     search.set("excludeDates", params.excludeDates.join(","));
   if (params.excludeGameIds && params.excludeGameIds.length > 0)
@@ -144,5 +186,5 @@ export function buildPlayerModeUrl(
   if (state.actionNumber !== null)
     search.set("actionNumber", String(state.actionNumber));
 
-  return `/?${search.toString()}`;
+  return `/?${cleanSearchString(search)}`;
 }

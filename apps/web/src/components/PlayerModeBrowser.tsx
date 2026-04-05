@@ -10,6 +10,10 @@ import {
   buildPlayerClipSearchParams,
   parsePlayerModeParams,
   buildPlayerModeUrl,
+  splitMultiValue,
+  hasMultiValue,
+  toggleMultiValue,
+  removeMultiValue,
 } from "@/lib/filters";
 import type {
   Clip,
@@ -25,6 +29,73 @@ import { PLAY_TYPES, getFiltersForPlayType } from "@/lib/filterConfig";
 import ActiveFilterChips, {
   type FilterChip,
 } from "@/components/ActiveFilterChips";
+
+// Reusable multi-select dropdown for player mode filter options.
+function PlayerMultiSelectDropdown({
+  summaryLabel,
+  options,
+  selectedValues,
+  onToggle,
+}: {
+  summaryLabel: string;
+  options: { label: string; value: string }[];
+  selectedValues: string[];
+  onToggle: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="h-9 shrink-0 rounded bg-zinc-900 px-3 text-sm text-white hover:bg-zinc-800"
+      >
+        {summaryLabel}
+        <span className="ml-1 text-zinc-500">▾</span>
+      </button>
+      {open && (
+        <div className="absolute z-30 mt-1 min-w-[180px] overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg">
+          {options.map((opt) => {
+            const checked = selectedValues.includes(opt.value);
+            return (
+              <button
+                key={opt.value}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => onToggle(opt.value)}
+                className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm ${
+                  checked
+                    ? "bg-zinc-800 text-white"
+                    : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+                }`}
+              >
+                <span
+                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
+                    checked
+                      ? "border-white bg-white text-black"
+                      : "border-zinc-600"
+                  }`}
+                >
+                  {checked ? "✓" : ""}
+                </span>
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function setActionNumberInUrl(actionNumber: number | null) {
   const url = new URL(window.location.href);
@@ -443,10 +514,11 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       chips.push({ key: "playType", label: playType });
     }
     if (quarter) {
-      const n = Number(quarter);
-      const qLabel =
-        n >= 1 && n <= 4 ? `Q${n}` : n >= 5 ? `OT${n - 4}` : quarter;
-      chips.push({ key: "quarter", label: qLabel });
+      for (const q of splitMultiValue(quarter)) {
+        const n = Number(q);
+        const qLabel = n >= 1 && n <= 4 ? `Q${n}` : n >= 5 ? `OT${n - 4}` : q;
+        chips.push({ key: "quarter", label: qLabel, value: q });
+      }
     }
 
     const values: Record<string, string> = {
@@ -458,12 +530,24 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     for (const filter of filters) {
       const val = values[filter.param] ?? "";
       if (val && val !== filter.defaultValue) {
-        const optLabel =
-          filter.options.find((o) => o.value === val)?.label ?? val;
-        chips.push({
-          key: filter.param,
-          label: `${filter.label}: ${optLabel}`,
-        });
+        if (filter.multiSelect) {
+          for (const v of splitMultiValue(val)) {
+            const optLabel =
+              filter.options.find((o) => o.value === v)?.label ?? v;
+            chips.push({
+              key: filter.param,
+              label: `${filter.label}: ${optLabel}`,
+              value: v,
+            });
+          }
+        } else {
+          const optLabel =
+            filter.options.find((o) => o.value === val)?.label ?? val;
+          chips.push({
+            key: filter.param,
+            label: `${filter.label}: ${optLabel}`,
+          });
+        }
       }
     }
 
@@ -488,7 +572,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     excludedDates.size,
   ]);
 
-  function removeChip(key: string) {
+  function removeChip(key: string, value?: string) {
     if (key === "playType") {
       navigateTo({
         playType: DEFAULT_PLAY_TYPE,
@@ -504,6 +588,20 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       setExcludedDates(new Set());
       navigateTo({ excludedGameIds: new Set(), excludedDates: new Set() });
       return;
+    }
+    // Multi-select params: remove one value from the comma-separated list
+    if (value) {
+      const multiParams: Record<string, string> = {
+        quarter,
+        subType,
+        distanceBucket,
+      };
+      if (key in multiParams) {
+        navigateTo({
+          [key]: removeMultiValue(multiParams[key], value),
+        } as Partial<PlayerModeFilterState>);
+        return;
+      }
     }
     const filter = getFiltersForPlayType(playType).find((f) => f.param === key);
     navigateTo({
@@ -567,6 +665,47 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                     params.get(filter.param) || filter.defaultValue;
 
                   if (filter.style === "buttons") {
+                    if (filter.multiSelect) {
+                      return (
+                        <div
+                          key={filter.id}
+                          className="flex shrink-0 items-center gap-1"
+                        >
+                          <span className="mr-1 text-xs text-zinc-500">
+                            {filter.label}
+                          </span>
+                          {filter.options
+                            .filter((opt) => opt.value !== "")
+                            .map((opt) => {
+                              const active = hasMultiValue(
+                                currentValue,
+                                opt.value,
+                              );
+                              return (
+                                <button
+                                  key={opt.value}
+                                  onClick={() =>
+                                    navigateTo({
+                                      [filter.param]: toggleMultiValue(
+                                        currentValue,
+                                        opt.value,
+                                      ),
+                                    } as Partial<PlayerModeFilterState>)
+                                  }
+                                  className={`h-9 shrink-0 rounded px-3 text-sm ${
+                                    active
+                                      ? "bg-white text-black"
+                                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              );
+                            })}
+                        </div>
+                      );
+                    }
+
                     return (
                       <div
                         key={filter.id}
@@ -596,6 +735,32 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                     );
                   }
 
+                  if (filter.multiSelect) {
+                    const selectedValues = splitMultiValue(currentValue);
+                    const count = selectedValues.length;
+                    const summaryLabel =
+                      count === 0
+                        ? (filter.options[0]?.label ?? "All")
+                        : count === 1
+                          ? (filter.options.find(
+                              (o) => o.value === selectedValues[0],
+                            )?.label ?? selectedValues[0])
+                          : `${count} selected`;
+                    return (
+                      <PlayerMultiSelectDropdown
+                        key={filter.id}
+                        summaryLabel={summaryLabel}
+                        options={filter.options.filter((o) => o.value !== "")}
+                        selectedValues={selectedValues}
+                        onToggle={(val) =>
+                          navigateTo({
+                            [filter.param]: toggleMultiValue(currentValue, val),
+                          } as Partial<PlayerModeFilterState>)
+                        }
+                      />
+                    );
+                  }
+
                   return (
                     <select
                       key={filter.id}
@@ -616,20 +781,37 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                   );
                 })}
 
-                <select
-                  value={quarter}
-                  onChange={(e) => navigateTo({ quarter: e.target.value })}
-                  className="h-9 shrink-0 rounded bg-zinc-900 px-3 text-sm text-white"
-                >
-                  <option value="">All Quarters</option>
-                  <option value="1">Q1</option>
-                  <option value="2">Q2</option>
-                  <option value="3">Q3</option>
-                  <option value="4">Q4</option>
-                  <option value="5">OT1</option>
-                  <option value="6">OT2</option>
-                  <option value="7">OT3</option>
-                </select>
+                <div className="flex shrink-0 items-center gap-1">
+                  <span className="mr-1 text-xs text-zinc-500">Quarter</span>
+                  {[
+                    { label: "Q1", value: "1" },
+                    { label: "Q2", value: "2" },
+                    { label: "Q3", value: "3" },
+                    { label: "Q4", value: "4" },
+                    { label: "OT1", value: "5" },
+                    { label: "OT2", value: "6" },
+                    { label: "OT3", value: "7" },
+                  ].map((q) => {
+                    const active = hasMultiValue(quarter, q.value);
+                    return (
+                      <button
+                        key={q.value}
+                        onClick={() =>
+                          navigateTo({
+                            quarter: toggleMultiValue(quarter, q.value),
+                          })
+                        }
+                        className={`h-9 shrink-0 rounded px-2 text-sm ${
+                          active
+                            ? "bg-white text-black"
+                            : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
+                        }`}
+                      >
+                        {q.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </>
             )}
           </>,
