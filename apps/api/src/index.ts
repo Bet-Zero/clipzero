@@ -215,6 +215,14 @@ app.get("/clips/game", async (req, res) => {
     const player =
       typeof req.query.player === "string" ? req.query.player.trim() : "";
 
+    // Parse comma-separated multi-select player values into array.
+    const playerValues = player
+      ? player
+          .split(",")
+          .map((p) => p.trim())
+          .filter(Boolean)
+      : [];
+
     const team =
       typeof req.query.team === "string" ? req.query.team.trim() : "";
 
@@ -363,7 +371,9 @@ app.get("/clips/game", async (req, res) => {
     const players = Array.from(playerMap.values());
 
     const filteredShots = playerOptionPool.filter((shot) => {
-      const matchesPlayer = !player || shot.playerName === player;
+      const matchesPlayer =
+        playerValues.length === 0 ||
+        playerValues.includes(shot.playerName ?? "");
       return matchesPlayer;
     });
 

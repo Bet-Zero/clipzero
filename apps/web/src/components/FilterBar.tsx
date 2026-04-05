@@ -137,7 +137,7 @@ export default function FilterBar({
   const subType = params.get("subType") || "";
   const distanceBucket = params.get("distanceBucket") || "";
 
-  const [playerInput, setPlayerInput] = useState(selectedPlayer);
+  const [playerInput, setPlayerInput] = useState("");
   const [isPlayerOpen, setIsPlayerOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
@@ -167,7 +167,7 @@ export default function FilterBar({
   }, [isOverflowOpen]);
 
   useEffect(() => {
-    setPlayerInput(selectedPlayer);
+    setPlayerInput("");
     setIsPlayerOpen(false);
   }, [selectedPlayer, gameId, team, playType, quarter]);
 
@@ -238,10 +238,10 @@ export default function FilterBar({
       .slice(0, 8);
   }, [players, playerInput]);
 
-  function applyPlayer(name: string) {
-    setPlayerInput(name);
+  function togglePlayer(name: string) {
+    setPlayerInput("");
     setIsPlayerOpen(false);
-    navigate({ player: name });
+    navigate({ player: toggleMultiValue(selectedPlayer, name) });
   }
 
   function clearPlayer() {
@@ -263,7 +263,7 @@ export default function FilterBar({
   const activeFilterCount =
     (playType !== DEFAULT_PLAY_TYPE ? 1 : 0) +
     (team !== "" ? splitMultiValue(team).length : 0) +
-    (selectedPlayer !== "" ? 1 : 0) +
+    (selectedPlayer !== "" ? splitMultiValue(selectedPlayer).length : 0) +
     (quarter !== "" ? splitMultiValue(quarter).length : 0) +
     (shotResult !== DEFAULT_RESULT && playType === DEFAULT_PLAY_TYPE ? 1 : 0) +
     (shotValue !== "" ? 1 : 0) +
@@ -296,7 +296,9 @@ export default function FilterBar({
       }
     }
     if (selectedPlayer) {
-      chips.push({ key: "player", label: selectedPlayer });
+      for (const p of splitMultiValue(selectedPlayer)) {
+        chips.push({ key: "player", label: p, value: p });
+      }
     }
     if (quarter) {
       for (const q of splitMultiValue(quarter)) {
@@ -354,7 +356,12 @@ export default function FilterBar({
       return;
     }
     if (key === "player") {
-      clearPlayer();
+      if (value) {
+        navigate({ player: removeMultiValue(selectedPlayer, value) });
+      } else {
+        navigate({ player: "" });
+      }
+      setPlayerInput("");
       return;
     }
     // Multi-select params: remove one value from the comma-separated list
@@ -380,52 +387,30 @@ export default function FilterBar({
         {portalTarget &&
           createPortal(
             <div ref={triggerRef} className="flex items-center gap-2">
-              {/* Player dropdown grouped by team */}
+              {/* Player multi-select dropdown */}
               {players.length > 0 && (
-                <select
-                  value={selectedPlayer}
-                  onChange={(e) => navigate({ player: e.target.value })}
-                  className="h-8 rounded bg-zinc-900 px-2 text-sm text-white"
-                >
-                  <option value="">All Players</option>
-                  {(() => {
-                    const playerTricodes = Array.from(
-                      new Set(players.map((p) => p.teamTricode ?? "")),
-                    );
-                    const orderedTricodes = [
-                      ...teams.filter((t) => playerTricodes.includes(t)),
-                      ...playerTricodes.filter(
-                        (t) => t !== "" && !teams.includes(t),
-                      ),
-                    ];
-                    const ungrouped = players.filter(
-                      (p) => !p.teamTricode || p.teamTricode === "",
-                    );
-                    return (
-                      <>
-                        {orderedTricodes.map((t) => {
-                          const group = players.filter(
-                            (p) => p.teamTricode === t,
-                          );
-                          return (
-                            <optgroup key={t} label={t}>
-                              {group.map((p) => (
-                                <option key={p.name} value={p.name}>
-                                  {p.name}
-                                </option>
-                              ))}
-                            </optgroup>
-                          );
-                        })}
-                        {ungrouped.map((p) => (
-                          <option key={p.name} value={p.name}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </>
-                    );
+                <MultiSelectDropdown
+                  label=""
+                  summaryLabel={(() => {
+                    const sel = splitMultiValue(selectedPlayer);
+                    if (sel.length === 0) return "All Players";
+                    if (sel.length <= 2) return sel.join(", ");
+                    return `${sel.length} players`;
                   })()}
-                </select>
+                  options={players.map((p) => ({
+                    label: `${p.name}${p.teamTricode ? " (" + p.teamTricode + ")" : ""}`,
+                    value: p.name,
+                  }))}
+                  selectedValues={splitMultiValue(selectedPlayer)}
+                  onToggle={(val) =>
+                    navigate({
+                      player: toggleMultiValue(selectedPlayer, val),
+                    })
+                  }
+                  onClear={
+                    selectedPlayer ? () => navigate({ player: "" }) : undefined
+                  }
+                />
               )}
 
               <button
@@ -550,14 +535,7 @@ export default function FilterBar({
                         if (e.key === "Enter") {
                           e.preventDefault();
                           if (isPlayerOpen && activeIndex >= 0) {
-                            applyPlayer(filteredPlayers[activeIndex].name);
-                          } else {
-                            const exactMatch = players.find(
-                              (p) =>
-                                p.name.toLowerCase() ===
-                                playerInput.trim().toLowerCase(),
-                            );
-                            applyPlayer(exactMatch?.name ?? playerInput.trim());
+                            togglePlayer(filteredPlayers[activeIndex].name);
                           }
                           return;
                         }
@@ -583,6 +561,29 @@ export default function FilterBar({
                       </button>
                     )}
                   </div>
+                  {/* Selected player tags */}
+                  {splitMultiValue(selectedPlayer).length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {splitMultiValue(selectedPlayer).map((name) => (
+                        <span
+                          key={name}
+                          className="inline-flex items-center gap-1 rounded-full bg-zinc-700 py-0.5 pl-2 pr-1 text-xs text-zinc-200"
+                        >
+                          {name}
+                          <button
+                            onClick={() =>
+                              navigate({
+                                player: removeMultiValue(selectedPlayer, name),
+                              })
+                            }
+                            className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-600 hover:text-zinc-100"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {isPlayerOpen && filteredPlayers.length > 0 && (
@@ -590,20 +591,34 @@ export default function FilterBar({
                     ref={listRef}
                     className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg"
                   >
-                    {filteredPlayers.map((p, i) => (
-                      <button
-                        key={p.name}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => applyPlayer(p.name)}
-                        className={`block w-full px-3 py-2 text-left text-sm text-white ${
-                          i === activeIndex
-                            ? "bg-zinc-700"
-                            : "hover:bg-zinc-800"
-                        }`}
-                      >
-                        {p.name}
-                      </button>
-                    ))}
+                    {filteredPlayers.map((p, i) => {
+                      const isSelected = hasMultiValue(selectedPlayer, p.name);
+                      return (
+                        <button
+                          key={p.name}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => togglePlayer(p.name)}
+                          className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-white ${
+                            isSelected
+                              ? "bg-zinc-800"
+                              : i === activeIndex
+                                ? "bg-zinc-700"
+                                : "hover:bg-zinc-800"
+                          }`}
+                        >
+                          <span
+                            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
+                              isSelected
+                                ? "border-white bg-white text-black"
+                                : "border-zinc-600"
+                            }`}
+                          >
+                            {isSelected ? "✓" : ""}
+                          </span>
+                          {p.name}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
