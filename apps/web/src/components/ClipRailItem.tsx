@@ -115,39 +115,29 @@ const ClipRailItem = forwardRef<HTMLButtonElement, Props>(
 
         {/* Card content */}
         <div className="flex flex-1 flex-col gap-1 px-2.5 pt-2 pb-2.5">
-          {/* Row 1: index + shot result */}
-          <div className="flex items-center justify-between gap-1">
-            <span className="flex shrink-0 items-center gap-1.5">
-              {clip.shotResult === "Made" && (
-                <span className="rounded-full bg-green-500/20 px-1.5 py-0.5 text-[9px] font-bold text-green-400">
-                  MADE
-                </span>
-              )}
-              {clip.shotResult === "Missed" && (
-                <span className="rounded-full bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold text-red-400">
-                  MISS
-                </span>
-              )}
-            </span>
-            <span className="text-[10px] tabular-nums text-zinc-500">
-              #{index + 1}
-            </span>
-          </div>
-
-          {/* Action description */}
-          <p className="line-clamp-2 text-[11px] leading-snug text-zinc-400">
+          {/* Action description — bold + white for makes, normal for misses */}
+          <p
+            className={`line-clamp-3 text-[11px] leading-snug ${
+              clip.shotResult === "Made"
+                ? "font-semibold text-white"
+                : "text-zinc-400"
+            }`}
+          >
             {actionLabel}
           </p>
 
-          {/* Period · clock */}
-          <div className="mt-auto flex items-center gap-1.5 pt-0.5 text-[10px] text-zinc-500">
-            <span
-              className="inline-block h-1.5 w-1.5 rounded-full"
-              style={{ backgroundColor: teamColor }}
-            />
-            <span>
-              Q{clip.period ?? "—"} · {formatClock(clip.clock)}
-            </span>
+          {/* Period · clock · index */}
+          <div className="mt-auto flex items-center justify-between pt-0.5 text-[10px] text-zinc-500">
+            <div className="flex items-center gap-1.5">
+              <span
+                className="inline-block h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: teamColor }}
+              />
+              <span>
+                Q{clip.period ?? "—"} · {formatClock(clip.clock)}
+              </span>
+            </div>
+            <span className="tabular-nums">#{index + 1}</span>
           </div>
         </div>
       </button>
