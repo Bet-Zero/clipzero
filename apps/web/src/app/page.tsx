@@ -1,12 +1,8 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import ClipBrowser from "@/components/ClipBrowser";
-import DatePicker from "@/components/DatePicker";
 import FilterBar from "@/components/FilterBar";
-import GameSelector from "@/components/GameSelector";
-import ModeToggle from "@/components/ModeToggle";
-import PlayerModeBrowser from "@/components/PlayerModeBrowser";
-import SeasonSelector from "@/components/SeasonSelector";
+import PageShell from "@/components/PageShell";
 import { buildApiUrl } from "@/lib/api";
 import {
   parseSeason,
@@ -258,21 +254,16 @@ export default async function Home({
 
   // ── Player mode: skip game-scoped data fetching entirely ──
   if (mode === "player") {
-    // Compute a fallback game date so switching back to game mode doesn't trigger a server redirect
     const fallbackGameDate = dateInSeason(today, selectedSeason)
       ? today
       : defaultDateForSeason(selectedSeason);
     return (
-      <main className="h-dvh overflow-y-auto bg-black text-white">
-        <div className="mx-auto flex max-w-3xl items-center gap-3 overflow-x-auto px-4 py-2">
-          <ModeToggle mode={mode} gameDate={fallbackGameDate} />
-          <SeasonSelector selectedSeason={selectedSeason} />
-          <div className="h-5 w-px bg-zinc-700 shrink-0" aria-hidden="true" />
-          <div id="player-filter-portal" className="contents" />
-        </div>
-
-        <PlayerModeBrowser season={selectedSeason} />
-      </main>
+      <PageShell
+        initialMode="player"
+        season={selectedSeason}
+        selectedDate={fallbackGameDate}
+        gameDate={fallbackGameDate}
+      />
     );
   }
 
@@ -348,39 +339,29 @@ export default async function Home({
       : null;
 
   return (
-    <main className="flex h-dvh flex-col bg-black text-white">
-      <div className="shrink-0 mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-2">
-        <ModeToggle mode={mode} gameDate={selectedDate} />
-        <SeasonSelector selectedSeason={selectedSeason} />
-        <div className="h-5 w-px bg-zinc-700" aria-hidden="true" />
-        <DatePicker
-          selectedDate={selectedDate}
-          selectedSeason={selectedSeason}
+    <PageShell
+      initialMode="game"
+      season={selectedSeason}
+      selectedDate={selectedDate}
+      games={games}
+      selectedGameId={selectedGameId}
+      gamesApiError={gamesApiError}
+      gameDate={selectedDate}
+    >
+      <Suspense fallback={<ClipsFallback />}>
+        <ClipsSection
+          gameId={selectedGameId}
+          gamesApiError={gamesApiError}
+          limit={limit}
+          player={playerFilter}
+          result={resultFilter}
+          playType={playType}
+          quarter={quarter}
+          team={team}
+          teams={teams}
+          actionNumber={actionNumber}
         />
-        <GameSelector
-          games={games}
-          selectedGameId={selectedGameId}
-          apiError={gamesApiError}
-        />
-        <div id="filter-bar-portal" />
-      </div>
-
-      <div className="flex flex-1 min-h-0 flex-col">
-        <Suspense fallback={<ClipsFallback />}>
-          <ClipsSection
-            gameId={selectedGameId}
-            gamesApiError={gamesApiError}
-            limit={limit}
-            player={playerFilter}
-            result={resultFilter}
-            playType={playType}
-            quarter={quarter}
-            team={team}
-            teams={teams}
-            actionNumber={actionNumber}
-          />
-        </Suspense>
-      </div>
-    </main>
+      </Suspense>
+    </PageShell>
   );
 }
