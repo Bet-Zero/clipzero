@@ -10,6 +10,9 @@ import {
   PLAY_TYPE_SPECIFIC_PARAMS,
   getFiltersForPlayType,
 } from "@/lib/filterConfig";
+import ActiveFilterChips, {
+  type FilterChip,
+} from "@/components/ActiveFilterChips";
 
 export default function FilterBar({
   players,
@@ -186,312 +189,386 @@ export default function FilterBar({
 
   const playTypeFilters = getFiltersForPlayType(playType);
 
+  const activeChips = useMemo(() => {
+    const chips: FilterChip[] = [];
+    const filters = getFiltersForPlayType(playType);
+
+    if (playType !== DEFAULT_PLAY_TYPE) {
+      chips.push({ key: "playType", label: playType });
+    }
+    if (team) {
+      chips.push({ key: "team", label: `Team: ${team}` });
+    }
+    if (selectedPlayer) {
+      chips.push({ key: "player", label: selectedPlayer });
+    }
+    if (quarter) {
+      const n = Number(quarter);
+      const qLabel =
+        n >= 1 && n <= 4 ? `Q${n}` : n >= 5 ? `OT${n - 4}` : quarter;
+      chips.push({ key: "quarter", label: qLabel });
+    }
+
+    const values: Record<string, string> = {
+      result: shotResult,
+      shotValue,
+      subType,
+      distanceBucket,
+    };
+    for (const filter of filters) {
+      const val = values[filter.param] ?? "";
+      if (val && val !== filter.defaultValue) {
+        const optLabel =
+          filter.options.find((o) => o.value === val)?.label ?? val;
+        chips.push({
+          key: filter.param,
+          label: `${filter.label}: ${optLabel}`,
+        });
+      }
+    }
+
+    return chips;
+  }, [
+    playType,
+    team,
+    selectedPlayer,
+    quarter,
+    shotResult,
+    shotValue,
+    subType,
+    distanceBucket,
+  ]);
+
+  function removeChip(key: string) {
+    if (key === "playType") {
+      changePlayType(DEFAULT_PLAY_TYPE);
+      return;
+    }
+    if (key === "player") {
+      clearPlayer();
+      return;
+    }
+    const filter = playTypeFilters.find((f) => f.param === key);
+    navigate({ [key]: filter?.defaultValue ?? "" });
+  }
+
   return (
-    <div className="relative" style={{ height: 0, overflow: "visible" }}>
-      {portalTarget &&
-        createPortal(
-          <div ref={triggerRef} className="flex items-center gap-2">
-            {/* Player dropdown grouped by team */}
-            {players.length > 0 && (
-              <select
-                value={selectedPlayer}
-                onChange={(e) => navigate({ player: e.target.value })}
-                className="h-8 rounded bg-zinc-900 px-2 text-sm text-white"
-              >
-                <option value="">All Players</option>
-                {(() => {
-                  const playerTricodes = Array.from(
-                    new Set(players.map((p) => p.teamTricode ?? "")),
-                  );
-                  const orderedTricodes = [
-                    ...teams.filter((t) => playerTricodes.includes(t)),
-                    ...playerTricodes.filter(
-                      (t) => t !== "" && !teams.includes(t),
-                    ),
-                  ];
-                  const ungrouped = players.filter(
-                    (p) => !p.teamTricode || p.teamTricode === "",
-                  );
-                  return (
-                    <>
-                      {orderedTricodes.map((t) => {
-                        const group = players.filter(
-                          (p) => p.teamTricode === t,
-                        );
-                        return (
-                          <optgroup key={t} label={t}>
-                            {group.map((p) => (
-                              <option key={p.name} value={p.name}>
-                                {p.name}
-                              </option>
-                            ))}
-                          </optgroup>
-                        );
-                      })}
-                      {ungrouped.map((p) => (
-                        <option key={p.name} value={p.name}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </>
-                  );
-                })()}
-              </select>
-            )}
-
-            <button
-              onClick={() => setIsOverflowOpen((o) => !o)}
-              className={`relative h-8 rounded px-3 text-sm transition-colors ${
-                isOverflowOpen
-                  ? "bg-zinc-700 text-white"
-                  : activeFilterCount > 0
-                    ? "bg-zinc-800 text-white"
-                    : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-              }`}
-            >
-              {activeFilterCount > 0
-                ? `Filters (${activeFilterCount})`
-                : "Filters"}
-              {activeFilterCount > 0 && (
-                <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-blue-500" />
-              )}
-            </button>
-
-            {isFiltered && (
-              <button
-                onClick={clearFilters}
-                className="h-8 rounded bg-zinc-800 px-3 text-sm text-zinc-300 hover:bg-zinc-700"
-              >
-                Clear
-              </button>
-            )}
-          </div>,
-          portalTarget,
-        )}
-
-      {/* Floating filter panel */}
-      {isOverflowOpen && (
-        <div
-          ref={panelRef}
-          className="absolute left-0 right-0 top-0 z-50 border-b-2 border-zinc-600 bg-zinc-800 px-4 py-3 shadow-2xl"
-        >
-          <div className="flex flex-wrap items-start gap-3">
-            {/* Play Type */}
-            <label className="flex items-center gap-2 text-xs text-zinc-500">
-              Play Type
-              <select
-                value={playType}
-                onChange={(e) => changePlayType(e.target.value)}
-                className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
-              >
-                {PLAY_TYPES.map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {/* Team */}
-            <label className="flex items-center gap-2 text-xs text-zinc-500">
-              Team
-              <select
-                value={team}
-                onChange={(e) => navigate({ team: e.target.value, player: "" })}
-                className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
-              >
-                <option value="">All Teams</option>
-                {teams.map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {/* Player search */}
-            <div className="relative min-w-[200px]">
-              <div className="flex items-center gap-2 text-xs text-zinc-500">
-                <span className="shrink-0">Player</span>
-                <div className="flex items-center gap-1">
-                  <input
-                    value={playerInput}
-                    onChange={(e) => {
-                      setPlayerInput(e.target.value);
-                      setIsPlayerOpen(true);
-                    }}
-                    onFocus={() => setIsPlayerOpen(true)}
-                    onBlur={() => {
-                      setTimeout(() => setIsPlayerOpen(false), 150);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "ArrowDown") {
-                        e.preventDefault();
-                        if (!isPlayerOpen) setIsPlayerOpen(true);
-                        setActiveIndex((i) =>
-                          filteredPlayers.length === 0
-                            ? -1
-                            : (i + 1) % filteredPlayers.length,
-                        );
-                        return;
-                      }
-                      if (e.key === "ArrowUp") {
-                        e.preventDefault();
-                        if (!isPlayerOpen) setIsPlayerOpen(true);
-                        setActiveIndex((i) =>
-                          filteredPlayers.length === 0
-                            ? -1
-                            : i <= 0
-                              ? filteredPlayers.length - 1
-                              : i - 1,
-                        );
-                        return;
-                      }
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        if (isPlayerOpen && activeIndex >= 0) {
-                          applyPlayer(filteredPlayers[activeIndex].name);
-                        } else {
-                          const exactMatch = players.find(
-                            (p) =>
-                              p.name.toLowerCase() ===
-                              playerInput.trim().toLowerCase(),
+    <>
+      <div className="relative" style={{ height: 0, overflow: "visible" }}>
+        {portalTarget &&
+          createPortal(
+            <div ref={triggerRef} className="flex items-center gap-2">
+              {/* Player dropdown grouped by team */}
+              {players.length > 0 && (
+                <select
+                  value={selectedPlayer}
+                  onChange={(e) => navigate({ player: e.target.value })}
+                  className="h-8 rounded bg-zinc-900 px-2 text-sm text-white"
+                >
+                  <option value="">All Players</option>
+                  {(() => {
+                    const playerTricodes = Array.from(
+                      new Set(players.map((p) => p.teamTricode ?? "")),
+                    );
+                    const orderedTricodes = [
+                      ...teams.filter((t) => playerTricodes.includes(t)),
+                      ...playerTricodes.filter(
+                        (t) => t !== "" && !teams.includes(t),
+                      ),
+                    ];
+                    const ungrouped = players.filter(
+                      (p) => !p.teamTricode || p.teamTricode === "",
+                    );
+                    return (
+                      <>
+                        {orderedTricodes.map((t) => {
+                          const group = players.filter(
+                            (p) => p.teamTricode === t,
                           );
-                          applyPlayer(exactMatch?.name ?? playerInput.trim());
+                          return (
+                            <optgroup key={t} label={t}>
+                              {group.map((p) => (
+                                <option key={p.name} value={p.name}>
+                                  {p.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          );
+                        })}
+                        {ungrouped.map((p) => (
+                          <option key={p.name} value={p.name}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </>
+                    );
+                  })()}
+                </select>
+              )}
+
+              <button
+                onClick={() => setIsOverflowOpen((o) => !o)}
+                className={`relative h-8 rounded px-3 text-sm transition-colors ${
+                  isOverflowOpen
+                    ? "bg-zinc-700 text-white"
+                    : activeFilterCount > 0
+                      ? "bg-zinc-800 text-white"
+                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                }`}
+              >
+                {activeFilterCount > 0
+                  ? `Filters (${activeFilterCount})`
+                  : "Filters"}
+                {activeFilterCount > 0 && (
+                  <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-blue-500" />
+                )}
+              </button>
+
+              {isFiltered && (
+                <button
+                  onClick={clearFilters}
+                  className="h-8 rounded bg-zinc-800 px-3 text-sm text-zinc-300 hover:bg-zinc-700"
+                >
+                  Clear
+                </button>
+              )}
+            </div>,
+            portalTarget,
+          )}
+
+        {/* Floating filter panel */}
+        {isOverflowOpen && (
+          <div
+            ref={panelRef}
+            className="absolute left-0 right-0 top-0 z-50 border-b-2 border-zinc-600 bg-zinc-800 px-4 py-3 shadow-2xl"
+          >
+            <div className="flex flex-wrap items-start gap-3">
+              {/* Play Type */}
+              <label className="flex items-center gap-2 text-xs text-zinc-500">
+                Play Type
+                <select
+                  value={playType}
+                  onChange={(e) => changePlayType(e.target.value)}
+                  className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
+                >
+                  {PLAY_TYPES.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {/* Team */}
+              <label className="flex items-center gap-2 text-xs text-zinc-500">
+                Team
+                <select
+                  value={team}
+                  onChange={(e) =>
+                    navigate({ team: e.target.value, player: "" })
+                  }
+                  className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
+                >
+                  <option value="">All Teams</option>
+                  {teams.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {/* Player search */}
+              <div className="relative min-w-[200px]">
+                <div className="flex items-center gap-2 text-xs text-zinc-500">
+                  <span className="shrink-0">Player</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      value={playerInput}
+                      onChange={(e) => {
+                        setPlayerInput(e.target.value);
+                        setIsPlayerOpen(true);
+                      }}
+                      onFocus={() => setIsPlayerOpen(true)}
+                      onBlur={() => {
+                        setTimeout(() => setIsPlayerOpen(false), 150);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          if (!isPlayerOpen) setIsPlayerOpen(true);
+                          setActiveIndex((i) =>
+                            filteredPlayers.length === 0
+                              ? -1
+                              : (i + 1) % filteredPlayers.length,
+                          );
+                          return;
                         }
-                        return;
-                      }
-                      if (e.key === "Escape") {
-                        if (isPlayerOpen) {
-                          setIsPlayerOpen(false);
-                          setActiveIndex(-1);
-                        } else {
-                          clearPlayer();
+                        if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          if (!isPlayerOpen) setIsPlayerOpen(true);
+                          setActiveIndex((i) =>
+                            filteredPlayers.length === 0
+                              ? -1
+                              : i <= 0
+                                ? filteredPlayers.length - 1
+                                : i - 1,
+                          );
+                          return;
                         }
-                      }
-                    }}
-                    placeholder="Search player"
-                    className="h-7 w-full rounded bg-zinc-900 px-3 text-sm text-white placeholder:text-zinc-500"
-                  />
-                  {selectedPlayer && (
-                    <button
-                      onClick={clearPlayer}
-                      className="h-7 rounded bg-zinc-900 px-2 text-sm text-zinc-400 hover:text-zinc-200"
-                      aria-label="Clear player"
-                    >
-                      ×
-                    </button>
-                  )}
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (isPlayerOpen && activeIndex >= 0) {
+                            applyPlayer(filteredPlayers[activeIndex].name);
+                          } else {
+                            const exactMatch = players.find(
+                              (p) =>
+                                p.name.toLowerCase() ===
+                                playerInput.trim().toLowerCase(),
+                            );
+                            applyPlayer(exactMatch?.name ?? playerInput.trim());
+                          }
+                          return;
+                        }
+                        if (e.key === "Escape") {
+                          if (isPlayerOpen) {
+                            setIsPlayerOpen(false);
+                            setActiveIndex(-1);
+                          } else {
+                            clearPlayer();
+                          }
+                        }
+                      }}
+                      placeholder="Search player"
+                      className="h-7 w-full rounded bg-zinc-900 px-3 text-sm text-white placeholder:text-zinc-500"
+                    />
+                    {selectedPlayer && (
+                      <button
+                        onClick={clearPlayer}
+                        className="h-7 rounded bg-zinc-900 px-2 text-sm text-zinc-400 hover:text-zinc-200"
+                        aria-label="Clear player"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
                 </div>
+
+                {isPlayerOpen && filteredPlayers.length > 0 && (
+                  <div
+                    ref={listRef}
+                    className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg"
+                  >
+                    {filteredPlayers.map((p, i) => (
+                      <button
+                        key={p.name}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => applyPlayer(p.name)}
+                        className={`block w-full px-3 py-2 text-left text-sm text-white ${
+                          i === activeIndex
+                            ? "bg-zinc-700"
+                            : "hover:bg-zinc-800"
+                        }`}
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {isPlayerOpen && filteredPlayers.length > 0 && (
-                <div
-                  ref={listRef}
-                  className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg"
+              {/* Quarter */}
+              <label className="flex items-center gap-2 text-xs text-zinc-500">
+                Quarter
+                <select
+                  value={quarter}
+                  onChange={(e) => navigate({ quarter: e.target.value })}
+                  className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
                 >
-                  {filteredPlayers.map((p, i) => (
-                    <button
-                      key={p.name}
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => applyPlayer(p.name)}
-                      className={`block w-full px-3 py-2 text-left text-sm text-white ${
-                        i === activeIndex ? "bg-zinc-700" : "hover:bg-zinc-800"
-                      }`}
+                  <option value="">All</option>
+                  <option value="1">Q1</option>
+                  <option value="2">Q2</option>
+                  <option value="3">Q3</option>
+                  <option value="4">Q4</option>
+                  <option value="5">OT1</option>
+                  <option value="6">OT2</option>
+                  <option value="7">OT3</option>
+                </select>
+              </label>
+
+              {/* Play-type-specific filters from filterConfig */}
+              {playTypeFilters.map((filter) => {
+                const currentValue =
+                  params.get(filter.param) || filter.defaultValue;
+
+                if (filter.style === "buttons") {
+                  return (
+                    <div key={filter.id} className="flex items-center gap-2">
+                      <span className="text-xs text-zinc-500">
+                        {filter.label}
+                      </span>
+                      <div className="flex gap-1">
+                        {filter.options.map((opt) => (
+                          <button
+                            key={opt.value}
+                            onClick={() =>
+                              navigate({ [filter.param]: opt.value })
+                            }
+                            className={`rounded px-3 py-0.5 text-sm ${
+                              currentValue === opt.value
+                                ? "bg-white text-black"
+                                : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <label
+                    key={filter.id}
+                    className="flex items-center gap-2 text-xs text-zinc-500"
+                  >
+                    {filter.label}
+                    <select
+                      value={currentValue}
+                      onChange={(e) =>
+                        navigate({ [filter.param]: e.target.value })
+                      }
+                      className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
                     >
-                      {p.name}
-                    </button>
-                  ))}
-                </div>
+                      {filter.options.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                );
+              })}
+
+              {/* Clear all */}
+              {isFiltered && (
+                <button
+                  onClick={clearFilters}
+                  className="h-7 rounded bg-zinc-800 px-3 text-sm text-zinc-300 hover:bg-zinc-700"
+                >
+                  Clear all
+                </button>
               )}
             </div>
-
-            {/* Quarter */}
-            <label className="flex items-center gap-2 text-xs text-zinc-500">
-              Quarter
-              <select
-                value={quarter}
-                onChange={(e) => navigate({ quarter: e.target.value })}
-                className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
-              >
-                <option value="">All</option>
-                <option value="1">Q1</option>
-                <option value="2">Q2</option>
-                <option value="3">Q3</option>
-                <option value="4">Q4</option>
-                <option value="5">OT1</option>
-                <option value="6">OT2</option>
-                <option value="7">OT3</option>
-              </select>
-            </label>
-
-            {/* Play-type-specific filters from filterConfig */}
-            {playTypeFilters.map((filter) => {
-              const currentValue =
-                params.get(filter.param) || filter.defaultValue;
-
-              if (filter.style === "buttons") {
-                return (
-                  <div key={filter.id} className="flex items-center gap-2">
-                    <span className="text-xs text-zinc-500">
-                      {filter.label}
-                    </span>
-                    <div className="flex gap-1">
-                      {filter.options.map((opt) => (
-                        <button
-                          key={opt.value}
-                          onClick={() =>
-                            navigate({ [filter.param]: opt.value })
-                          }
-                          className={`rounded px-3 py-0.5 text-sm ${
-                            currentValue === opt.value
-                              ? "bg-white text-black"
-                              : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              }
-
-              return (
-                <label
-                  key={filter.id}
-                  className="flex items-center gap-2 text-xs text-zinc-500"
-                >
-                  {filter.label}
-                  <select
-                    value={currentValue}
-                    onChange={(e) =>
-                      navigate({ [filter.param]: e.target.value })
-                    }
-                    className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
-                  >
-                    {filter.options.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              );
-            })}
-
-            {/* Clear all */}
-            {isFiltered && (
-              <button
-                onClick={clearFilters}
-                className="h-7 rounded bg-zinc-800 px-3 text-sm text-zinc-300 hover:bg-zinc-700"
-              >
-                Clear all
-              </button>
-            )}
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+      <ActiveFilterChips
+        chips={activeChips}
+        onRemove={removeChip}
+        onClearAll={clearFilters}
+      />
+    </>
   );
 }

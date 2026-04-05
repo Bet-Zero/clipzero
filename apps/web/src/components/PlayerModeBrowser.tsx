@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { buildApiUrl } from "@/lib/api";
@@ -22,6 +22,9 @@ import ClipRail from "@/components/ClipRail";
 import PlayerSearch from "@/components/PlayerSearch";
 import PlayerGameList from "@/components/PlayerGameList";
 import { PLAY_TYPES, getFiltersForPlayType } from "@/lib/filterConfig";
+import ActiveFilterChips, {
+  type FilterChip,
+} from "@/components/ActiveFilterChips";
 
 function setActionNumberInUrl(actionNumber: number | null) {
   const url = new URL(window.location.href);
@@ -432,6 +435,97 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     navigateTo({ excludedDates: next });
   }
 
+  const activeChips = useMemo(() => {
+    const chips: FilterChip[] = [];
+    const filters = getFiltersForPlayType(playType);
+
+    if (playType !== DEFAULT_PLAY_TYPE) {
+      chips.push({ key: "playType", label: playType });
+    }
+    if (quarter) {
+      const n = Number(quarter);
+      const qLabel =
+        n >= 1 && n <= 4 ? `Q${n}` : n >= 5 ? `OT${n - 4}` : quarter;
+      chips.push({ key: "quarter", label: qLabel });
+    }
+
+    const values: Record<string, string> = {
+      result,
+      shotValue,
+      subType,
+      distanceBucket,
+    };
+    for (const filter of filters) {
+      const val = values[filter.param] ?? "";
+      if (val && val !== filter.defaultValue) {
+        const optLabel =
+          filter.options.find((o) => o.value === val)?.label ?? val;
+        chips.push({
+          key: filter.param,
+          label: `${filter.label}: ${optLabel}`,
+        });
+      }
+    }
+
+    const excludeCount = excludedGameIds.size + excludedDates.size;
+    if (excludeCount > 0) {
+      chips.push({
+        key: "exclusions",
+        label: `${excludeCount} exclusion${excludeCount !== 1 ? "s" : ""}`,
+      });
+    }
+
+    return chips;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    playType,
+    quarter,
+    result,
+    shotValue,
+    subType,
+    distanceBucket,
+    excludedGameIds.size,
+    excludedDates.size,
+  ]);
+
+  function removeChip(key: string) {
+    if (key === "playType") {
+      navigateTo({
+        playType: DEFAULT_PLAY_TYPE,
+        result: DEFAULT_RESULT,
+        shotValue: "",
+        subType: "",
+        distanceBucket: "",
+      });
+      return;
+    }
+    if (key === "exclusions") {
+      setExcludedGameIds(new Set());
+      setExcludedDates(new Set());
+      navigateTo({ excludedGameIds: new Set(), excludedDates: new Set() });
+      return;
+    }
+    const filter = getFiltersForPlayType(playType).find((f) => f.param === key);
+    navigateTo({
+      [key]: filter?.defaultValue ?? "",
+    } as Partial<PlayerModeFilterState>);
+  }
+
+  function clearAllChips() {
+    setExcludedGameIds(new Set());
+    setExcludedDates(new Set());
+    navigateTo({
+      playType: DEFAULT_PLAY_TYPE,
+      result: DEFAULT_RESULT,
+      quarter: "",
+      shotValue: "",
+      subType: "",
+      distanceBucket: "",
+      excludedGameIds: new Set(),
+      excludedDates: new Set(),
+    });
+  }
+
   return (
     <div>
       {/* Search + filter bar — portaled into the top bar */}
@@ -541,6 +635,15 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
           </>,
           portalTarget,
         )}
+
+      {/* Active filter chips */}
+      {selectedPlayer && (
+        <ActiveFilterChips
+          chips={activeChips}
+          onRemove={removeChip}
+          onClearAll={clearAllChips}
+        />
+      )}
 
       {/* Game list with exclusions */}
       {selectedPlayer && gameLog.length > 0 && (
