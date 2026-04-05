@@ -1,10 +1,12 @@
 "use client";
 
+import { useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function ModeToggle({ mode }: { mode: string }) {
+export default function ModeToggle({ mode, gameDate }: { mode: string; gameDate?: string }) {
   const router = useRouter();
   const params = useSearchParams();
+  const [, startTransition] = useTransition();
 
   function switchMode(newMode: string) {
     const search = new URLSearchParams();
@@ -15,13 +17,15 @@ export default function ModeToggle({ mode }: { mode: string }) {
     if (newMode === "player") {
       search.set("mode", "player");
     }
-    // game mode: no mode param needed, preserve date
+    // game mode: include date so the server never needs to redirect
     if (newMode === "game") {
-      const date = params.get("date");
+      const date = params.get("date") || gameDate;
       if (date) search.set("date", date);
     }
 
-    router.push(`/?${search.toString()}`);
+    startTransition(() => {
+      router.replace(`/?${search.toString()}`);
+    });
   }
 
   return (

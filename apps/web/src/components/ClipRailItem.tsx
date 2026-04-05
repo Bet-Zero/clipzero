@@ -3,39 +3,39 @@
 import { forwardRef } from "react";
 import type { Clip } from "@/lib/types";
 
-// Primary or most-visible accent color per team tricode.
-// For teams whose primary is near-black, a recognizable secondary is used instead.
+// Most visually distinctive accent color per team tricode (official palette).
+// Secondary colors used where the primary is near-black or shared with multiple teams.
 const TEAM_COLORS: Record<string, string> = {
-  ATL: "#E03A3E",
-  BOS: "#007A33",
-  BKN: "#999999",
-  CHA: "#00788C",
-  CHI: "#CE1141",
-  CLE: "#860038",
-  DAL: "#00538C",
-  DEN: "#FEC524",
-  DET: "#C8102E",
-  GSW: "#FDB927",
-  HOU: "#CE1141",
-  IND: "#FDBB30",
-  LAC: "#C8102E",
-  LAL: "#552583",
-  MEM: "#5D76A9",
-  MIA: "#98002E",
-  MIL: "#00471B",
-  MIN: "#236192",
-  NOP: "#E31837",
-  NYK: "#F58426",
-  OKC: "#007AC1",
-  ORL: "#0077C0",
-  PHI: "#006BB6",
-  PHX: "#E56020",
-  POR: "#E03A3E",
-  SAC: "#5A2D81",
-  SAS: "#8A9BB0",
-  TOR: "#CE1141",
-  UTA: "#F9A01B",
-  WAS: "#E31837",
+  ATL: "#E03A3E", // Hawks Red
+  BOS: "#007A33", // Celtics Green
+  BKN: "#999999", // Mid-grey (black/white invisible on dark bg)
+  CHA: "#00788C", // Teal
+  CHI: "#CE1141", // Bulls Red
+  CLE: "#860038", // Cavaliers Wine
+  DAL: "#00538C", // Royal Blue
+  DEN: "#FEC524", // Sunshine Yellow
+  DET: "#C8102E", // Pistons Red
+  GSW: "#FFC72C", // Golden Yellow
+  HOU: "#CE1141", // Rockets Red
+  IND: "#FDBB30", // Pacers Yellow
+  LAC: "#1D428A", // Royal Blue (avoids red collision with CHI/HOU/DET)
+  LAL: "#552583", // Lakers Purple
+  MEM: "#5D76A9", // Beale Street Blue
+  MIA: "#98002E", // Heat Maroon
+  MIL: "#00471B", // Good Land Green
+  MIN: "#236192", // Lake Blue
+  NOP: "#85714D", // Pelicans Gold (avoids red collision)
+  NYK: "#F58426", // Knicks Orange
+  OKC: "#EF3B24", // Sunset Orange (avoids blue collision with ORL/DAL)
+  ORL: "#0077C0", // Magic Blue
+  PHI: "#006BB6", // Sixers Blue
+  PHX: "#E56020", // Suns Orange
+  POR: "#E03A3E", // Blazers Red
+  SAC: "#5A2D81", // Kings Purple
+  SAS: "#C4CED4", // Spurs Silver
+  TOR: "#CE1141", // Raptors Red
+  UTA: "#F9A01B", // Jazz Yellow
+  WAS: "#E31837", // Wizards Red
 };
 
 function getTeamColor(tricode?: string): string {

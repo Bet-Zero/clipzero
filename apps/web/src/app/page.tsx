@@ -258,10 +258,14 @@ export default async function Home({
 
   // ── Player mode: skip game-scoped data fetching entirely ──
   if (mode === "player") {
+    // Compute a fallback game date so switching back to game mode doesn't trigger a server redirect
+    const fallbackGameDate = dateInSeason(today, selectedSeason)
+      ? today
+      : defaultDateForSeason(selectedSeason);
     return (
       <main className="h-dvh overflow-y-auto bg-black text-white">
         <div className="mx-auto flex max-w-3xl items-center gap-3 overflow-x-auto px-4 py-2">
-          <ModeToggle mode={mode} />
+          <ModeToggle mode={mode} gameDate={fallbackGameDate} />
           <SeasonSelector selectedSeason={selectedSeason} />
           <div className="h-5 w-px bg-zinc-700 shrink-0" aria-hidden="true" />
           <div id="player-filter-portal" className="contents" />
@@ -346,7 +350,7 @@ export default async function Home({
   return (
     <main className="flex h-dvh flex-col bg-black text-white">
       <div className="shrink-0 mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-2">
-        <ModeToggle mode={mode} />
+        <ModeToggle mode={mode} gameDate={selectedDate} />
         <SeasonSelector selectedSeason={selectedSeason} />
         <div className="h-5 w-px bg-zinc-700" aria-hidden="true" />
         <DatePicker
