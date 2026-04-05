@@ -34,7 +34,7 @@ const TEAM_COLORS: Record<string, string> = {
   SAC: "#5A2D81", // Kings Purple
   SAS: "#C4CED4", // Spurs Silver
   TOR: "#CE1141", // Raptors Red
-  UTA: "#F9A01B", // Jazz Yellow
+  UTA: "#002B5C", // Jazz Navy
   WAS: "#E31837", // Wizards Red
 };
 
