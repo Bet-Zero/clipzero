@@ -3,7 +3,13 @@
 import { useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function ModeToggle({ mode, gameDate }: { mode: string; gameDate?: string }) {
+export default function ModeToggle({
+  mode,
+  gameDate,
+}: {
+  mode: string;
+  gameDate?: string;
+}) {
   const router = useRouter();
   const params = useSearchParams();
   const [, startTransition] = useTransition();
