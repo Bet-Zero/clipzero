@@ -75,10 +75,21 @@ type Props = {
   clip: Clip;
   isActive: boolean;
   onClick: () => void;
+  homeTeamTricode?: string;
 };
 
+function deriveHomeTricode(clip: Clip, prop?: string): string | undefined {
+  if (prop) return prop;
+  // Player-mode clips carry matchup as "AWAY @ HOME"
+  if (clip.matchup) {
+    const parts = clip.matchup.split("@");
+    if (parts.length === 2) return parts[1].trim();
+  }
+  return undefined;
+}
+
 const ClipRailItem = forwardRef<HTMLButtonElement, Props>(
-  ({ clip, isActive, onClick }, ref) => {
+  ({ clip, isActive, onClick, homeTeamTricode }, ref) => {
     const teamColor = getTeamColor(clip.teamTricode);
     const actionLabel =
       cleanDescription(clip.description, clip.playerName) ??
@@ -139,7 +150,22 @@ const ClipRailItem = forwardRef<HTMLButtonElement, Props>(
             <span className="tabular-nums text-zinc-400">
               {typeof clip.scoreAway === "string" &&
               typeof clip.scoreHome === "string"
-                ? `${clip.scoreAway}–${clip.scoreHome}`
+                ? (() => {
+                    const home = deriveHomeTricode(clip, homeTeamTricode);
+                    const isHome = home && clip.teamTricode === home;
+                    const isMade = clip.shotResult === "Made";
+                    return (
+                      <>
+                        <span className={isMade && !isHome ? "font-bold text-white" : ""}>
+                          {clip.scoreAway}
+                        </span>
+                        –
+                        <span className={isMade && isHome ? "font-bold text-white" : ""}>
+                          {clip.scoreHome}
+                        </span>
+                      </>
+                    );
+                  })()
                 : ""}
             </span>
           </div>

@@ -142,6 +142,7 @@ async function ClipsSection({
   subType,
   distanceBucket,
   actionNumber,
+  homeTeamTricode,
 }: {
   gameId: string;
   gamesApiError: boolean;
@@ -156,6 +157,7 @@ async function ClipsSection({
   subType: string;
   distanceBucket: string;
   actionNumber: number | null;
+  homeTeamTricode?: string;
 }) {
   if (gamesApiError) {
     return (
@@ -236,6 +238,7 @@ async function ClipsSection({
         subType={subType}
         distanceBucket={distanceBucket}
         initialActionNumber={actionNumber}
+        homeTeamTricode={homeTeamTricode}
       />
     </>
   );
@@ -399,6 +402,7 @@ export default async function Home({
           subType={subType}
           distanceBucket={distanceBucket}
           actionNumber={actionNumber}
+          homeTeamTricode={selectedGame?.homeTeam?.teamTricode}
         />
       </Suspense>
     </PageShell>

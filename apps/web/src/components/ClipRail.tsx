@@ -12,6 +12,7 @@ type Props = {
   loading: boolean;
   error: string | null;
   onLoadMore: () => void;
+  homeTeamTricode?: string;
 };
 
 export default function ClipRail({
@@ -22,6 +23,7 @@ export default function ClipRail({
   loading,
   error,
   onLoadMore,
+  homeTeamTricode,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -99,6 +101,7 @@ export default function ClipRail({
               clip={clip}
               isActive={i === activeIndex}
               onClick={() => onSelect(i)}
+              homeTeamTricode={homeTeamTricode}
             />
           );
         })}

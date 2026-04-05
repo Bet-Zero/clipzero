@@ -27,6 +27,7 @@ type Props = {
   subType: string;
   distanceBucket: string;
   initialActionNumber: number | null;
+  homeTeamTricode?: string;
 };
 
 function setActionNumberInUrl(actionNumber: number | null) {
@@ -55,6 +56,7 @@ export default function ClipBrowser({
   subType,
   distanceBucket,
   initialActionNumber,
+  homeTeamTricode,
 }: Props) {
   const [clips, setClips] = useState<Clip[]>(initialClips);
   const [total, setTotal] = useState(initialTotal);
@@ -259,6 +261,7 @@ export default function ClipBrowser({
         loading={loading}
         error={error}
         onLoadMore={loadMore}
+        homeTeamTricode={homeTeamTricode}
       />
 
       <div className="mx-auto w-full max-w-4xl">
