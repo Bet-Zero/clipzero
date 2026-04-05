@@ -83,3 +83,13 @@ export type PlayerClipsResponse = {
   clips: Clip[];
   targetIndex?: number | null;
 };
+
+export type PlayerModeFilterState = {
+  player: PlayerSearchResult | null;
+  playType: string;
+  result: string;
+  quarter: string;
+  excludedGameIds: Set<string>;
+  excludedDates: Set<string>;
+  actionNumber: number | null;
+};

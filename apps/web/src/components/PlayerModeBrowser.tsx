@@ -8,8 +8,15 @@ import {
   DEFAULT_PLAY_TYPE,
   DEFAULT_RESULT,
   buildPlayerClipSearchParams,
+  parsePlayerModeParams,
+  buildPlayerModeUrl,
 } from "@/lib/filters";
-import type { Clip, PlayerSearchResult, PlayerGameLogEntry } from "@/lib/types";
+import type {
+  Clip,
+  PlayerSearchResult,
+  PlayerGameLogEntry,
+  PlayerModeFilterState,
+} from "@/lib/types";
 import ClipPlayer from "@/components/ClipPlayer";
 import ClipRail from "@/components/ClipRail";
 import PlayerSearch from "@/components/PlayerSearch";
@@ -83,25 +90,16 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   hasMoreRef.current = hasMore;
   const pendingAdvanceRef = useRef(false);
 
-  // Restore player from URL on mount
+  // Hydrate player + exclusion state from URL on mount
   useEffect(() => {
-    const personId = params.get("personId");
-    const playerName = params.get("playerName");
-    if (personId && playerName) {
-      setSelectedPlayer({
-        personId: Number(personId),
-        displayName: playerName,
-        teamTricode: params.get("teamTricode") || "",
-      });
-    }
-    const urlExcludeGames = params.get("excludeGameIds");
-    if (urlExcludeGames) {
-      setExcludedGameIds(new Set(urlExcludeGames.split(",").filter(Boolean)));
-    }
-    const urlExcludeDates = params.get("excludeDates");
-    if (urlExcludeDates) {
-      setExcludedDates(new Set(urlExcludeDates.split(",").filter(Boolean)));
-    }
+    const initial = parsePlayerModeParams(
+      new URLSearchParams(params.toString()),
+    );
+    if (initial.player) setSelectedPlayer(initial.player);
+    if (initial.excludedGameIds.size > 0)
+      setExcludedGameIds(initial.excludedGameIds);
+    if (initial.excludedDates.size > 0)
+      setExcludedDates(initial.excludedDates);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -345,53 +343,42 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     }
   }, [activeIndex, clips]);
 
-  // Build a complete player-mode URL from current state + overrides.
-  // Always includes exclusions so they are never silently dropped.
-  function buildPlayerUrl(
-    overrides: Record<string, string> = {},
-    {
-      player = selectedPlayer,
-      gameIdExclusions = excludedGameIds,
-      dateExclusions = excludedDates,
-    }: {
-      player?: PlayerSearchResult | null;
-      gameIdExclusions?: Set<string>;
-      dateExclusions?: Set<string>;
-    } = {},
-  ): string {
-    const search = new URLSearchParams();
-    search.set("mode", "player");
-    search.set("season", season);
-    if (player) {
-      search.set("personId", String(player.personId));
-      search.set("playerName", player.displayName);
-      if (player.teamTricode) search.set("teamTricode", player.teamTricode);
-    }
-    // Current filter values as base, then overrides
-    const pt = overrides.playType ?? playType;
-    if (pt && pt !== DEFAULT_PLAY_TYPE) search.set("playType", pt);
-    const res = overrides.result ?? result;
-    if (res && res !== DEFAULT_RESULT) search.set("result", res);
-    const q = overrides.quarter ?? quarter;
-    if (q) search.set("quarter", q);
-    // Exclusions
-    const gameIds = [...gameIdExclusions].filter(Boolean);
-    if (gameIds.length > 0) search.set("excludeGameIds", gameIds.join(","));
-    const dates = [...dateExclusions].filter(Boolean);
-    if (dates.length > 0) search.set("excludeDates", dates.join(","));
-    // actionNumber — preserve if present and no filter change.
-    // Read from window.location.search rather than params: replaceState (used
-    // by setActionNumberInUrl for rail navigation) does NOT update useSearchParams,
-    // so params.get() would return a stale value if the user has navigated clips
-    // since the last router.push.
-    const an = new URLSearchParams(window.location.search).get("actionNumber");
-    if (an && !overrides.playType && !overrides.result && !overrides.quarter)
-      search.set("actionNumber", an);
-    return `/?${search.toString()}`;
+  // Read actionNumber from window.location rather than params because
+  // replaceState (used by setActionNumberInUrl for rail navigation) does NOT
+  // update useSearchParams, so params.get() would return a stale value.
+  const an = new URLSearchParams(window.location.search).get("actionNumber");
+  const liveActionNumber = an ? Number(an) : null;
+
+  // Merge current component state with overrides into a complete filter state.
+  function getFilterState(
+    overrides: Partial<PlayerModeFilterState> = {},
+  ): PlayerModeFilterState {
+    const hasFilterChange =
+      "playType" in overrides ||
+      "result" in overrides ||
+      "quarter" in overrides;
+
+    return {
+      player:
+        "player" in overrides ? (overrides.player ?? null) : selectedPlayer,
+      playType: overrides.playType ?? playType,
+      result: overrides.result ?? result,
+      quarter: overrides.quarter ?? quarter,
+      excludedGameIds: overrides.excludedGameIds ?? excludedGameIds,
+      excludedDates: overrides.excludedDates ?? excludedDates,
+      actionNumber:
+        "actionNumber" in overrides
+          ? (overrides.actionNumber ?? null)
+          : hasFilterChange
+            ? null
+            : liveActionNumber,
+    };
   }
 
-  function updateUrl(overrides: Record<string, string>) {
-    router.push(buildPlayerUrl(overrides), { scroll: false });
+  function navigateTo(overrides: Partial<PlayerModeFilterState> = {}) {
+    router.push(buildPlayerModeUrl(season, getFilterState(overrides)), {
+      scroll: false,
+    });
   }
 
   function handlePlayerSelect(player: PlayerSearchResult) {
@@ -400,17 +387,12 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     setExcludedDates(new Set());
     setClips([]);
     setTotal(0);
-    router.push(
-      buildPlayerUrl(
-        {},
-        {
-          player,
-          gameIdExclusions: new Set(),
-          dateExclusions: new Set(),
-        },
-      ),
-      { scroll: false },
-    );
+    navigateTo({
+      player,
+      excludedGameIds: new Set(),
+      excludedDates: new Set(),
+      actionNumber: null,
+    });
   }
 
   function handlePlayerClear() {
@@ -420,43 +402,26 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     setTotal(0);
     setExcludedGameIds(new Set());
     setExcludedDates(new Set());
-    router.push(
-      buildPlayerUrl(
-        {},
-        {
-          player: null,
-          gameIdExclusions: new Set(),
-          dateExclusions: new Set(),
-        },
-      ),
-      { scroll: false },
-    );
+    navigateTo({
+      player: null,
+      excludedGameIds: new Set(),
+      excludedDates: new Set(),
+      actionNumber: null,
+    });
   }
 
   function toggleGameId(gameId: string) {
     const next = new Set(excludedGameIds);
-    if (next.has(gameId)) {
-      next.delete(gameId);
-    } else {
-      next.add(gameId);
-    }
+    next.has(gameId) ? next.delete(gameId) : next.add(gameId);
     setExcludedGameIds(next);
-    router.push(buildPlayerUrl({}, { gameIdExclusions: next }), {
-      scroll: false,
-    });
+    navigateTo({ excludedGameIds: next });
   }
 
   function toggleDate(date: string) {
     const next = new Set(excludedDates);
-    if (next.has(date)) {
-      next.delete(date);
-    } else {
-      next.add(date);
-    }
+    next.has(date) ? next.delete(date) : next.add(date);
     setExcludedDates(next);
-    router.push(buildPlayerUrl({}, { dateExclusions: next }), {
-      scroll: false,
-    });
+    navigateTo({ excludedDates: next });
   }
 
   return (
@@ -477,7 +442,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                 <select
                   value={playType}
                   onChange={(e) =>
-                    updateUrl({
+                    navigateTo({
                       playType: e.target.value,
                       result: DEFAULT_RESULT,
                     })
@@ -495,7 +460,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                   <select
                     value={result}
                     onChange={(e) =>
-                      updateUrl({ playType, result: e.target.value })
+                      navigateTo({ result: e.target.value })
                     }
                     className="h-9 shrink-0 rounded bg-zinc-900 px-3 text-sm text-white"
                   >
@@ -508,7 +473,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                 <select
                   value={quarter}
                   onChange={(e) =>
-                    updateUrl({ playType, quarter: e.target.value })
+                    navigateTo({ quarter: e.target.value })
                   }
                   className="h-9 shrink-0 rounded bg-zinc-900 px-3 text-sm text-white"
                 >
