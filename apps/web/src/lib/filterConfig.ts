@@ -39,7 +39,11 @@ export const PLAY_TYPE_SPECIFIC_PARAMS = [
 
 // Per-play-type extra filter definitions.
 // "team", "player", "quarter" are universal and NOT listed here.
-// "result" (Made / Missed) is rendered by existing buttons in FilterBar for shots — not listed here.
+//
+// Option values for subType filters are normalized group keys (e.g. "layup",
+// "offensive"). The backend uses apps/api/src/lib/subtypeGroups.ts to map
+// raw NBA subType strings into these keys. This keeps the UI config clean
+// while the backend owns the matching rules.
 export const PLAY_TYPE_FILTERS: Partial<Record<PlayType, FilterDef[]>> = {
   shots: [
     {
@@ -74,16 +78,17 @@ export const PLAY_TYPE_FILTERS: Partial<Record<PlayType, FilterDef[]>> = {
       style: "select",
       options: [
         { label: "All Shot Types", value: "" },
-        { label: "Layup", value: "Layup" },
-        { label: "Dunk", value: "Dunk" },
-        { label: "Jump Shot", value: "Jump Shot" },
-        { label: "Hook Shot", value: "Hook" },
-        { label: "Fadeaway", value: "Fadeaway" },
-        { label: "Pull-up", value: "Pullup" },
-        { label: "Floater", value: "Floating" },
-        { label: "Step Back", value: "Step Back" },
-        { label: "Tip Shot", value: "Tip" },
-        { label: "Bank Shot", value: "Bank" },
+        { label: "Layup", value: "layup" },
+        { label: "Dunk", value: "dunk" },
+        { label: "Jump Shot", value: "jump-shot" },
+        { label: "Hook Shot", value: "hook" },
+        { label: "Fadeaway", value: "fadeaway" },
+        { label: "Pull-up", value: "pullup" },
+        { label: "Floater", value: "floater" },
+        { label: "Step Back", value: "stepback" },
+        { label: "Tip Shot", value: "tip" },
+        { label: "Bank Shot", value: "bank" },
+        { label: "Other", value: "other" },
       ],
     },
     {
@@ -111,8 +116,9 @@ export const PLAY_TYPE_FILTERS: Partial<Record<PlayType, FilterDef[]>> = {
       style: "buttons",
       options: [
         { label: "All", value: "" },
-        { label: "Off", value: "Offensive" },
-        { label: "Def", value: "Defensive" },
+        { label: "Off", value: "offensive" },
+        { label: "Def", value: "defensive" },
+        { label: "Other", value: "other" },
       ],
     },
   ],
@@ -126,12 +132,13 @@ export const PLAY_TYPE_FILTERS: Partial<Record<PlayType, FilterDef[]>> = {
       style: "select",
       options: [
         { label: "All Fouls", value: "" },
-        { label: "Personal", value: "Personal" },
-        { label: "Technical", value: "Technical" },
-        { label: "Flagrant 1", value: "Flagrant1" },
-        { label: "Flagrant 2", value: "Flagrant2" },
-        { label: "Loose Ball", value: "Loose Ball" },
-        { label: "Offensive", value: "Offensive" },
+        { label: "Personal", value: "personal" },
+        { label: "Technical", value: "technical" },
+        { label: "Flagrant 1", value: "flagrant-1" },
+        { label: "Flagrant 2", value: "flagrant-2" },
+        { label: "Loose Ball", value: "loose-ball" },
+        { label: "Offensive", value: "offensive" },
+        { label: "Other", value: "other" },
       ],
     },
   ],
@@ -145,11 +152,12 @@ export const PLAY_TYPE_FILTERS: Partial<Record<PlayType, FilterDef[]>> = {
       style: "select",
       options: [
         { label: "All Turnovers", value: "" },
-        { label: "Bad Pass", value: "Bad Pass" },
-        { label: "Lost Ball", value: "Lost Ball" },
-        { label: "Traveling", value: "Traveling" },
-        { label: "Out of Bounds", value: "Step Out of Bounds" },
-        { label: "Offensive Foul", value: "Offensive Foul" },
+        { label: "Bad Pass", value: "bad-pass" },
+        { label: "Lost Ball", value: "lost-ball" },
+        { label: "Traveling", value: "traveling" },
+        { label: "Out of Bounds", value: "out-of-bounds" },
+        { label: "Offensive Foul", value: "offensive-foul" },
+        { label: "Other", value: "other" },
       ],
     },
   ],

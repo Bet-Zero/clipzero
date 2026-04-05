@@ -16,6 +16,7 @@ import type {
   PlayerGameLogEntry,
   RawAction,
 } from "./lib/nba";
+import { matchesNormalizedGroup } from "./lib/subtypeGroups";
 
 const app = express();
 const port = 4000;
@@ -253,7 +254,9 @@ app.get("/clips/game", async (req, res) => {
         : "";
 
     const subType =
-      typeof req.query.subType === "string" ? req.query.subType.trim() : "";
+      typeof req.query.subType === "string"
+        ? req.query.subType.trim().toLowerCase()
+        : "";
 
     const distanceBucket =
       typeof req.query.distanceBucket === "string"
@@ -301,7 +304,12 @@ app.get("/clips/game", async (req, res) => {
         !shotValue || shot.actionType?.toLowerCase() === shotValue;
       const matchesSubType =
         !subType ||
-        (shot.subType?.toLowerCase().includes(subType.toLowerCase()) ?? false);
+        matchesNormalizedGroup(
+          playType,
+          subType,
+          shot.subType,
+          shot.description,
+        );
       const matchesDistance =
         !distanceBucket ||
         matchesDistanceBucket(shot.shotDistance, distanceBucket);
@@ -576,7 +584,9 @@ app.get("/clips/player", async (req, res) => {
         : "";
 
     const subType =
-      typeof req.query.subType === "string" ? req.query.subType.trim() : "";
+      typeof req.query.subType === "string"
+        ? req.query.subType.trim().toLowerCase()
+        : "";
 
     const distanceBucket =
       typeof req.query.distanceBucket === "string"
@@ -730,8 +740,12 @@ app.get("/clips/player", async (req, res) => {
         !shotValue || action.actionType?.toLowerCase() === shotValue;
       const matchesSubType =
         !subType ||
-        (action.subType?.toLowerCase().includes(subType.toLowerCase()) ??
-          false);
+        matchesNormalizedGroup(
+          playType,
+          subType,
+          action.subType,
+          action.description,
+        );
       const matchesDistance =
         !distanceBucket ||
         matchesDistanceBucket(action.shotDistance, distanceBucket);

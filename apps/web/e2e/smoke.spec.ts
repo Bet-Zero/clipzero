@@ -160,7 +160,85 @@ test("API unavailable: player search shows error message when API is unreachable
   await input.fill("test");
 
   // PlayerSearch sets searchError when the fetch throws a TypeError (network abort).
+  await expect(page.getByText("API unavailable", { exact: false })).toBeVisible(
+    { timeout: 5_000 },
+  );
+});
+
+// ── 6. Shots: result + value + shot-type combination ────────────────────────
+
+test("game mode: shot filters (result + value + subType) apply to URL and page renders", async ({
+  page,
+}) => {
+  // Navigate with all three shot-specific filters combined.
+  await page.goto("/?playType=shots&result=Made&shotValue=2pt&subType=layup");
+
+  await expect(page).toHaveURL(/[?&]season=/, { timeout: 10_000 });
+
+  // Verify each filter param survived canonicalization.
+  await expect(page).toHaveURL(/result=Made/);
+  await expect(page).toHaveURL(/shotValue=2pt/);
+  await expect(page).toHaveURL(/subType=layup/);
+
+  // Page should render without crashing — clip rail, empty state, or API message.
   await expect(
-    page.getByText("API unavailable", { exact: false }),
-  ).toBeVisible({ timeout: 5_000 });
+    page
+      .getByTestId("clip-rail")
+      .or(page.getByText("No clips found"))
+      .or(page.getByText("Select a game"))
+      .or(page.getByText("API unavailable", { exact: false })),
+  ).toBeVisible({ timeout: 20_000 });
+});
+
+// ── 7. Switching playType clears shot-specific filters ──────────────────────
+
+test("game mode: changing playType clears incompatible shot filters from URL", async ({
+  page,
+}) => {
+  // Start with shot filters active.
+  await page.goto(
+    "/?playType=shots&result=Made&shotValue=3pt&subType=jump-shot&distanceBucket=20-29",
+  );
+  await expect(page).toHaveURL(/[?&]season=/, { timeout: 10_000 });
+  await expect(page).toHaveURL(/subType=jump-shot/);
+
+  // Open the filter panel and switch play type to rebounds.
+  const filterBtn = page.getByRole("button", { name: /Filters/ });
+  await expect(filterBtn).toBeVisible({ timeout: 5_000 });
+  await filterBtn.click();
+
+  // Find the play type selector inside the filter panel and switch to rebounds.
+  const playTypeSelect = page
+    .locator("select")
+    .filter({ hasText: "shots" })
+    .first();
+  await expect(playTypeSelect).toBeVisible({ timeout: 3_000 });
+  await playTypeSelect.selectOption("rebounds");
+
+  // Shot-specific params should be cleared from the URL.
+  await expect(page).toHaveURL(/playType=rebounds/, { timeout: 5_000 });
+  await expect(page).not.toHaveURL(/shotValue=/);
+  await expect(page).not.toHaveURL(/subType=jump-shot/);
+  await expect(page).not.toHaveURL(/distanceBucket=/);
+});
+
+// ── 8. Non-shot subtype filter: turnovers ───────────────────────────────────
+
+test("game mode: turnover subtype filter applies to URL and page renders", async ({
+  page,
+}) => {
+  await page.goto("/?playType=turnovers&subType=bad-pass");
+
+  await expect(page).toHaveURL(/[?&]season=/, { timeout: 10_000 });
+  await expect(page).toHaveURL(/playType=turnovers/);
+  await expect(page).toHaveURL(/subType=bad-pass/);
+
+  // Page renders without crashing.
+  await expect(
+    page
+      .getByTestId("clip-rail")
+      .or(page.getByText("No clips found"))
+      .or(page.getByText("Select a game"))
+      .or(page.getByText("API unavailable", { exact: false })),
+  ).toBeVisible({ timeout: 20_000 });
 });
