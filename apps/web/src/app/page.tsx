@@ -260,9 +260,11 @@ export default async function Home({
   if (mode === "player") {
     return (
       <main className="h-dvh overflow-y-auto bg-black text-white">
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-2">
+        <div className="mx-auto flex max-w-3xl items-center gap-3 overflow-x-auto px-4 py-2">
           <ModeToggle mode={mode} />
           <SeasonSelector selectedSeason={selectedSeason} />
+          <div className="h-5 w-px bg-zinc-700 shrink-0" aria-hidden="true" />
+          <div id="player-filter-portal" className="contents" />
         </div>
 
         <PlayerModeBrowser season={selectedSeason} />

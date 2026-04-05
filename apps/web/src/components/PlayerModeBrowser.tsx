@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { buildApiUrl } from "@/lib/api";
 import {
@@ -67,6 +68,11 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   const quarter = params.get("quarter") || "";
 
   const limit = 12;
+
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setPortalTarget(document.getElementById("player-filter-portal"));
+  }, []);
 
   const loadingRef = useRef(false);
   const clipsRef = useRef(clips);
@@ -455,62 +461,71 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
 
   return (
     <div>
-      {/* Search + filter bar */}
-      <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-2">
-        <PlayerSearch
-          season={season}
-          selectedPlayer={selectedPlayer}
-          onSelect={handlePlayerSelect}
-          onClear={handlePlayerClear}
-        />
-
-        {selectedPlayer && (
+      {/* Search + filter bar — portaled into the top bar */}
+      {portalTarget &&
+        createPortal(
           <>
-            <select
-              value={playType}
-              onChange={(e) =>
-                updateUrl({ playType: e.target.value, result: DEFAULT_RESULT })
-              }
-              className="h-9 rounded bg-zinc-900 px-3 text-sm text-white"
-            >
-              {PLAY_TYPES.map((pt) => (
-                <option key={pt} value={pt}>
-                  {pt}
-                </option>
-              ))}
-            </select>
+            <PlayerSearch
+              season={season}
+              selectedPlayer={selectedPlayer}
+              onSelect={handlePlayerSelect}
+              onClear={handlePlayerClear}
+            />
 
-            {playType === DEFAULT_PLAY_TYPE && (
-              <select
-                value={result}
-                onChange={(e) =>
-                  updateUrl({ playType, result: e.target.value })
-                }
-                className="h-9 rounded bg-zinc-900 px-3 text-sm text-white"
-              >
-                <option value="all">All Results</option>
-                <option value="Made">Made</option>
-                <option value="Missed">Missed</option>
-              </select>
+            {selectedPlayer && (
+              <>
+                <select
+                  value={playType}
+                  onChange={(e) =>
+                    updateUrl({
+                      playType: e.target.value,
+                      result: DEFAULT_RESULT,
+                    })
+                  }
+                  className="h-9 shrink-0 rounded bg-zinc-900 px-3 text-sm text-white"
+                >
+                  {PLAY_TYPES.map((pt) => (
+                    <option key={pt} value={pt}>
+                      {pt}
+                    </option>
+                  ))}
+                </select>
+
+                {playType === DEFAULT_PLAY_TYPE && (
+                  <select
+                    value={result}
+                    onChange={(e) =>
+                      updateUrl({ playType, result: e.target.value })
+                    }
+                    className="h-9 shrink-0 rounded bg-zinc-900 px-3 text-sm text-white"
+                  >
+                    <option value="all">All Results</option>
+                    <option value="Made">Made</option>
+                    <option value="Missed">Missed</option>
+                  </select>
+                )}
+
+                <select
+                  value={quarter}
+                  onChange={(e) =>
+                    updateUrl({ playType, quarter: e.target.value })
+                  }
+                  className="h-9 shrink-0 rounded bg-zinc-900 px-3 text-sm text-white"
+                >
+                  <option value="">All Quarters</option>
+                  <option value="1">Q1</option>
+                  <option value="2">Q2</option>
+                  <option value="3">Q3</option>
+                  <option value="4">Q4</option>
+                  <option value="5">OT1</option>
+                  <option value="6">OT2</option>
+                  <option value="7">OT3</option>
+                </select>
+              </>
             )}
-
-            <select
-              value={quarter}
-              onChange={(e) => updateUrl({ playType, quarter: e.target.value })}
-              className="h-9 rounded bg-zinc-900 px-3 text-sm text-white"
-            >
-              <option value="">All Quarters</option>
-              <option value="1">Q1</option>
-              <option value="2">Q2</option>
-              <option value="3">Q3</option>
-              <option value="4">Q4</option>
-              <option value="5">OT1</option>
-              <option value="6">OT2</option>
-              <option value="7">OT3</option>
-            </select>
-          </>
+          </>,
+          portalTarget,
         )}
-      </div>
 
       {/* Game list with exclusions */}
       {selectedPlayer && gameLog.length > 0 && (
