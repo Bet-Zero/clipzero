@@ -23,7 +23,7 @@ export default function ActiveFilterChips({
     <div className="flex flex-wrap items-center gap-1.5 px-4 py-1.5">
       {chips.map((chip) => (
         <span
-          key={chip.key}
+          key={chip.value ? `${chip.key}:${chip.value}` : chip.key}
           className="inline-flex items-center gap-1 rounded-full bg-zinc-800 py-0.5 pl-2.5 pr-1 text-xs text-zinc-300"
         >
           {chip.label}

@@ -29,12 +29,14 @@ function MultiSelectDropdown({
   options,
   selectedValues,
   onToggle,
+  onClear,
 }: {
   label: string;
   summaryLabel: string;
   options: { label: string; value: string }[];
   selectedValues: string[];
   onToggle: (value: string) => void;
+  onClear?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -88,6 +90,18 @@ function MultiSelectDropdown({
               </button>
             );
           })}
+          {onClear && (
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                onClear();
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-2 border-t border-zinc-800 px-3 py-1.5 text-left text-xs text-zinc-500 hover:text-zinc-300"
+            >
+              Clear selection
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -706,25 +720,37 @@ export default function FilterBar({
                   // Multi-select dropdown with checkmarks
                   const selectedValues = splitMultiValue(currentValue);
                   const count = selectedValues.length;
+                  const nonEmptyOptions = filter.options.filter(
+                    (o) => o.value !== "",
+                  );
                   const summaryLabel =
                     count === 0
                       ? (filter.options[0]?.label ?? "All")
-                      : count === 1
-                        ? (filter.options.find(
-                            (o) => o.value === selectedValues[0],
-                          )?.label ?? selectedValues[0])
+                      : count <= 2
+                        ? selectedValues
+                            .map(
+                              (v) =>
+                                nonEmptyOptions.find((o) => o.value === v)
+                                  ?.label ?? v,
+                            )
+                            .join(", ")
                         : `${count} selected`;
                   return (
                     <MultiSelectDropdown
                       key={filter.id}
                       label={filter.label}
                       summaryLabel={summaryLabel}
-                      options={filter.options.filter((o) => o.value !== "")}
+                      options={nonEmptyOptions}
                       selectedValues={selectedValues}
                       onToggle={(val) =>
                         navigate({
                           [filter.param]: toggleMultiValue(currentValue, val),
                         })
+                      }
+                      onClear={
+                        count > 0
+                          ? () => navigate({ [filter.param]: "" })
+                          : undefined
                       }
                     />
                   );

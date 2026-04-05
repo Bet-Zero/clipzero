@@ -36,11 +36,13 @@ function PlayerMultiSelectDropdown({
   options,
   selectedValues,
   onToggle,
+  onClear,
 }: {
   summaryLabel: string;
   options: { label: string; value: string }[];
   selectedValues: string[];
   onToggle: (value: string) => void;
+  onClear?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -91,6 +93,18 @@ function PlayerMultiSelectDropdown({
               </button>
             );
           })}
+          {onClear && selectedValues.length > 0 && (
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                onClear();
+                setOpen(false);
+              }}
+              className="w-full border-t border-zinc-800 px-3 py-1.5 text-left text-xs text-zinc-500 hover:text-zinc-300"
+            >
+              Clear selection
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -738,24 +752,39 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                   if (filter.multiSelect) {
                     const selectedValues = splitMultiValue(currentValue);
                     const count = selectedValues.length;
+                    const nonEmptyOptions = filter.options.filter(
+                      (o) => o.value !== "",
+                    );
                     const summaryLabel =
                       count === 0
                         ? (filter.options[0]?.label ?? "All")
-                        : count === 1
-                          ? (filter.options.find(
-                              (o) => o.value === selectedValues[0],
-                            )?.label ?? selectedValues[0])
+                        : count <= 2
+                          ? selectedValues
+                              .map(
+                                (v) =>
+                                  nonEmptyOptions.find((o) => o.value === v)
+                                    ?.label ?? v,
+                              )
+                              .join(", ")
                           : `${count} selected`;
                     return (
                       <PlayerMultiSelectDropdown
                         key={filter.id}
                         summaryLabel={summaryLabel}
-                        options={filter.options.filter((o) => o.value !== "")}
+                        options={nonEmptyOptions}
                         selectedValues={selectedValues}
                         onToggle={(val) =>
                           navigateTo({
                             [filter.param]: toggleMultiValue(currentValue, val),
                           } as Partial<PlayerModeFilterState>)
+                        }
+                        onClear={
+                          count > 0
+                            ? () =>
+                                navigateTo({
+                                  [filter.param]: "",
+                                } as Partial<PlayerModeFilterState>)
+                            : undefined
                         }
                       />
                     );

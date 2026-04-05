@@ -137,7 +137,8 @@ const ClipRailItem = forwardRef<HTMLButtonElement, Props>(
               </span>
             </div>
             <span className="tabular-nums text-zinc-400">
-              {clip.scoreAway && clip.scoreHome
+              {typeof clip.scoreAway === "string" &&
+              typeof clip.scoreHome === "string"
                 ? `${clip.scoreAway}–${clip.scoreHome}`
                 : ""}
             </span>
