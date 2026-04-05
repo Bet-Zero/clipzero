@@ -54,18 +54,18 @@ function MultiSelectDropdown({
 
   return (
     <div ref={ref} className="relative">
-      <div className="flex items-center gap-2 text-xs text-zinc-500">
-        <span>{label}</span>
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-zinc-500">{label}</span>
         <button
           onClick={() => setOpen((o) => !o)}
-          className="h-7 rounded bg-zinc-900 px-2 text-sm text-white hover:bg-zinc-800"
+          className="h-7 rounded bg-zinc-800 px-2.5 text-xs text-white hover:bg-zinc-700 transition-colors"
         >
           {summaryLabel}
           <span className="ml-1 text-zinc-500">▾</span>
         </button>
       </div>
       {open && (
-        <div className="absolute z-30 mt-1 min-w-[180px] overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg">
+        <div className="absolute z-30 mt-1 min-w-45 overflow-hidden rounded-lg border border-zinc-700 bg-zinc-950 shadow-lg">
           {options.map((opt) => {
             const checked = selectedValues.includes(opt.value);
             return (
@@ -73,7 +73,7 @@ function MultiSelectDropdown({
                 key={opt.value}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => onToggle(opt.value)}
-                className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm ${
+                className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors ${
                   checked
                     ? "bg-zinc-800 text-white"
                     : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
@@ -99,7 +99,7 @@ function MultiSelectDropdown({
                 onClear();
                 setOpen(false);
               }}
-              className="flex w-full items-center gap-2 border-t border-zinc-800 px-3 py-1.5 text-left text-xs text-zinc-500 hover:text-zinc-300"
+              className="flex w-full items-center gap-2 border-t border-zinc-700 px-3 py-1.5 text-left text-xs text-zinc-500 hover:text-zinc-300"
             >
               Clear selection
             </button>
@@ -445,18 +445,33 @@ export default function FilterBar({
 
             <button
               onClick={() => setIsOverflowOpen((o) => !o)}
-              className={`relative h-8 rounded px-3 text-sm transition-colors ${
+              className={`relative h-8 rounded-md px-3 text-sm font-medium transition-colors ${
                 isOverflowOpen
-                  ? "bg-zinc-700 text-white"
+                  ? "bg-zinc-600 text-white ring-1 ring-zinc-500"
                   : activeFilterCount > 0
                     ? "bg-zinc-800 text-white"
                     : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
               }`}
             >
-              {activeFilterCount > 0
-                ? `Filters (${activeFilterCount})`
-                : "Filters"}
-              {activeFilterCount > 0 && (
+              <span className="flex items-center gap-1.5">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="opacity-60"
+                >
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                </svg>
+                {activeFilterCount > 0
+                  ? `Filters (${activeFilterCount})`
+                  : "Filters"}
+              </span>
+              {activeFilterCount > 0 && !isOverflowOpen && (
                 <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-blue-500" />
               )}
             </button>
@@ -479,127 +494,366 @@ export default function FilterBar({
         createPortal(
           <div
             ref={panelRef}
-            className="absolute left-0 right-0 top-0 z-50 border-b-2 border-zinc-600 bg-zinc-800 shadow-2xl"
+            className="absolute left-0 right-0 top-0 z-50 border-b border-zinc-700 bg-zinc-900/95 shadow-2xl backdrop-blur-sm"
           >
-            <div className="flex flex-wrap items-start gap-3 px-4 py-3">
-              {/* Play Type */}
-              <label className="flex items-center gap-2 text-xs text-zinc-500">
-                Play Type
-                <select
-                  value={playType}
-                  onChange={(e) => changePlayType(e.target.value)}
-                  className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
+            {/* ── Header row: title + reset ── */}
+            <div className="flex items-center justify-between px-4 pt-3 pb-1">
+              <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+                Filters
+              </span>
+              {isFiltered && (
+                <button
+                  onClick={clearFilters}
+                  className="rounded px-2 py-0.5 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
                 >
-                  {PLAY_TYPES.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  Reset all
+                </button>
+              )}
+            </div>
 
-              {/* Team — multi-select toggle buttons */}
-              <div className="flex items-center gap-2 text-xs text-zinc-500">
-                <span>Team</span>
+            {/* ── Section 1: Quick presets ── */}
+            <div
+              className="flex flex-wrap items-center gap-1.5 px-4 py-2"
+              data-testid="filter-presets"
+            >
+              <span className="text-[10px] uppercase tracking-wider text-zinc-600 mr-1">
+                Presets
+              </span>
+              {FILTER_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  data-testid={`preset-${preset.id}`}
+                  onClick={() => applyPreset(preset)}
+                  className={`rounded-full px-2.5 py-0.5 text-xs transition-colors ${
+                    isPresetActive(preset)
+                      ? "bg-blue-600 text-white"
+                      : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="mx-4 border-t border-zinc-800" />
+
+            {/* ── Section 2: Play type + type-specific controls ── */}
+            <div className="px-4 py-2.5">
+              <div className="mb-2 text-[10px] uppercase tracking-wider text-zinc-600">
+                Play type
+              </div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                {/* Play Type selector */}
                 <div className="flex gap-1">
-                  {teams.map((t) => {
-                    const active = hasMultiValue(team, t);
+                  {PLAY_TYPES.map((value) => (
+                    <button
+                      key={value}
+                      onClick={() => changePlayType(value)}
+                      className={`rounded px-2.5 py-1 text-xs capitalize transition-colors ${
+                        playType === value
+                          ? "bg-white text-black font-medium"
+                          : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
+                      }`}
+                    >
+                      {value}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Play-type-specific filters from filterConfig */}
+                {playTypeFilters.length > 0 && (
+                  <div className="h-5 w-px bg-zinc-800 shrink-0" />
+                )}
+                {playTypeFilters.map((filter) => {
+                  const currentValue =
+                    params.get(filter.param) || filter.defaultValue;
+
+                  if (filter.style === "buttons") {
+                    if (filter.multiSelect) {
+                      return (
+                        <div
+                          key={filter.id}
+                          className="flex items-center gap-2"
+                        >
+                          <span className="text-xs text-zinc-500">
+                            {filter.label}
+                          </span>
+                          <div className="flex gap-1">
+                            {filter.options
+                              .filter((opt) => opt.value !== "")
+                              .map((opt) => {
+                                const active = hasMultiValue(
+                                  currentValue,
+                                  opt.value,
+                                );
+                                return (
+                                  <button
+                                    key={opt.value}
+                                    onClick={() =>
+                                      navigate({
+                                        [filter.param]: toggleMultiValue(
+                                          currentValue,
+                                          opt.value,
+                                        ),
+                                      })
+                                    }
+                                    className={`rounded px-2.5 py-1 text-xs transition-colors ${
+                                      active
+                                        ? "bg-white text-black"
+                                        : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                                    }`}
+                                  >
+                                    {opt.label}
+                                  </button>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
-                      <button
-                        key={t}
-                        onClick={() =>
+                      <div key={filter.id} className="flex items-center gap-2">
+                        <span className="text-xs text-zinc-500">
+                          {filter.label}
+                        </span>
+                        <div className="flex gap-1">
+                          {filter.options.map((opt) => (
+                            <button
+                              key={opt.value}
+                              onClick={() =>
+                                navigate({ [filter.param]: opt.value })
+                              }
+                              className={`rounded px-2.5 py-1 text-xs transition-colors ${
+                                currentValue === opt.value
+                                  ? "bg-white text-black"
+                                  : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (filter.multiSelect) {
+                    const selectedValues = splitMultiValue(currentValue);
+                    const count = selectedValues.length;
+                    const nonEmptyOptions = filter.options.filter(
+                      (o) => o.value !== "",
+                    );
+                    const summaryLabel =
+                      count === 0
+                        ? (filter.options[0]?.label ?? "All")
+                        : count <= 2
+                          ? selectedValues
+                              .map(
+                                (v) =>
+                                  nonEmptyOptions.find((o) => o.value === v)
+                                    ?.label ?? v,
+                              )
+                              .join(", ")
+                          : `${count} selected`;
+                    return (
+                      <MultiSelectDropdown
+                        key={filter.id}
+                        label={filter.label}
+                        summaryLabel={summaryLabel}
+                        options={nonEmptyOptions}
+                        selectedValues={selectedValues}
+                        onToggle={(val) =>
                           navigate({
-                            team: toggleMultiValue(team, t),
-                            player: "",
+                            [filter.param]: toggleMultiValue(currentValue, val),
                           })
                         }
-                        className={`rounded px-3 py-0.5 text-sm ${
-                          active
-                            ? "bg-white text-black"
-                            : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
-                        }`}
-                      >
-                        {t}
-                      </button>
+                        onClear={
+                          count > 0
+                            ? () => navigate({ [filter.param]: "" })
+                            : undefined
+                        }
+                      />
                     );
-                  })}
-                </div>
-              </div>
+                  }
 
-              {/* Player search */}
-              <div className="relative min-w-[200px]">
-                <div className="flex items-center gap-2 text-xs text-zinc-500">
-                  <span className="shrink-0">Player</span>
-                  <div className="flex items-center gap-1">
-                    <input
-                      value={playerInput}
-                      onChange={(e) => {
-                        setPlayerInput(e.target.value);
-                        setIsPlayerOpen(true);
-                      }}
-                      onFocus={() => setIsPlayerOpen(true)}
-                      onBlur={() => {
-                        setTimeout(() => setIsPlayerOpen(false), 150);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "ArrowDown") {
-                          e.preventDefault();
-                          if (!isPlayerOpen) setIsPlayerOpen(true);
-                          setActiveIndex((i) =>
-                            filteredPlayers.length === 0
-                              ? -1
-                              : (i + 1) % filteredPlayers.length,
-                          );
-                          return;
+                  return (
+                    <label
+                      key={filter.id}
+                      className="flex items-center gap-2 text-xs text-zinc-500"
+                    >
+                      {filter.label}
+                      <select
+                        value={currentValue}
+                        onChange={(e) =>
+                          navigate({ [filter.param]: e.target.value })
                         }
-                        if (e.key === "ArrowUp") {
-                          e.preventDefault();
-                          if (!isPlayerOpen) setIsPlayerOpen(true);
-                          setActiveIndex((i) =>
-                            filteredPlayers.length === 0
-                              ? -1
-                              : i <= 0
-                                ? filteredPlayers.length - 1
-                                : i - 1,
-                          );
-                          return;
-                        }
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          if (isPlayerOpen && activeIndex >= 0) {
-                            togglePlayer(filteredPlayers[activeIndex].name);
-                          }
-                          return;
-                        }
-                        if (e.key === "Escape") {
-                          if (isPlayerOpen) {
-                            setIsPlayerOpen(false);
-                            setActiveIndex(-1);
-                          } else {
-                            clearPlayer();
-                          }
-                        }
-                      }}
-                      placeholder="Search player"
-                      className="h-7 w-full rounded bg-zinc-900 px-3 text-sm text-white placeholder:text-zinc-500"
-                    />
-                    {selectedPlayer && (
-                      <button
-                        onClick={clearPlayer}
-                        className="h-7 rounded bg-zinc-900 px-2 text-sm text-zinc-400 hover:text-zinc-200"
-                        aria-label="Clear player"
+                        className="h-7 rounded bg-zinc-800 px-2 text-sm text-white"
                       >
-                        ×
-                      </button>
-                    )}
+                        {filter.options.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mx-4 border-t border-zinc-800" />
+
+            {/* ── Section 3: Scope — team, player, quarter ── */}
+            <div className="px-4 py-2.5">
+              <div className="mb-2 text-[10px] uppercase tracking-wider text-zinc-600">
+                Scope
+              </div>
+              <div className="flex flex-wrap items-start gap-x-5 gap-y-2">
+                {/* Team — multi-select toggle buttons */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-500">Team</span>
+                  <div className="flex gap-1">
+                    {teams.map((t) => {
+                      const active = hasMultiValue(team, t);
+                      return (
+                        <button
+                          key={t}
+                          onClick={() =>
+                            navigate({
+                              team: toggleMultiValue(team, t),
+                              player: "",
+                            })
+                          }
+                          className={`rounded px-2.5 py-1 text-xs transition-colors ${
+                            active
+                              ? "bg-white text-black"
+                              : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="h-5 w-px bg-zinc-800 shrink-0 self-center" />
+
+                {/* Quarter — multi-select toggle buttons */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-500">Quarter</span>
+                  <div className="flex gap-1">
+                    {[
+                      { label: "Q1", value: "1" },
+                      { label: "Q2", value: "2" },
+                      { label: "Q3", value: "3" },
+                      { label: "Q4", value: "4" },
+                      { label: "OT1", value: "5" },
+                      { label: "OT2", value: "6" },
+                      { label: "OT3", value: "7" },
+                    ].map((q) => {
+                      const active = hasMultiValue(quarter, q.value);
+                      return (
+                        <button
+                          key={q.value}
+                          onClick={() =>
+                            navigate({
+                              quarter: toggleMultiValue(quarter, q.value),
+                            })
+                          }
+                          className={`rounded px-2 py-1 text-xs transition-colors ${
+                            active
+                              ? "bg-white text-black"
+                              : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                          }`}
+                        >
+                          {q.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="h-5 w-px bg-zinc-800 shrink-0 self-center" />
+
+                {/* Player search */}
+                <div className="relative min-w-50">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-zinc-500 shrink-0">
+                      Player
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <input
+                        value={playerInput}
+                        onChange={(e) => {
+                          setPlayerInput(e.target.value);
+                          setIsPlayerOpen(true);
+                        }}
+                        onFocus={() => setIsPlayerOpen(true)}
+                        onBlur={() => {
+                          setTimeout(() => setIsPlayerOpen(false), 150);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            if (!isPlayerOpen) setIsPlayerOpen(true);
+                            setActiveIndex((i) =>
+                              filteredPlayers.length === 0
+                                ? -1
+                                : (i + 1) % filteredPlayers.length,
+                            );
+                            return;
+                          }
+                          if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            if (!isPlayerOpen) setIsPlayerOpen(true);
+                            setActiveIndex((i) =>
+                              filteredPlayers.length === 0
+                                ? -1
+                                : i <= 0
+                                  ? filteredPlayers.length - 1
+                                  : i - 1,
+                            );
+                            return;
+                          }
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            if (isPlayerOpen && activeIndex >= 0) {
+                              togglePlayer(filteredPlayers[activeIndex].name);
+                            }
+                            return;
+                          }
+                          if (e.key === "Escape") {
+                            if (isPlayerOpen) {
+                              setIsPlayerOpen(false);
+                              setActiveIndex(-1);
+                            } else {
+                              clearPlayer();
+                            }
+                          }
+                        }}
+                        placeholder="Search player"
+                        className="h-7 w-full rounded bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-600"
+                      />
+                      {selectedPlayer && (
+                        <button
+                          onClick={clearPlayer}
+                          className="h-7 rounded bg-zinc-800 px-2 text-sm text-zinc-400 hover:text-zinc-200"
+                          aria-label="Clear player"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {/* Selected player tags */}
                   {splitMultiValue(selectedPlayer).length > 0 && (
-                    <div className="mt-1 flex flex-wrap gap-1">
+                    <div className="mt-1.5 ml-11 flex flex-wrap gap-1">
                       {splitMultiValue(selectedPlayer).map((name) => (
                         <span
                           key={name}
-                          className="inline-flex items-center gap-1 rounded-full bg-zinc-700 py-0.5 pl-2 pr-1 text-xs text-zinc-200"
+                          className="inline-flex items-center gap-1 rounded-full bg-zinc-800 py-0.5 pl-2 pr-1 text-xs text-zinc-200"
                         >
                           {name}
                           <button
@@ -616,259 +870,82 @@ export default function FilterBar({
                       ))}
                     </div>
                   )}
-                </div>
 
-                {isPlayerOpen && filteredPlayers.length > 0 && (
-                  <div
-                    ref={listRef}
-                    className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg"
-                  >
-                    {filteredPlayers.map((p, i) => {
-                      const isSelected = hasMultiValue(selectedPlayer, p.name);
-                      return (
-                        <button
-                          key={p.name}
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => togglePlayer(p.name)}
-                          className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-white ${
-                            isSelected
-                              ? "bg-zinc-800"
-                              : i === activeIndex
-                                ? "bg-zinc-700"
-                                : "hover:bg-zinc-800"
-                          }`}
-                        >
-                          <span
-                            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
-                              isSelected
-                                ? "border-white bg-white text-black"
-                                : "border-zinc-600"
-                            }`}
-                          >
-                            {isSelected ? "✓" : ""}
-                          </span>
-                          {p.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Quarter — multi-select toggle buttons */}
-              <div className="flex items-center gap-2 text-xs text-zinc-500">
-                <span>Quarter</span>
-                <div className="flex gap-1">
-                  {[
-                    { label: "Q1", value: "1" },
-                    { label: "Q2", value: "2" },
-                    { label: "Q3", value: "3" },
-                    { label: "Q4", value: "4" },
-                    { label: "OT1", value: "5" },
-                    { label: "OT2", value: "6" },
-                    { label: "OT3", value: "7" },
-                  ].map((q) => {
-                    const active = hasMultiValue(quarter, q.value);
-                    return (
-                      <button
-                        key={q.value}
-                        onClick={() =>
-                          navigate({
-                            quarter: toggleMultiValue(quarter, q.value),
-                          })
-                        }
-                        className={`rounded px-2 py-0.5 text-sm ${
-                          active
-                            ? "bg-white text-black"
-                            : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
-                        }`}
-                      >
-                        {q.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Play-type-specific filters from filterConfig */}
-              {playTypeFilters.map((filter) => {
-                const currentValue =
-                  params.get(filter.param) || filter.defaultValue;
-
-                if (filter.style === "buttons") {
-                  if (filter.multiSelect) {
-                    return (
-                      <div key={filter.id} className="flex items-center gap-2">
-                        <span className="text-xs text-zinc-500">
-                          {filter.label}
-                        </span>
-                        <div className="flex gap-1">
-                          {filter.options
-                            .filter((opt) => opt.value !== "")
-                            .map((opt) => {
-                              const active = hasMultiValue(
-                                currentValue,
-                                opt.value,
-                              );
-                              return (
-                                <button
-                                  key={opt.value}
-                                  onClick={() =>
-                                    navigate({
-                                      [filter.param]: toggleMultiValue(
-                                        currentValue,
-                                        opt.value,
-                                      ),
-                                    })
-                                  }
-                                  className={`rounded px-3 py-0.5 text-sm ${
-                                    active
-                                      ? "bg-white text-black"
-                                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
-                                  }`}
-                                >
-                                  {opt.label}
-                                </button>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div key={filter.id} className="flex items-center gap-2">
-                      <span className="text-xs text-zinc-500">
-                        {filter.label}
-                      </span>
-                      <div className="flex gap-1">
-                        {filter.options.map((opt) => (
-                          <button
-                            key={opt.value}
-                            onClick={() =>
-                              navigate({ [filter.param]: opt.value })
-                            }
-                            className={`rounded px-3 py-0.5 text-sm ${
-                              currentValue === opt.value
-                                ? "bg-white text-black"
-                                : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
-                            }`}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                }
-
-                if (filter.multiSelect) {
-                  const selectedValues = splitMultiValue(currentValue);
-                  const count = selectedValues.length;
-                  const nonEmptyOptions = filter.options.filter(
-                    (o) => o.value !== "",
-                  );
-                  const summaryLabel =
-                    count === 0
-                      ? (filter.options[0]?.label ?? "All")
-                      : count <= 2
-                        ? selectedValues
-                            .map(
-                              (v) =>
-                                nonEmptyOptions.find((o) => o.value === v)
-                                  ?.label ?? v,
-                            )
-                            .join(", ")
-                        : `${count} selected`;
-                  return (
-                    <MultiSelectDropdown
-                      key={filter.id}
-                      label={filter.label}
-                      summaryLabel={summaryLabel}
-                      options={nonEmptyOptions}
-                      selectedValues={selectedValues}
-                      onToggle={(val) =>
-                        navigate({
-                          [filter.param]: toggleMultiValue(currentValue, val),
-                        })
-                      }
-                      onClear={
-                        count > 0
-                          ? () => navigate({ [filter.param]: "" })
-                          : undefined
-                      }
-                    />
-                  );
-                }
-
-                return (
-                  <label
-                    key={filter.id}
-                    className="flex items-center gap-2 text-xs text-zinc-500"
-                  >
-                    {filter.label}
-                    <select
-                      value={currentValue}
-                      onChange={(e) =>
-                        navigate({ [filter.param]: e.target.value })
-                      }
-                      className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
+                  {isPlayerOpen && filteredPlayers.length > 0 && (
+                    <div
+                      ref={listRef}
+                      className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-zinc-700 bg-zinc-950 shadow-lg"
                     >
-                      {filter.options.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                );
-              })}
-
-              {/* Clear all */}
-              {isFiltered && (
-                <button
-                  onClick={clearFilters}
-                  className="h-7 rounded bg-zinc-800 px-3 text-sm text-zinc-300 hover:bg-zinc-700"
-                >
-                  Clear all
-                </button>
-              )}
+                      {filteredPlayers.map((p, i) => {
+                        const isSelected = hasMultiValue(
+                          selectedPlayer,
+                          p.name,
+                        );
+                        return (
+                          <button
+                            key={p.name}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => togglePlayer(p.name)}
+                            className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-white ${
+                              isSelected
+                                ? "bg-zinc-800"
+                                : i === activeIndex
+                                  ? "bg-zinc-700"
+                                  : "hover:bg-zinc-800"
+                            }`}
+                          >
+                            <span
+                              className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
+                                isSelected
+                                  ? "border-white bg-white text-black"
+                                  : "border-zinc-600"
+                              }`}
+                            >
+                              {isSelected ? "✓" : ""}
+                            </span>
+                            {p.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
-            {/* Active filter chips — inside panel, not in page flow */}
+            {/* ── Active filter chips — bottom of panel ── */}
             {activeChips.length > 0 && (
-              <div className="border-t border-zinc-700">
-                <ActiveFilterChips
-                  chips={activeChips}
-                  onRemove={removeChip}
-                  onClearAll={clearFilters}
-                />
+              <div className="border-t border-zinc-800 bg-zinc-950/50 px-4 py-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] uppercase tracking-wider text-zinc-600 mr-1">
+                    Active
+                  </span>
+                  {activeChips.map((chip) => (
+                    <span
+                      key={chip.value ? `${chip.key}:${chip.value}` : chip.key}
+                      className="inline-flex items-center gap-1 rounded-full bg-zinc-800 py-0.5 pl-2.5 pr-1 text-xs text-zinc-300"
+                    >
+                      {chip.label}
+                      <button
+                        onClick={() => removeChip(chip.key, chip.value)}
+                        className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-700 hover:text-zinc-200"
+                        aria-label={`Remove ${chip.label} filter`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  {activeChips.length > 1 && (
+                    <button
+                      onClick={clearFilters}
+                      className="ml-1 text-xs text-zinc-500 hover:text-zinc-300"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
               </div>
             )}
-
-            {/* Presets — inside panel, not in page flow */}
-            <div
-              className="flex flex-wrap items-center gap-1.5 border-t border-zinc-700 px-4 py-2"
-              data-testid="filter-presets"
-            >
-              <span className="text-[10px] uppercase tracking-wider text-zinc-600">
-                Quick:
-              </span>
-              {FILTER_PRESETS.map((preset) => (
-                <button
-                  key={preset.id}
-                  data-testid={`preset-${preset.id}`}
-                  onClick={() => applyPreset(preset)}
-                  className={`rounded-full px-2.5 py-0.5 text-xs transition-colors ${
-                    isPresetActive(preset)
-                      ? "bg-blue-600 text-white"
-                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-                  }`}
-                >
-                  {preset.label}
-                </button>
-              ))}
-            </div>
           </div>,
           overlayTarget,
         )}
