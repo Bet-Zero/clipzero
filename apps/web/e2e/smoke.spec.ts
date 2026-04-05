@@ -242,3 +242,95 @@ test("game mode: turnover subtype filter applies to URL and page renders", async
       .or(page.getByText("API unavailable", { exact: false })),
   ).toBeVisible({ timeout: 20_000 });
 });
+
+// ── 9. Canonical multi-select URL ordering ──────────────────────────────────
+
+test("game mode: multi-select values are alphabetically sorted in URL", async ({
+  page,
+}) => {
+  // Navigate with multi-select values in non-canonical (reverse) order.
+  await page.goto("/?quarter=4,1&subType=layup,dunk");
+
+  await expect(page).toHaveURL(/[?&]season=/, { timeout: 10_000 });
+
+  // The server-side redirect should sort multi-select values.
+  await expect(page).toHaveURL(/quarter=1,4/);
+  await expect(page).toHaveURL(/subType=dunk,layup/);
+
+  // Should NOT have the original un-sorted ordering.
+  expect(page.url()).not.toMatch(/quarter=4,1/);
+  expect(page.url()).not.toMatch(/subType=layup,dunk/);
+});
+
+// ── 10. Multi-select player in game mode ────────────────────────────────────
+
+test("game mode: multi-select player values are sorted in URL", async ({
+  page,
+}) => {
+  // Navigate with two players in reverse-alpha order.
+  await page.goto("/?player=Zach%20LaVine,Anthony%20Davis");
+
+  await expect(page).toHaveURL(/[?&]season=/, { timeout: 10_000 });
+
+  // Player param should be alphabetically sorted.
+  await expect(page).toHaveURL(/player=Anthony%20Davis,Zach%20LaVine/);
+});
+
+// ── 11. Removing one chip from a multi-value filter ─────────────────────────
+
+test("game mode: removing one chip from multi-select quarter keeps the other", async ({
+  page,
+}) => {
+  // Start with two quarters selected (canonical order).
+  await page.goto("/?quarter=1,4");
+
+  await expect(page).toHaveURL(/[?&]season=/, { timeout: 10_000 });
+  await expect(page).toHaveURL(/quarter=1,4/);
+
+  // Find the Q1 chip and click its remove button.
+  const q1Chip = page.locator("span", { hasText: "Q1" }).first();
+  await expect(q1Chip).toBeVisible({ timeout: 5_000 });
+  const removeBtn = q1Chip.locator("button");
+  await removeBtn.click();
+
+  // URL should now have only quarter=4.
+  await expect(page).toHaveURL(/quarter=4/, { timeout: 5_000 });
+  // And Q1 should be gone.
+  expect(page.url()).not.toMatch(/quarter=1/);
+});
+
+// ── 12. Preset flow: click preset, verify URL, then clear ───────────────────
+
+test("game mode: clicking a preset updates URL and shows chips", async ({
+  page,
+}) => {
+  await page.goto("/");
+
+  await expect(page).toHaveURL(/[?&]season=/, { timeout: 10_000 });
+
+  // Find the presets row.
+  const presetsRow = page.getByTestId("filter-presets");
+  await expect(presetsRow).toBeVisible({ timeout: 5_000 });
+
+  // Click the "Made 3s" preset.
+  const made3s = page.getByTestId("preset-made-3s");
+  await expect(made3s).toBeVisible();
+  await made3s.click();
+
+  // URL should reflect the preset params.
+  await expect(page).toHaveURL(/result=Made/, { timeout: 5_000 });
+  await expect(page).toHaveURL(/shotValue=3pt/);
+
+  // A chip for "Made" should appear.
+  await expect(page.locator("span", { hasText: "Made" }).first()).toBeVisible({
+    timeout: 3_000,
+  });
+
+  // Clicking "Clear" or "Clear all" resets.
+  const clearBtn = page.getByRole("button", { name: /Clear/ }).first();
+  await expect(clearBtn).toBeVisible();
+  await clearBtn.click();
+
+  // Preset params should be gone from URL.
+  await expect(page).not.toHaveURL(/shotValue=3pt/, { timeout: 5_000 });
+});

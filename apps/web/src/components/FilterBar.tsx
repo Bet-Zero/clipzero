@@ -12,11 +12,13 @@ import {
   hasMultiValue,
   splitMultiValue,
   removeMultiValue,
+  canonicalMultiValue,
 } from "@/lib/filters";
 import {
   PLAY_TYPES,
   PLAY_TYPE_SPECIFIC_PARAMS,
   getFiltersForPlayType,
+  FILTER_PRESETS,
 } from "@/lib/filterConfig";
 import ActiveFilterChips, {
   type FilterChip,
@@ -197,15 +199,17 @@ export default function FilterBar({
 
     if (state.playType && state.playType !== DEFAULT_PLAY_TYPE)
       search.set("playType", state.playType);
-    if (state.team) search.set("team", state.team);
-    if (state.player) search.set("player", state.player);
-    if (state.quarter) search.set("quarter", state.quarter);
+    if (state.team) search.set("team", canonicalMultiValue(state.team));
+    if (state.player) search.set("player", canonicalMultiValue(state.player));
+    if (state.quarter)
+      search.set("quarter", canonicalMultiValue(state.quarter));
     if (state.result && state.result !== DEFAULT_RESULT)
       search.set("result", state.result);
     if (state.shotValue) search.set("shotValue", state.shotValue);
-    if (state.subType) search.set("subType", state.subType);
+    if (state.subType)
+      search.set("subType", canonicalMultiValue(state.subType));
     if (state.distanceBucket)
-      search.set("distanceBucket", state.distanceBucket);
+      search.set("distanceBucket", canonicalMultiValue(state.distanceBucket));
 
     router.push(`/?${cleanSearchString(search)}`);
   }
@@ -379,6 +383,30 @@ export default function FilterBar({
     }
     const filter = playTypeFilters.find((f) => f.param === key);
     navigate({ [key]: filter?.defaultValue ?? "" });
+  }
+
+  function applyPreset(preset: (typeof FILTER_PRESETS)[number]) {
+    // Preset sets playType + play-type-specific params + optionally quarter.
+    // Team and player are preserved.
+    navigate({
+      ...Object.fromEntries(PLAY_TYPE_SPECIFIC_PARAMS.map((p) => [p, ""])),
+      quarter: "",
+      ...preset.params,
+    });
+  }
+
+  function isPresetActive(preset: (typeof FILTER_PRESETS)[number]): boolean {
+    const state: Record<string, string> = {
+      playType,
+      result: shotResult,
+      shotValue,
+      subType,
+      distanceBucket,
+      quarter,
+    };
+    return Object.entries(preset.params).every(
+      ([k, v]) => (state[k] ?? "") === v,
+    );
   }
 
   return (
@@ -812,6 +840,28 @@ export default function FilterBar({
         onRemove={removeChip}
         onClearAll={clearFilters}
       />
+      <div
+        className="flex flex-wrap items-center gap-1.5 px-4 py-1"
+        data-testid="filter-presets"
+      >
+        <span className="text-[10px] uppercase tracking-wider text-zinc-600">
+          Quick:
+        </span>
+        {FILTER_PRESETS.map((preset) => (
+          <button
+            key={preset.id}
+            data-testid={`preset-${preset.id}`}
+            onClick={() => applyPreset(preset)}
+            className={`rounded-full px-2.5 py-0.5 text-xs transition-colors ${
+              isPresetActive(preset)
+                ? "bg-blue-600 text-white"
+                : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+            }`}
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
     </>
   );
 }

@@ -19,7 +19,12 @@ export function hasMultiValue(current: string, value: string): boolean {
   return splitMultiValue(current).includes(value);
 }
 
-/** Toggle a value in a comma-separated string. Returns the updated string. */
+/** Sort multi-select values for canonical URL ordering. */
+function sortedJoin(values: string[]): string {
+  return values.slice().sort().join(",");
+}
+
+/** Toggle a value in a comma-separated string. Returns the updated (sorted) string. */
 export function toggleMultiValue(current: string, value: string): string {
   const values = splitMultiValue(current);
   const idx = values.indexOf(value);
@@ -28,14 +33,17 @@ export function toggleMultiValue(current: string, value: string): string {
   } else {
     values.push(value);
   }
-  return values.join(",");
+  return sortedJoin(values);
 }
 
 /** Remove a specific value from a comma-separated string. */
 export function removeMultiValue(current: string, value: string): string {
-  return splitMultiValue(current)
-    .filter((v) => v !== value)
-    .join(",");
+  return sortedJoin(splitMultiValue(current).filter((v) => v !== value));
+}
+
+/** Canonicalize a comma-separated multi-select value (sort + dedupe). */
+export function canonicalMultiValue(val: string): string {
+  return sortedJoin([...new Set(splitMultiValue(val))]);
 }
 
 /** Clean URL string: decode commas that URLSearchParams encodes. */
@@ -173,14 +181,15 @@ export function buildPlayerModeUrl(
     search.set("playType", state.playType);
   if (state.result && state.result !== DEFAULT_RESULT)
     search.set("result", state.result);
-  if (state.quarter) search.set("quarter", state.quarter);
+  if (state.quarter) search.set("quarter", canonicalMultiValue(state.quarter));
   if (state.shotValue) search.set("shotValue", state.shotValue);
-  if (state.subType) search.set("subType", state.subType);
-  if (state.distanceBucket) search.set("distanceBucket", state.distanceBucket);
+  if (state.subType) search.set("subType", canonicalMultiValue(state.subType));
+  if (state.distanceBucket)
+    search.set("distanceBucket", canonicalMultiValue(state.distanceBucket));
 
-  const gameIds = [...state.excludedGameIds].filter(Boolean);
+  const gameIds = [...state.excludedGameIds].filter(Boolean).sort();
   if (gameIds.length > 0) search.set("excludeGameIds", gameIds.join(","));
-  const dates = [...state.excludedDates].filter(Boolean);
+  const dates = [...state.excludedDates].filter(Boolean).sort();
   if (dates.length > 0) search.set("excludeDates", dates.join(","));
 
   if (state.actionNumber !== null)

@@ -16,6 +16,7 @@ import {
   DEFAULT_RESULT,
   buildClipSearchParams,
   cleanSearchString,
+  canonicalMultiValue,
 } from "@/lib/filters";
 
 async function getGames(
@@ -321,17 +322,23 @@ export default async function Home({
     // Preserve non-empty filter params as-is
     if (params.limit) canonical.set("limit", params.limit);
     if (params.playType) canonical.set("playType", params.playType);
-    if (params.quarter) canonical.set("quarter", params.quarter);
+    if (params.quarter)
+      canonical.set("quarter", canonicalMultiValue(params.quarter));
     if (params.result) canonical.set("result", params.result);
     if (params.shotValue) canonical.set("shotValue", params.shotValue);
-    if (params.subType) canonical.set("subType", params.subType);
+    if (params.subType)
+      canonical.set("subType", canonicalMultiValue(params.subType));
     if (params.distanceBucket)
-      canonical.set("distanceBucket", params.distanceBucket);
+      canonical.set(
+        "distanceBucket",
+        canonicalMultiValue(params.distanceBucket),
+      );
     // Keep gameId only if it resolves to a real game; drop player/team/actionNumber when gameId is dropped
     if (gameIdIsValid && params.gameId) {
       canonical.set("gameId", params.gameId);
-      if (params.player) canonical.set("player", params.player);
-      if (params.team) canonical.set("team", params.team);
+      if (params.player)
+        canonical.set("player", canonicalMultiValue(params.player));
+      if (params.team) canonical.set("team", canonicalMultiValue(params.team));
       if (params.actionNumber)
         canonical.set("actionNumber", params.actionNumber);
     }

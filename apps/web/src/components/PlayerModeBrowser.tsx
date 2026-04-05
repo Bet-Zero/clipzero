@@ -25,7 +25,11 @@ import ClipPlayer from "@/components/ClipPlayer";
 import ClipRail from "@/components/ClipRail";
 import PlayerSearch from "@/components/PlayerSearch";
 import PlayerGameList from "@/components/PlayerGameList";
-import { PLAY_TYPES, getFiltersForPlayType } from "@/lib/filterConfig";
+import {
+  PLAY_TYPES,
+  getFiltersForPlayType,
+  FILTER_PRESETS,
+} from "@/lib/filterConfig";
 import ActiveFilterChips, {
   type FilterChip,
 } from "@/components/ActiveFilterChips";
@@ -638,6 +642,31 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     });
   }
 
+  function applyPreset(preset: (typeof FILTER_PRESETS)[number]) {
+    navigateTo({
+      result: "",
+      shotValue: "",
+      subType: "",
+      distanceBucket: "",
+      quarter: "",
+      ...preset.params,
+    } as Partial<PlayerModeFilterState>);
+  }
+
+  function isPresetActive(preset: (typeof FILTER_PRESETS)[number]): boolean {
+    const state: Record<string, string> = {
+      playType,
+      result,
+      shotValue,
+      subType,
+      distanceBucket,
+      quarter,
+    };
+    return Object.entries(preset.params).every(
+      ([k, v]) => (state[k] ?? "") === v,
+    );
+  }
+
   return (
     <div>
       {/* Search + filter bar — portaled into the top bar */}
@@ -854,6 +883,32 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
           onRemove={removeChip}
           onClearAll={clearAllChips}
         />
+      )}
+
+      {/* Presets */}
+      {selectedPlayer && (
+        <div
+          className="flex flex-wrap items-center gap-1.5 px-4 py-1"
+          data-testid="filter-presets"
+        >
+          <span className="text-[10px] uppercase tracking-wider text-zinc-600">
+            Quick:
+          </span>
+          {FILTER_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              data-testid={`preset-${preset.id}`}
+              onClick={() => applyPreset(preset)}
+              className={`rounded-full px-2.5 py-0.5 text-xs transition-colors ${
+                isPresetActive(preset)
+                  ? "bg-blue-600 text-white"
+                  : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+              }`}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
       )}
 
       {/* Game list with exclusions */}

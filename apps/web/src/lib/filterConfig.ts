@@ -174,3 +174,85 @@ export const PLAY_TYPE_FILTERS: Partial<Record<PlayType, FilterDef[]>> = {
 export function getFiltersForPlayType(playType: string): FilterDef[] {
   return PLAY_TYPE_FILTERS[playType as PlayType] ?? [];
 }
+
+// ── Filter presets ──────────────────────────────────────────────────
+// Each preset defines the exact params it sets.  Unspecified play-type-
+// specific params are cleared to their defaults.  Universal params like
+// team and player are left untouched.
+
+export type FilterPreset = {
+  id: string;
+  label: string;
+  /** Params this preset sets.  Must include playType. */
+  params: Record<string, string>;
+};
+
+export const FILTER_PRESETS: FilterPreset[] = [
+  {
+    id: "made-3s",
+    label: "Made 3s",
+    params: {
+      playType: "shots",
+      result: "Made",
+      shotValue: "3pt",
+      subType: "",
+      distanceBucket: "",
+    },
+  },
+  {
+    id: "dunks",
+    label: "Dunks",
+    params: {
+      playType: "shots",
+      result: "all",
+      shotValue: "",
+      subType: "dunk",
+      distanceBucket: "",
+    },
+  },
+  {
+    id: "layups-rim",
+    label: "Layups at Rim",
+    params: {
+      playType: "shots",
+      result: "all",
+      shotValue: "",
+      subType: "layup",
+      distanceBucket: "0-9",
+    },
+  },
+  {
+    id: "q4-shots",
+    label: "Q4 Shots",
+    params: {
+      playType: "shots",
+      result: "all",
+      shotValue: "",
+      subType: "",
+      distanceBucket: "",
+      quarter: "4",
+    },
+  },
+  {
+    id: "bad-pass",
+    label: "Bad Pass TO",
+    params: {
+      playType: "turnovers",
+      result: "",
+      shotValue: "",
+      subType: "bad-pass",
+      distanceBucket: "",
+    },
+  },
+  {
+    id: "personal-foul",
+    label: "Personal Foul",
+    params: {
+      playType: "fouls",
+      result: "",
+      shotValue: "",
+      subType: "personal",
+      distanceBucket: "",
+    },
+  },
+];
