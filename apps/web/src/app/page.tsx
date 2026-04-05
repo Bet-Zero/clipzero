@@ -342,8 +342,8 @@ export default async function Home({
       : null;
 
   return (
-    <main className="flex h-dvh flex-col overflow-hidden bg-black text-white">
-      <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-2">
+    <main className="flex h-dvh flex-col bg-black text-white">
+      <div className="shrink-0 mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-2">
         <ModeToggle mode={mode} />
         <SeasonSelector selectedSeason={selectedSeason} />
         <div className="h-5 w-px bg-zinc-700" aria-hidden="true" />
@@ -351,7 +351,11 @@ export default async function Home({
           selectedDate={selectedDate}
           selectedSeason={selectedSeason}
         />
-        <GameSelector games={games} selectedGameId={selectedGameId} apiError={gamesApiError} />
+        <GameSelector
+          games={games}
+          selectedGameId={selectedGameId}
+          apiError={gamesApiError}
+        />
         <div id="filter-bar-portal" />
       </div>
 

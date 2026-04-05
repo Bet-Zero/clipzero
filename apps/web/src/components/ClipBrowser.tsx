@@ -238,7 +238,7 @@ export default function ClipBrowser({
   }, [activeIndex, clips]);
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col gap-4 px-4 py-4">
+    <div className="flex flex-1 min-h-0 flex-col gap-2 px-4 py-2 overflow-y-auto">
       <ClipRail
         clips={clips}
         activeIndex={activeIndex}
@@ -256,7 +256,7 @@ export default function ClipBrowser({
         />
       </div>
 
-      <div className="text-center text-xs text-zinc-600">
+      <div className="pb-1 text-center text-xs text-zinc-600">
         {clips.length} of {total} clips
         {"  ·  "}
         {team || "All Teams"} · {quarter ? `Q${quarter}` : "All Quarters"} ·{" "}

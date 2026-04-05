@@ -30,7 +30,11 @@ export default function ClipRail({
   // Scroll active item into view within the rail when selection changes.
   useEffect(() => {
     const el = itemRefs.current.get(activeIndex);
-    el?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+    el?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "nearest",
+    });
   }, [activeIndex]);
 
   // IntersectionObserver: trigger load when sentinel scrolls near the right edge.
@@ -73,7 +77,11 @@ export default function ClipRail({
   }
 
   return (
-    <div ref={scrollRef} data-testid="clip-rail" className="shrink-0 overflow-x-auto pb-2">
+    <div
+      ref={scrollRef}
+      data-testid="clip-rail"
+      className="shrink-0 overflow-x-auto scrollbar-overlay -mx-1 px-1 -my-2 py-2"
+    >
       <div className="flex gap-2">
         {clips.map((clip, i) => {
           const key = [

@@ -26,3 +26,12 @@ input,
 select {
   font: inherit;
 }
+
+/* Hide rail scrollbar — scroll via trackpad, wheel, touch, or arrow keys */
+.scrollbar-overlay {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-overlay::-webkit-scrollbar {
+  display: none;
+}

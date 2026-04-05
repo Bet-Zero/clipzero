@@ -75,7 +75,7 @@ export default function ClipPlayer({ clip, onEnded }: Props) {
         </div>
       )}
 
-      <div className="space-y-2 p-4">
+      <div className="space-y-1 px-3 py-2">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-semibold text-white">
