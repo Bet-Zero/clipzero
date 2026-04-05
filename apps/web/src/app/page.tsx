@@ -107,7 +107,7 @@ function getTodayString() {
 function ClipsFallback() {
   return (
     <>
-      <div className="mx-auto max-w-3xl px-4 py-4">
+      <div className="mx-auto flex min-h-0 max-w-3xl flex-1 flex-col px-4 py-4">
         {/* rail skeleton */}
         <div className="mb-4 flex gap-3 overflow-hidden">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -259,7 +259,7 @@ export default async function Home({
   // ── Player mode: skip game-scoped data fetching entirely ──
   if (mode === "player") {
     return (
-      <main className="min-h-screen bg-black text-white">
+      <main className="h-dvh overflow-y-auto bg-black text-white">
         <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-2">
           <ModeToggle mode={mode} />
           <SeasonSelector selectedSeason={selectedSeason} />
@@ -342,10 +342,11 @@ export default async function Home({
       : null;
 
   return (
-    <main className="min-h-screen bg-black text-white">
+    <main className="flex h-dvh flex-col overflow-hidden bg-black text-white">
       <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-2">
         <ModeToggle mode={mode} />
         <SeasonSelector selectedSeason={selectedSeason} />
+        <div className="h-5 w-px bg-zinc-700" aria-hidden="true" />
         <DatePicker
           selectedDate={selectedDate}
           selectedSeason={selectedSeason}
@@ -354,20 +355,22 @@ export default async function Home({
         <div id="filter-bar-portal" />
       </div>
 
-      <Suspense fallback={<ClipsFallback />}>
-        <ClipsSection
-          gameId={selectedGameId}
-          gamesApiError={gamesApiError}
-          limit={limit}
-          player={playerFilter}
-          result={resultFilter}
-          playType={playType}
-          quarter={quarter}
-          team={team}
-          teams={teams}
-          actionNumber={actionNumber}
-        />
-      </Suspense>
+      <div className="flex flex-1 min-h-0 flex-col">
+        <Suspense fallback={<ClipsFallback />}>
+          <ClipsSection
+            gameId={selectedGameId}
+            gamesApiError={gamesApiError}
+            limit={limit}
+            player={playerFilter}
+            result={resultFilter}
+            playType={playType}
+            quarter={quarter}
+            team={team}
+            teams={teams}
+            actionNumber={actionNumber}
+          />
+        </Suspense>
+      </div>
     </main>
   );
 }

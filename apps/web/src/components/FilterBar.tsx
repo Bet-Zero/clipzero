@@ -208,7 +208,7 @@ export default function FilterBar({
       {isOverflowOpen && (
         <div
           ref={panelRef}
-          className="absolute left-0 right-0 top-0 z-50 border-b border-zinc-800 bg-zinc-950 px-4 py-3 shadow-xl"
+          className="absolute left-0 right-0 top-0 z-50 border-b-2 border-zinc-600 bg-zinc-800 px-4 py-3 shadow-2xl"
         >
           <div className="flex flex-wrap items-start gap-3">
             {/* Play Type */}
