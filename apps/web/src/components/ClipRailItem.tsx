@@ -54,7 +54,10 @@ function formatClock(clock?: string) {
 // NBA live play-by-play descriptions start with the player's last name
 // (e.g. "Curry MISS 3pt Jump Shot", "Davis Defensive Rebound").
 // Strip only that leading last name so it isn't shown twice — keep everything else.
-function cleanDescription(desc: string | undefined, playerName: string | undefined): string | null {
+function cleanDescription(
+  desc: string | undefined,
+  playerName: string | undefined,
+): string | null {
   if (!desc) return null;
   let clean = desc.trim();
 
@@ -77,54 +80,77 @@ type Props = {
 
 const ClipRailItem = forwardRef<HTMLButtonElement, Props>(
   ({ clip, isActive, index, onClick }, ref) => {
+    const teamColor = getTeamColor(clip.teamTricode);
     const actionLabel =
-      cleanDescription(clip.description, clip.playerName) ?? clip.subType ?? clip.actionType ?? "—";
+      cleanDescription(clip.description, clip.playerName) ??
+      clip.subType ??
+      clip.actionType ??
+      "—";
 
     return (
       <button
         ref={ref}
         onClick={onClick}
         aria-pressed={isActive}
-        className={`flex w-44 shrink-0 flex-col overflow-hidden rounded-md border text-left transition ${
+        className={`group relative flex w-44 shrink-0 flex-col overflow-hidden rounded-lg text-left transition-all duration-200 ${
           isActive
-            ? "border-white bg-zinc-800"
-            : "border-zinc-800 bg-zinc-950 hover:border-zinc-700 hover:bg-zinc-900"
+            ? "scale-[1.03] ring-1 ring-white/80"
+            : "hover:scale-[1.02] hover:brightness-110"
         }`}
+        style={{
+          background: isActive
+            ? `linear-gradient(to bottom, ${teamColor}18, #18181b 40%)`
+            : "#09090b",
+          boxShadow: isActive
+            ? `0 0 16px 2px ${teamColor}30, 0 2px 8px rgba(0,0,0,.5)`
+            : "0 1px 4px rgba(0,0,0,.4)",
+          border: isActive ? `1px solid ${teamColor}60` : "1px solid #27272a",
+        }}
       >
-        {/* Team color stripe */}
+        {/* Team color accent bar */}
         <div
           className="h-1 w-full shrink-0"
-          style={{ backgroundColor: getTeamColor(clip.teamTricode) }}
+          style={{ backgroundColor: teamColor }}
         />
 
         {/* Card content */}
-        <div className="flex flex-1 flex-col gap-1 p-2">
-          {/* Row 1: player name + clip index */}
+        <div className="flex flex-1 flex-col gap-1 px-2.5 pt-2 pb-2.5">
+          {/* Row 1: player name + index + shot result */}
           <div className="flex items-center justify-between gap-1">
             <span className="truncate text-xs font-semibold text-white">
               {clip.playerName ?? "Unknown"}
             </span>
-            <span className="shrink-0 text-[10px] text-zinc-500">
-              #{index + 1}
+            <span className="flex shrink-0 items-center gap-1.5">
+              {clip.shotResult === "Made" && (
+                <span className="rounded-full bg-green-500/20 px-1.5 py-0.5 text-[9px] font-bold text-green-400">
+                  MADE
+                </span>
+              )}
+              {clip.shotResult === "Missed" && (
+                <span className="rounded-full bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold text-red-400">
+                  MISS
+                </span>
+              )}
+              <span className="text-[10px] tabular-nums text-zinc-500">
+                #{index + 1}
+              </span>
             </span>
           </div>
 
-          {/* Row 2: action description */}
-          <p className="line-clamp-2 text-[11px] leading-tight text-zinc-300">
+          {/* Action description */}
+          <p className="line-clamp-2 text-[11px] leading-snug text-zinc-400">
             {actionLabel}
           </p>
 
-          {/* Row 3: period · clock + shot result */}
-          <div className="flex items-center justify-between text-[10px] text-zinc-500">
+          {/* Period · clock */}
+          <div className="mt-auto flex items-center gap-1.5 pt-0.5 text-[10px] text-zinc-500">
+            <span
+              className="inline-block h-1.5 w-1.5 rounded-full"
+              style={{ backgroundColor: teamColor }}
+            />
             <span>
               Q{clip.period ?? "—"} · {formatClock(clip.clock)}
             </span>
-            {clip.shotResult === "Made" && (
-              <span className="text-green-400">MADE</span>
-            )}
-            {clip.shotResult === "Missed" && (
-              <span className="text-red-400">MISS</span>
-            )}
           </div>
         </div>
       </button>
