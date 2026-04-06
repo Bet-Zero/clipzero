@@ -464,7 +464,7 @@ export default function FilterBar({
             {isFiltered && (
               <button
                 onClick={clearFilters}
-                className="h-8 rounded bg-zinc-800 px-3 text-sm text-zinc-300 hover:bg-zinc-700"
+                className="h-7 rounded bg-zinc-800 px-2 text-xs text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
               >
                 Clear
               </button>
@@ -481,7 +481,7 @@ export default function FilterBar({
             ref={panelRef}
             className="absolute left-0 right-0 top-0 z-50 border-b-2 border-zinc-600 bg-zinc-800 shadow-2xl"
           >
-            <div className="flex flex-wrap items-start gap-3 px-4 py-3">
+            <div className="flex flex-wrap items-start gap-x-4 gap-y-2 px-4 py-2.5">
               {/* Play Type */}
               <label className="flex items-center gap-2 text-xs text-zinc-500">
                 Play Type
@@ -655,40 +655,40 @@ export default function FilterBar({
                 )}
               </div>
 
-              {/* Quarter — multi-select toggle buttons */}
-              <div className="flex items-center gap-2 text-xs text-zinc-500">
-                <span>Quarter</span>
-                <div className="flex gap-1">
-                  {[
-                    { label: "Q1", value: "1" },
-                    { label: "Q2", value: "2" },
-                    { label: "Q3", value: "3" },
-                    { label: "Q4", value: "4" },
-                    { label: "OT1", value: "5" },
-                    { label: "OT2", value: "6" },
-                    { label: "OT3", value: "7" },
-                  ].map((q) => {
-                    const active = hasMultiValue(quarter, q.value);
-                    return (
-                      <button
-                        key={q.value}
-                        onClick={() =>
-                          navigate({
-                            quarter: toggleMultiValue(quarter, q.value),
-                          })
-                        }
-                        className={`rounded px-2 py-0.5 text-sm ${
-                          active
-                            ? "bg-white text-black"
-                            : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
-                        }`}
-                      >
-                        {q.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              {/* Quarter — multi-select dropdown */}
+              <MultiSelectDropdown
+                label="Quarter"
+                summaryLabel={(() => {
+                  const sel = splitMultiValue(quarter);
+                  if (sel.length === 0) return "All";
+                  return sel
+                    .map((v) => {
+                      const n = Number(v);
+                      return n >= 1 && n <= 4
+                        ? `Q${n}`
+                        : n >= 5
+                          ? `OT${n - 4}`
+                          : v;
+                    })
+                    .join(", ");
+                })()}
+                options={[
+                  { label: "Q1", value: "1" },
+                  { label: "Q2", value: "2" },
+                  { label: "Q3", value: "3" },
+                  { label: "Q4", value: "4" },
+                  { label: "OT1", value: "5" },
+                  { label: "OT2", value: "6" },
+                  { label: "OT3", value: "7" },
+                ]}
+                selectedValues={splitMultiValue(quarter)}
+                onToggle={(val) =>
+                  navigate({
+                    quarter: toggleMultiValue(quarter, val),
+                  })
+                }
+                onClear={quarter ? () => navigate({ quarter: "" }) : undefined}
+              />
 
               {/* Play-type-specific filters from filterConfig */}
               {playTypeFilters.map((filter) => {
@@ -828,7 +828,7 @@ export default function FilterBar({
               {isFiltered && (
                 <button
                   onClick={clearFilters}
-                  className="h-7 rounded bg-zinc-800 px-3 text-sm text-zinc-300 hover:bg-zinc-700"
+                  className="h-7 rounded bg-zinc-800 px-2.5 text-xs text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
                 >
                   Clear all
                 </button>
@@ -848,7 +848,7 @@ export default function FilterBar({
 
             {/* Presets — inside panel, not in page flow */}
             <div
-              className="flex flex-wrap items-center gap-1.5 border-t border-zinc-700 px-4 py-2"
+              className="flex flex-wrap items-center gap-1.5 border-t border-zinc-700 px-4 py-1.5"
               data-testid="filter-presets"
             >
               <span className="text-[10px] uppercase tracking-wider text-zinc-600">

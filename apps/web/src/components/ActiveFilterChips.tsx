@@ -20,7 +20,7 @@ export default function ActiveFilterChips({
   if (chips.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 px-4 py-1.5">
+    <div className="flex flex-wrap items-center gap-1 px-4 py-1">
       {chips.map((chip) => (
         <span
           key={chip.value ? `${chip.key}:${chip.value}` : chip.key}

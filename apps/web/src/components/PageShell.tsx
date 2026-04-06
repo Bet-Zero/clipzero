@@ -69,7 +69,7 @@ export default function PageShell({
 
   return (
     <main className="flex h-dvh flex-col bg-black text-white">
-      <div className="shrink-0 mx-auto flex w-full items-center gap-3 px-4 py-2">
+      <div className="shrink-0 mx-auto flex w-full items-center gap-2 px-4 py-2">
         <ModeToggle mode={mode} onSwitch={switchMode} />
         <SeasonSelector selectedSeason={season} />
         {mode === "game" && (
