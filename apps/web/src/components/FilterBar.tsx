@@ -135,7 +135,7 @@ function PlayerGroupedDropdown({
 
   const summaryLabel = (() => {
     if (selectedValues.length === 0) return "All Players";
-    if (selectedValues.length <= 2) return selectedValues.join(", ");
+    if (selectedValues.length === 1) return "1 player";
     return `${selectedValues.length} players`;
   })();
 
@@ -433,7 +433,7 @@ export default function FilterBar({
 
             {/* Team toggle buttons — compact, max 2–3 teams */}
             {teams.length > 0 && (
-              <div className="flex items-center gap-1">
+              <div className="flex rounded bg-zinc-950 p-0.5">
                 {teams.map((t) => {
                   const active = hasMultiValue(team, t);
                   return (
@@ -445,10 +445,10 @@ export default function FilterBar({
                           player: "",
                         })
                       }
-                      className={`h-7 rounded px-2 text-xs font-medium transition-colors ${
+                      className={`rounded-sm px-2 py-0.5 text-xs font-medium transition-colors ${
                         active
-                          ? "bg-white text-black"
-                          : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                          ? "bg-zinc-700 text-white"
+                          : "text-zinc-500 hover:text-zinc-300"
                       }`}
                     >
                       {t}
@@ -494,7 +494,7 @@ export default function FilterBar({
         createPortal(
           <div
             ref={panelRef}
-            className="absolute left-0 right-0 top-0 z-50 border-b-2 border-zinc-600 bg-zinc-800 shadow-2xl"
+            className="absolute left-0 right-0 top-0 z-50 border-b border-zinc-700 bg-zinc-800 shadow-lg"
           >
             <div className="flex flex-wrap items-start gap-x-4 gap-y-2 px-4 py-2.5">
               {/* Play Type */}
@@ -581,7 +581,7 @@ export default function FilterBar({
                                   }
                                   className={`rounded px-3 py-0.5 text-sm ${
                                     active
-                                      ? "bg-white text-black"
+                                      ? "bg-zinc-600 text-white"
                                       : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
                                   }`}
                                 >
@@ -608,7 +608,7 @@ export default function FilterBar({
                             }
                             className={`rounded px-3 py-0.5 text-sm ${
                               currentValue === opt.value
-                                ? "bg-white text-black"
+                                ? "bg-zinc-600 text-white"
                                 : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
                             }`}
                           >
@@ -698,8 +698,8 @@ export default function FilterBar({
                   onClick={() => applyPreset(preset)}
                   className={`rounded-full px-2.5 py-0.5 text-xs transition-colors ${
                     isPresetActive(preset)
-                      ? "bg-blue-600 text-white"
-                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                      ? "bg-zinc-700 text-zinc-200"
+                      : "text-zinc-500 hover:text-zinc-400"
                   }`}
                 >
                   {preset.label}
