@@ -61,7 +61,7 @@ export default function PlayerGameList({
   const visibleDates = isExpanded ? dateGroups : dateGroups.slice(0, 8);
 
   return (
-    <div className="mx-auto max-w-3xl px-4">
+    <div className="px-2">
       <div className="flex items-center gap-2 pb-1">
         <span className="text-xs text-zinc-500">
           {games.length} games · {dateGroups.length} dates

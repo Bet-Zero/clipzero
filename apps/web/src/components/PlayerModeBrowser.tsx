@@ -31,23 +31,25 @@ import {
   getFiltersForPlayType,
   FILTER_PRESETS,
 } from "@/lib/filterConfig";
-import ActiveFilterChips, {
-  type FilterChip,
-} from "@/components/ActiveFilterChips";
+import { type FilterChip } from "@/components/ActiveFilterChips";
 
 // Reusable multi-select dropdown for player mode filter options.
 function PlayerMultiSelectDropdown({
+  label,
   summaryLabel,
   options,
   selectedValues,
   onToggle,
   onClear,
+  size = "lg",
 }: {
+  label?: string;
   summaryLabel: string;
   options: { label: string; value: string }[];
   selectedValues: string[];
   onToggle: (value: string) => void;
   onClear?: () => void;
+  size?: "sm" | "lg";
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -63,13 +65,16 @@ function PlayerMultiSelectDropdown({
 
   return (
     <div ref={ref} className="relative shrink-0">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="h-9 shrink-0 rounded bg-zinc-900 px-3 text-sm text-white hover:bg-zinc-800"
-      >
-        {summaryLabel}
-        <span className="ml-1 text-zinc-500">▾</span>
-      </button>
+      <div className={`flex items-center gap-2 ${label ? "text-xs text-zinc-500" : ""}`}>
+        {label && <span>{label}</span>}
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className={`shrink-0 rounded bg-zinc-900 text-sm text-white hover:bg-zinc-800 ${size === "sm" ? "h-7 px-2" : "h-9 px-3"}`}
+        >
+          {summaryLabel}
+          <span className="ml-1 text-zinc-500">▾</span>
+        </button>
+      </div>
       {open && (
         <div className="absolute z-30 mt-1 min-w-[180px] overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg">
           {options.map((opt) => {
@@ -166,8 +171,10 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [overlayTarget, setOverlayTarget] = useState<HTMLElement | null>(null);
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
+  const [isGamesOpen, setIsGamesOpen] = useState(false);
   const playerTriggerRef = useRef<HTMLDivElement>(null);
   const playerPanelRef = useRef<HTMLDivElement>(null);
+  const gamesTriggerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setPortalTarget(document.getElementById("player-filter-portal"));
     setOverlayTarget(document.getElementById("filter-overlay-anchor"));
@@ -188,6 +195,16 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [isOverflowOpen]);
+
+  useEffect(() => {
+    if (!isGamesOpen) return;
+    function handleOutside(e: MouseEvent) {
+      if (gamesTriggerRef.current?.contains(e.target as Node)) return;
+      setIsGamesOpen(false);
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [isGamesOpen]);
 
   const loadingRef = useRef(false);
   const clipsRef = useRef(clips);
@@ -680,6 +697,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     excludedDates.size > 0;
 
   const activeFilterCount = activeChips.length;
+  const exclusionCount = excludedGameIds.size + excludedDates.size;
 
   function applyPreset(preset: (typeof FILTER_PRESETS)[number]) {
     navigateTo({
@@ -741,8 +759,49 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                   ))}
                 </select>
 
+                {gameLog.length > 0 && (
+                  <div ref={gamesTriggerRef} className="relative shrink-0">
+                    <button
+                      onClick={() => {
+                        setIsGamesOpen((o) => !o);
+                        setIsOverflowOpen(false);
+                      }}
+                      className={`relative h-9 shrink-0 rounded px-3 text-sm transition-colors ${
+                        isGamesOpen
+                          ? "bg-zinc-700 text-white"
+                          : exclusionCount > 0
+                            ? "bg-zinc-800 text-white"
+                            : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                      }`}
+                    >
+                      {exclusionCount > 0
+                        ? `Games (${exclusionCount})`
+                        : "Games"}
+                      {exclusionCount > 0 && (
+                        <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-yellow-500" />
+                      )}
+                    </button>
+                    {isGamesOpen && (
+                      <div className="absolute right-0 z-40 mt-1 w-[340px] overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg">
+                        <div className="max-h-[60vh] overflow-y-auto p-3">
+                          <PlayerGameList
+                            games={gameLog}
+                            excludedGameIds={excludedGameIds}
+                            excludedDates={excludedDates}
+                            onToggleGameId={toggleGameId}
+                            onToggleDate={toggleDate}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <button
-                  onClick={() => setIsOverflowOpen((o) => !o)}
+                  onClick={() => {
+                    setIsOverflowOpen((o) => !o);
+                    setIsGamesOpen(false);
+                  }}
                   className={`relative h-9 shrink-0 rounded px-3 text-sm transition-colors ${
                     isOverflowOpen
                       ? "bg-zinc-700 text-white"
@@ -780,9 +839,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
         createPortal(
           <div
             ref={playerPanelRef}
-            className="absolute left-0 right-0 top-0 z-50 border-b-2 border-zinc-600 bg-zinc-800 shadow-2xl"
+            className="absolute left-0 right-0 top-0 z-50 border-b border-zinc-700 bg-zinc-800 shadow-lg"
           >
-            <div className="flex flex-wrap items-start gap-3 px-4 py-3">
+            <div className="flex flex-wrap items-start gap-x-4 gap-y-2 px-4 py-2.5">
               {/* Play-type-specific filters from filterConfig */}
               {getFiltersForPlayType(playType).map((filter) => {
                 const currentValue =
@@ -791,64 +850,68 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                 if (filter.style === "buttons") {
                   if (filter.multiSelect) {
                     return (
-                      <div key={filter.id} className="flex items-center gap-1">
-                        <span className="mr-1 text-xs text-zinc-500">
+                      <div key={filter.id} className="flex items-center gap-2">
+                        <span className="text-xs text-zinc-500">
                           {filter.label}
                         </span>
-                        {filter.options
-                          .filter((opt) => opt.value !== "")
-                          .map((opt) => {
-                            const active = hasMultiValue(
-                              currentValue,
-                              opt.value,
-                            );
-                            return (
-                              <button
-                                key={opt.value}
-                                onClick={() =>
-                                  navigateTo({
-                                    [filter.param]: toggleMultiValue(
-                                      currentValue,
-                                      opt.value,
-                                    ),
-                                  } as Partial<PlayerModeFilterState>)
-                                }
-                                className={`rounded px-3 py-0.5 text-sm ${
-                                  active
-                                    ? "bg-white text-black"
-                                    : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
-                                }`}
-                              >
-                                {opt.label}
-                              </button>
-                            );
-                          })}
+                        <div className="flex gap-1">
+                          {filter.options
+                            .filter((opt) => opt.value !== "")
+                            .map((opt) => {
+                              const active = hasMultiValue(
+                                currentValue,
+                                opt.value,
+                              );
+                              return (
+                                <button
+                                  key={opt.value}
+                                  onClick={() =>
+                                    navigateTo({
+                                      [filter.param]: toggleMultiValue(
+                                        currentValue,
+                                        opt.value,
+                                      ),
+                                    } as Partial<PlayerModeFilterState>)
+                                  }
+                                  className={`rounded px-3 py-0.5 text-sm ${
+                                    active
+                                      ? "bg-zinc-600 text-white"
+                                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              );
+                            })}
+                        </div>
                       </div>
                     );
                   }
 
                   return (
-                    <div key={filter.id} className="flex items-center gap-1">
-                      <span className="mr-1 text-xs text-zinc-500">
+                    <div key={filter.id} className="flex items-center gap-2">
+                      <span className="text-xs text-zinc-500">
                         {filter.label}
                       </span>
-                      {filter.options.map((opt) => (
-                        <button
-                          key={opt.value}
-                          onClick={() =>
-                            navigateTo({
-                              [filter.param]: opt.value,
-                            } as Partial<PlayerModeFilterState>)
-                          }
-                          className={`rounded px-3 py-0.5 text-sm ${
-                            currentValue === opt.value
-                              ? "bg-white text-black"
-                              : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
+                      <div className="flex gap-1">
+                        {filter.options.map((opt) => (
+                          <button
+                            key={opt.value}
+                            onClick={() =>
+                              navigateTo({
+                                [filter.param]: opt.value,
+                              } as Partial<PlayerModeFilterState>)
+                            }
+                            className={`rounded px-3 py-0.5 text-sm ${
+                              currentValue === opt.value
+                                ? "bg-zinc-600 text-white"
+                                : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   );
                 }
@@ -874,6 +937,8 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                   return (
                     <PlayerMultiSelectDropdown
                       key={filter.id}
+                      label={filter.label}
+                      size="sm"
                       summaryLabel={summaryLabel}
                       options={nonEmptyOptions}
                       selectedValues={selectedValues}
@@ -895,29 +960,49 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                 }
 
                 return (
-                  <select
+                  <label
                     key={filter.id}
-                    value={currentValue}
-                    onChange={(e) =>
-                      navigateTo({
-                        [filter.param]: e.target.value,
-                      } as Partial<PlayerModeFilterState>)
-                    }
-                    className="h-7 rounded bg-zinc-900 px-3 text-sm text-white"
+                    className="flex items-center gap-2 text-xs text-zinc-500"
                   >
-                    {filter.options.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                    {filter.label}
+                    <select
+                      value={currentValue}
+                      onChange={(e) =>
+                        navigateTo({
+                          [filter.param]: e.target.value,
+                        } as Partial<PlayerModeFilterState>)
+                      }
+                      className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
+                    >
+                      {filter.options.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 );
               })}
 
-              {/* Quarter — multi-select toggle buttons */}
-              <div className="flex items-center gap-1">
-                <span className="mr-1 text-xs text-zinc-500">Quarter</span>
-                {[
+              {/* Quarter — multi-select dropdown */}
+              <PlayerMultiSelectDropdown
+                label="Quarter"
+                size="sm"
+                summaryLabel={(() => {
+                  const sel = splitMultiValue(quarter);
+                  if (sel.length === 0) return "All";
+                  return sel
+                    .map((v) => {
+                      const n = Number(v);
+                      return n >= 1 && n <= 4
+                        ? `Q${n}`
+                        : n >= 5
+                          ? `OT${n - 4}`
+                          : v;
+                    })
+                    .join(", ");
+                })()}
+                options={[
                   { label: "Q1", value: "1" },
                   { label: "Q2", value: "2" },
                   { label: "Q3", value: "3" },
@@ -925,53 +1010,20 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                   { label: "OT1", value: "5" },
                   { label: "OT2", value: "6" },
                   { label: "OT3", value: "7" },
-                ].map((q) => {
-                  const active = hasMultiValue(quarter, q.value);
-                  return (
-                    <button
-                      key={q.value}
-                      onClick={() =>
-                        navigateTo({
-                          quarter: toggleMultiValue(quarter, q.value),
-                        })
-                      }
-                      className={`rounded px-2 py-0.5 text-sm ${
-                        active
-                          ? "bg-white text-black"
-                          : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
-                      }`}
-                    >
-                      {q.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Clear all */}
-              {isFiltered && (
-                <button
-                  onClick={clearAllChips}
-                  className="h-7 rounded bg-zinc-800 px-3 text-sm text-zinc-300 hover:bg-zinc-700"
-                >
-                  Clear all
-                </button>
-              )}
+                ]}
+                selectedValues={splitMultiValue(quarter)}
+                onToggle={(val) =>
+                  navigateTo({
+                    quarter: toggleMultiValue(quarter, val),
+                  })
+                }
+                onClear={quarter ? () => navigateTo({ quarter: "" }) : undefined}
+              />
             </div>
-
-            {/* Active filter chips — inside panel, not in page flow */}
-            {activeChips.length > 0 && (
-              <div className="border-t border-zinc-700">
-                <ActiveFilterChips
-                  chips={activeChips}
-                  onRemove={removeChip}
-                  onClearAll={clearAllChips}
-                />
-              </div>
-            )}
 
             {/* Presets — inside panel, not in page flow */}
             <div
-              className="flex flex-wrap items-center gap-1.5 border-t border-zinc-700 px-4 py-2"
+              className="flex flex-wrap items-center gap-1.5 border-t border-zinc-700 px-4 py-1.5"
               data-testid="filter-presets"
             >
               <span className="text-[10px] uppercase tracking-wider text-zinc-600">
@@ -984,8 +1036,8 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                   onClick={() => applyPreset(preset)}
                   className={`rounded-full px-2.5 py-0.5 text-xs transition-colors ${
                     isPresetActive(preset)
-                      ? "bg-blue-600 text-white"
-                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                      ? "bg-zinc-700 text-zinc-200"
+                      : "text-zinc-500 hover:text-zinc-400"
                   }`}
                 >
                   {preset.label}
@@ -995,19 +1047,6 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
           </div>,
           overlayTarget,
         )}
-
-      {/* Game list with exclusions */}
-      {selectedPlayer && gameLog.length > 0 && (
-        <div className="pb-2">
-          <PlayerGameList
-            games={gameLog}
-            excludedGameIds={excludedGameIds}
-            excludedDates={excludedDates}
-            onToggleGameId={toggleGameId}
-            onToggleDate={toggleDate}
-          />
-        </div>
-      )}
 
       {/* Loading states */}
       {gameLogLoading && (
