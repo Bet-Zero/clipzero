@@ -65,7 +65,9 @@ function PlayerMultiSelectDropdown({
 
   return (
     <div ref={ref} className="relative shrink-0">
-      <div className={`flex items-center gap-2 ${label ? "text-xs text-zinc-500" : ""}`}>
+      <div
+        className={`flex items-center gap-2 ${label ? "text-xs text-zinc-500" : ""}`}
+      >
         {label && <span>{label}</span>}
         <button
           onClick={() => setOpen((o) => !o)}
@@ -165,6 +167,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   const shotValue = params.get("shotValue") || "";
   const subType = params.get("subType") || "";
   const distanceBucket = params.get("distanceBucket") || "";
+  const opponent = params.get("opponent") || "";
 
   const limit = 12;
 
@@ -272,6 +275,22 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     };
   }, [selectedPlayer, season]);
 
+  // Derive unique opponent options from the player's game log matchup strings.
+  const opponentOptions = useMemo(() => {
+    if (!selectedPlayer || gameLog.length === 0) return [];
+    const playerTeam = selectedPlayer.teamTricode;
+    const opps = new Set<string>();
+    for (const g of gameLog) {
+      // matchup format: "DAL @ LAL" or "DAL vs. BOS"
+      const parts = g.matchup.split(/\s+(?:@|vs\.?)\s+/);
+      for (const p of parts) {
+        const tri = p.trim();
+        if (tri && tri !== playerTeam) opps.add(tri);
+      }
+    }
+    return [...opps].sort().map((t) => ({ label: `vs ${t}`, value: t }));
+  }, [selectedPlayer, gameLog]);
+
   // Fetch clips when player, exclusions, or filters change
   const fetchClips = useCallback(
     async (offset: number, append: boolean) => {
@@ -302,6 +321,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
           shotValue,
           subType,
           distanceBucket,
+          opponent,
           excludeDates: [...excludedDates],
           excludeGameIds: [...excludedGameIds],
         });
@@ -358,6 +378,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       shotValue,
       subType,
       distanceBucket,
+      opponent,
       excludedDates,
       excludedGameIds,
     ],
@@ -378,6 +399,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     shotValue,
     subType,
     distanceBucket,
+    opponent,
     // Serialize exclusion sets so effect re-fires on changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [...excludedGameIds].sort().join(","),
@@ -492,7 +514,8 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       "quarter" in overrides ||
       "shotValue" in overrides ||
       "subType" in overrides ||
-      "distanceBucket" in overrides;
+      "distanceBucket" in overrides ||
+      "opponent" in overrides;
 
     return {
       player:
@@ -503,6 +526,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       shotValue: overrides.shotValue ?? shotValue,
       subType: overrides.subType ?? subType,
       distanceBucket: overrides.distanceBucket ?? distanceBucket,
+      opponent: overrides.opponent ?? opponent,
       excludedGameIds: overrides.excludedGameIds ?? excludedGameIds,
       excludedDates: overrides.excludedDates ?? excludedDates,
       actionNumber:
@@ -528,6 +552,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     setTotal(0);
     navigateTo({
       player,
+      opponent: "",
       excludedGameIds: new Set(),
       excludedDates: new Set(),
       actionNumber: null,
@@ -543,6 +568,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     setExcludedDates(new Set());
     navigateTo({
       player: null,
+      opponent: "",
       excludedGameIds: new Set(),
       excludedDates: new Set(),
       actionNumber: null,
@@ -613,6 +639,10 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       }
     }
 
+    if (opponent) {
+      chips.push({ key: "opponent", label: `vs ${opponent}` });
+    }
+
     const excludeCount = excludedGameIds.size + excludedDates.size;
     if (excludeCount > 0) {
       chips.push({
@@ -630,6 +660,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     shotValue,
     subType,
     distanceBucket,
+    opponent,
     excludedGameIds.size,
     excludedDates.size,
   ]);
@@ -643,6 +674,10 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
         subType: "",
         distanceBucket: "",
       });
+      return;
+    }
+    if (key === "opponent") {
+      navigateTo({ opponent: "" });
       return;
     }
     if (key === "exclusions") {
@@ -681,6 +716,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       shotValue: "",
       subType: "",
       distanceBucket: "",
+      opponent: "",
       excludedGameIds: new Set(),
       excludedDates: new Set(),
     });
@@ -693,6 +729,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     shotValue !== "" ||
     subType !== "" ||
     distanceBucket !== "" ||
+    opponent !== "" ||
     excludedGameIds.size > 0 ||
     excludedDates.size > 0;
 
@@ -758,6 +795,21 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                     </option>
                   ))}
                 </select>
+
+                {opponentOptions.length > 0 && (
+                  <select
+                    value={opponent}
+                    onChange={(e) => navigateTo({ opponent: e.target.value })}
+                    className="h-9 shrink-0 rounded bg-zinc-900 px-3 text-sm text-white"
+                  >
+                    <option value="">All Opponents</option>
+                    {opponentOptions.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
 
                 {gameLog.length > 0 && (
                   <div ref={gamesTriggerRef} className="relative shrink-0">
@@ -1017,7 +1069,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                     quarter: toggleMultiValue(quarter, val),
                   })
                 }
-                onClear={quarter ? () => navigateTo({ quarter: "" }) : undefined}
+                onClear={
+                  quarter ? () => navigateTo({ quarter: "" }) : undefined
+                }
               />
             </div>
 

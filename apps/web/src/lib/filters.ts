@@ -99,6 +99,7 @@ type PlayerClipQueryParams = {
   shotValue?: string;
   subType?: string;
   distanceBucket?: string;
+  opponent?: string;
   excludeDates?: string[];
   excludeGameIds?: string[];
   actionNumber?: number | null;
@@ -120,6 +121,7 @@ export function buildPlayerClipSearchParams(
   if (params.subType) search.set("subType", params.subType);
   if (params.distanceBucket)
     search.set("distanceBucket", params.distanceBucket);
+  if (params.opponent) search.set("opponent", params.opponent);
   if (params.excludeDates && params.excludeDates.length > 0)
     search.set("excludeDates", params.excludeDates.join(","));
   if (params.excludeGameIds && params.excludeGameIds.length > 0)
@@ -156,6 +158,7 @@ export function parsePlayerModeParams(
     shotValue: params.get("shotValue") || "",
     subType: params.get("subType") || "",
     distanceBucket: params.get("distanceBucket") || "",
+    opponent: params.get("opponent") || "",
     excludedGameIds: parseCommaSeparatedSet(params.get("excludeGameIds")),
     excludedDates: parseCommaSeparatedSet(params.get("excludeDates")),
     actionNumber: actionNumberStr ? Number(actionNumberStr) : null,
@@ -186,6 +189,7 @@ export function buildPlayerModeUrl(
   if (state.subType) search.set("subType", canonicalMultiValue(state.subType));
   if (state.distanceBucket)
     search.set("distanceBucket", canonicalMultiValue(state.distanceBucket));
+  if (state.opponent) search.set("opponent", state.opponent);
 
   const gameIds = [...state.excludedGameIds].filter(Boolean).sort();
   if (gameIds.length > 0) search.set("excludeGameIds", gameIds.join(","));

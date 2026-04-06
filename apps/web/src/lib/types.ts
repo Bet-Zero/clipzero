@@ -95,6 +95,7 @@ export type PlayerModeFilterState = {
   shotValue: string;
   subType: string;
   distanceBucket: string;
+  opponent: string;
   excludedGameIds: Set<string>;
   excludedDates: Set<string>;
   actionNumber: number | null;

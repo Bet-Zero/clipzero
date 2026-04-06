@@ -652,6 +652,11 @@ app.get("/clips/player", async (req, res) => {
           .filter(Boolean)
       : [];
 
+    const opponent =
+      typeof req.query.opponent === "string"
+        ? req.query.opponent.trim().toUpperCase()
+        : "";
+
     const limitParam =
       typeof req.query.limit === "string" ? Number(req.query.limit) : 12;
     const limit =
@@ -688,7 +693,7 @@ app.get("/clips/player", async (req, res) => {
         : null;
 
     // Check response cache (bypass when actionNumber lookup is requested)
-    const cacheKey = `${personId}:${season}:${playType}:${result}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${limit}:${offset}:${[...excludeDates].sort().join(",")}:${[...excludeGameIds].sort().join(",")}`;
+    const cacheKey = `${personId}:${season}:${playType}:${result}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${opponent}:${limit}:${offset}:${[...excludeDates].sort().join(",")}:${[...excludeGameIds].sort().join(",")}`;
     if (!targetActionNumber) {
       const cached = playerClipCache.get(cacheKey);
       if (cached) {
@@ -789,6 +794,9 @@ app.get("/clips/player", async (req, res) => {
 
     const filteredActions = seasonActions.filter((action) => {
       if (excludedGameIdSet.has(action.gameId)) return false;
+      // opponent filter: only include games where matchup contains the opponent tricode
+      if (opponent && action.matchup && !action.matchup.includes(opponent))
+        return false;
       // result filter applies to shots; non-shot actions always pass
       const isShot =
         action.actionType?.toLowerCase() === "2pt" ||
@@ -902,7 +910,7 @@ app.get("/clips/player", async (req, res) => {
     }
 
     console.log(
-      `[clips/player] personId=${personId} season=${season} playType=${playType} result=${result} quarter=${quarterParam || "all"} games=${gameLog.length - excludedGames.length}/${gameLog.length} offset=${offset} count=${clips.length}/${total} hasMore=${hasMore} assetHits=${assetCacheHits} assetMisses=${assetCacheMisses} seasonCache=${seasonCacheHit ? "hit" : "miss"} time=${msSince(startedAt)}`,
+      `[clips/player] personId=${personId} season=${season} playType=${playType} result=${result} quarter=${quarterParam || "all"} opponent=${opponent || "all"} games=${gameLog.length - excludedGames.length}/${gameLog.length} offset=${offset} count=${clips.length}/${total} hasMore=${hasMore} assetHits=${assetCacheHits} assetMisses=${assetCacheMisses} seasonCache=${seasonCacheHit ? "hit" : "miss"} time=${msSince(startedAt)}`,
     );
 
     res.json(payload);
