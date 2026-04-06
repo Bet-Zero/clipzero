@@ -3,6 +3,7 @@
 // FilterBar and PlayerModeBrowser both import from here — no one-off logic.
 
 export const PLAY_TYPES = [
+  "all",
   "shots",
   "assists",
   "rebounds",

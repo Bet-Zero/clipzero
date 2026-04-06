@@ -12,7 +12,9 @@ type SeasonSelectorProps = {
   selectedSeason: string;
 };
 
-export default function SeasonSelector({ selectedSeason }: SeasonSelectorProps) {
+export default function SeasonSelector({
+  selectedSeason,
+}: SeasonSelectorProps) {
   const router = useRouter();
   const params = useSearchParams();
 
@@ -37,7 +39,7 @@ export default function SeasonSelector({ selectedSeason }: SeasonSelectorProps) 
         const limit = params.get("limit");
         if (limit) search.set("limit", limit);
 
-        // playType resets to default "shots"; gameId, player, team, quarter, result are cleared
+        // playType resets to default "all"; gameId, player, team, quarter, result are cleared
 
         router.push(`/?${search.toString()}`);
       }}

@@ -122,6 +122,16 @@ export function getFilteredActions(
       const description = action.description ?? "";
       const isShot = actionType === "2pt" || actionType === "3pt";
 
+      if (normalized === "all") {
+        return (
+          isShot ||
+          actionType === "turnover" ||
+          actionType === "steal" ||
+          actionType === "block" ||
+          actionType === "foul"
+        );
+      }
+
       if (normalized === "shots") {
         return isShot;
       }
@@ -150,7 +160,7 @@ export function getFilteredActions(
         return actionType === "foul";
       }
 
-      return isShot;
+      return false;
     })
     .map((action) => {
       const description = action.description;

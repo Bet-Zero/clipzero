@@ -257,7 +257,7 @@ app.get("/clips/game", async (req, res) => {
     const playType =
       typeof req.query.playType === "string" && req.query.playType.trim() !== ""
         ? req.query.playType
-        : "shots";
+        : "all";
 
     const quarterParam =
       typeof req.query.quarter === "string" ? req.query.quarter.trim() : "";
@@ -604,7 +604,7 @@ app.get("/clips/player", async (req, res) => {
     const playType =
       typeof req.query.playType === "string" && req.query.playType.trim() !== ""
         ? req.query.playType.trim()
-        : "shots";
+        : "all";
 
     const result =
       typeof req.query.result === "string" && req.query.result.trim() !== ""

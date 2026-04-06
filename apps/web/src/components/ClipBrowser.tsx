@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildApiUrl } from "@/lib/api";
 import {
-  DEFAULT_PLAY_TYPE,
   DEFAULT_RESULT,
   buildClipSearchParams,
 } from "@/lib/filters";
@@ -277,7 +276,7 @@ export default function ClipBrowser({
         {team || "All Teams"} · {quarter ? `Q${quarter}` : "All Quarters"} ·{" "}
         {playType}
         {player ? ` · ${player}` : ""}
-        {playType === DEFAULT_PLAY_TYPE && result !== DEFAULT_RESULT
+        {playType === "shots" && result !== DEFAULT_RESULT
           ? ` · ${result}`
           : ""}
       </div>

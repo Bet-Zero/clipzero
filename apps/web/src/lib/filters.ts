@@ -1,6 +1,6 @@
 import type { PlayerSearchResult, PlayerModeFilterState } from "./types";
 
-export const DEFAULT_PLAY_TYPE = "shots";
+export const DEFAULT_PLAY_TYPE = "all";
 export const DEFAULT_RESULT = "all";
 
 // ── Multi-select helpers ────────────────────────────────────────────

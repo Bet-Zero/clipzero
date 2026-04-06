@@ -366,7 +366,7 @@ export default function FilterBar({
     (team !== "" ? splitMultiValue(team).length : 0) +
     (selectedPlayer !== "" ? splitMultiValue(selectedPlayer).length : 0) +
     (quarter !== "" ? splitMultiValue(quarter).length : 0) +
-    (shotResult !== DEFAULT_RESULT && playType === DEFAULT_PLAY_TYPE ? 1 : 0) +
+    (shotResult !== DEFAULT_RESULT && playType === "shots" ? 1 : 0) +
     (shotValue !== "" ? 1 : 0) +
     (subType !== "" ? splitMultiValue(subType).length : 0) +
     (distanceBucket !== "" ? splitMultiValue(distanceBucket).length : 0);
