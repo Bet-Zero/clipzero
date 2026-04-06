@@ -20,9 +20,7 @@ import {
   getFiltersForPlayType,
   FILTER_PRESETS,
 } from "@/lib/filterConfig";
-import ActiveFilterChips, {
-  type FilterChip,
-} from "@/components/ActiveFilterChips";
+import { type FilterChip } from "@/components/ActiveFilterChips";
 
 // Reusable multi-select dropdown for filter options with checkmarks.
 function MultiSelectDropdown({
@@ -823,27 +821,39 @@ export default function FilterBar({
                 );
               })}
 
-              {/* Clear all */}
-              {isFiltered && (
-                <button
-                  onClick={clearFilters}
-                  className="h-7 rounded bg-zinc-800 px-2.5 text-xs text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
-                >
-                  Clear all
-                </button>
+              {/* Active filter chips — inline with controls */}
+              {activeChips.length > 0 && (
+                <>
+                  <div
+                    className="h-5 w-px bg-zinc-700 self-center"
+                    aria-hidden="true"
+                  />
+                  {activeChips.map((chip) => (
+                    <span
+                      key={chip.value ? `${chip.key}:${chip.value}` : chip.key}
+                      className="inline-flex items-center gap-1 rounded-full bg-zinc-700 py-0.5 pl-2 pr-1 text-xs text-zinc-300"
+                    >
+                      {chip.label}
+                      <button
+                        onClick={() => removeChip(chip.key, chip.value)}
+                        className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-600 hover:text-zinc-200"
+                        aria-label={`Remove ${chip.label} filter`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  {activeChips.length > 1 && (
+                    <button
+                      onClick={clearFilters}
+                      className="text-xs text-zinc-500 hover:text-zinc-300"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </>
               )}
             </div>
-
-            {/* Active filter chips — inside panel, not in page flow */}
-            {activeChips.length > 0 && (
-              <div className="border-t border-zinc-700">
-                <ActiveFilterChips
-                  chips={activeChips}
-                  onRemove={removeChip}
-                  onClearAll={clearFilters}
-                />
-              </div>
-            )}
 
             {/* Presets — inside panel, not in page flow */}
             <div
