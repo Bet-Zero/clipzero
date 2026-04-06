@@ -152,10 +152,10 @@ function PlayerGroupedDropdown({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="h-7 rounded bg-zinc-900 px-2 text-sm text-white hover:bg-zinc-800"
+        className="flex h-7 w-36 items-center justify-between rounded bg-zinc-900 px-2 text-sm text-white hover:bg-zinc-800"
       >
-        {summaryLabel}
-        <span className="ml-1 text-zinc-500">▾</span>
+        <span className="truncate">{summaryLabel}</span>
+        <span className="ml-1 shrink-0 text-zinc-500">▾</span>
       </button>
       {open && (
         <div className="absolute z-30 mt-1 max-h-80 min-w-[200px] overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg">
