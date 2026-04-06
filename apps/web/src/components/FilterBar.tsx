@@ -20,7 +20,6 @@ import {
   getFiltersForPlayType,
   FILTER_PRESETS,
 } from "@/lib/filterConfig";
-import { type FilterChip } from "@/components/ActiveFilterChips";
 
 // Reusable multi-select dropdown for filter options with checkmarks.
 function MultiSelectDropdown({
@@ -286,104 +285,6 @@ export default function FilterBar({
   }
 
   const playTypeFilters = getFiltersForPlayType(playType);
-
-  const activeChips = useMemo(() => {
-    const chips: FilterChip[] = [];
-    const filters = getFiltersForPlayType(playType);
-
-    if (playType !== DEFAULT_PLAY_TYPE) {
-      chips.push({ key: "playType", label: playType });
-    }
-    if (team) {
-      for (const t of splitMultiValue(team)) {
-        chips.push({ key: "team", label: `Team: ${t}`, value: t });
-      }
-    }
-    if (selectedPlayer) {
-      for (const p of splitMultiValue(selectedPlayer)) {
-        chips.push({ key: "player", label: p, value: p });
-      }
-    }
-    if (quarter) {
-      for (const q of splitMultiValue(quarter)) {
-        const n = Number(q);
-        const qLabel = n >= 1 && n <= 4 ? `Q${n}` : n >= 5 ? `OT${n - 4}` : q;
-        chips.push({ key: "quarter", label: qLabel, value: q });
-      }
-    }
-
-    const values: Record<string, string> = {
-      result: shotResult,
-      shotValue,
-      subType,
-      distanceBucket,
-    };
-    for (const filter of filters) {
-      const val = values[filter.param] ?? "";
-      if (val && val !== filter.defaultValue) {
-        if (filter.multiSelect) {
-          for (const v of splitMultiValue(val)) {
-            const optLabel =
-              filter.options.find((o) => o.value === v)?.label ?? v;
-            chips.push({
-              key: filter.param,
-              label: `${filter.label}: ${optLabel}`,
-              value: v,
-            });
-          }
-        } else {
-          const optLabel =
-            filter.options.find((o) => o.value === val)?.label ?? val;
-          chips.push({
-            key: filter.param,
-            label: `${filter.label}: ${optLabel}`,
-          });
-        }
-      }
-    }
-
-    return chips;
-  }, [
-    playType,
-    team,
-    selectedPlayer,
-    quarter,
-    shotResult,
-    shotValue,
-    subType,
-    distanceBucket,
-  ]);
-
-  function removeChip(key: string, value?: string) {
-    if (key === "playType") {
-      changePlayType(DEFAULT_PLAY_TYPE);
-      return;
-    }
-    if (key === "player") {
-      if (value) {
-        navigate({ player: removeMultiValue(selectedPlayer, value) });
-      } else {
-        navigate({ player: "" });
-      }
-      setPlayerInput("");
-      return;
-    }
-    // Multi-select params: remove one value from the comma-separated list
-    if (value) {
-      const multiParams: Record<string, string> = {
-        team,
-        quarter,
-        subType,
-        distanceBucket,
-      };
-      if (key in multiParams) {
-        navigate({ [key]: removeMultiValue(multiParams[key], value) });
-        return;
-      }
-    }
-    const filter = playTypeFilters.find((f) => f.param === key);
-    navigate({ [key]: filter?.defaultValue ?? "" });
-  }
 
   function applyPreset(preset: (typeof FILTER_PRESETS)[number]) {
     // Preset sets playType + play-type-specific params + optionally quarter.
@@ -820,39 +721,6 @@ export default function FilterBar({
                   </label>
                 );
               })}
-
-              {/* Active filter chips — inline with controls */}
-              {activeChips.length > 0 && (
-                <>
-                  <div
-                    className="h-5 w-px bg-zinc-700 self-center"
-                    aria-hidden="true"
-                  />
-                  {activeChips.map((chip) => (
-                    <span
-                      key={chip.value ? `${chip.key}:${chip.value}` : chip.key}
-                      className="inline-flex items-center gap-1 rounded-full bg-zinc-700 py-0.5 pl-2 pr-1 text-xs text-zinc-300"
-                    >
-                      {chip.label}
-                      <button
-                        onClick={() => removeChip(chip.key, chip.value)}
-                        className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-600 hover:text-zinc-200"
-                        aria-label={`Remove ${chip.label} filter`}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                  {activeChips.length > 1 && (
-                    <button
-                      onClick={clearFilters}
-                      className="text-xs text-zinc-500 hover:text-zinc-300"
-                    >
-                      Clear all
-                    </button>
-                  )}
-                </>
-              )}
             </div>
 
             {/* Presets — inside panel, not in page flow */}
