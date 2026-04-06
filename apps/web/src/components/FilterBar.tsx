@@ -158,45 +158,50 @@ function PlayerGroupedDropdown({
         <span className="ml-1 shrink-0 text-zinc-500">▾</span>
       </button>
       {open && (
-        <div className="absolute z-30 mt-1 max-h-80 min-w-[200px] overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg">
-          {grouped.map(({ team: t, players: teamPlayers }) =>
-            teamPlayers.length > 0 ? (
-              <div key={t}>
-                <div className="sticky top-0 bg-zinc-950 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                  {t}
-                </div>
-                {teamPlayers.map((p) => {
-                  const checked = selectedValues.includes(p.name);
-                  return (
-                    <button
-                      key={p.name}
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => onToggle(p.name)}
-                      className={`flex w-full items-center gap-2 px-3 py-1 text-left text-sm ${
-                        checked
-                          ? "bg-zinc-800 text-white"
-                          : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
-                      }`}
-                    >
-                      <span
-                        className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[9px] ${
+        <div className="absolute z-30 mt-1 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg">
+          <div className="flex">
+            {grouped.map(({ team: t, players: teamPlayers }) =>
+              teamPlayers.length > 0 ? (
+                <div
+                  key={t}
+                  className="max-h-80 min-w-[160px] overflow-y-auto border-r border-zinc-800 last:border-r-0"
+                >
+                  <div className="sticky top-0 bg-zinc-950 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                    {t}
+                  </div>
+                  {teamPlayers.map((p) => {
+                    const checked = selectedValues.includes(p.name);
+                    return (
+                      <button
+                        key={p.name}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => onToggle(p.name)}
+                        className={`flex w-full items-center gap-2 px-3 py-1 text-left text-sm ${
                           checked
-                            ? "border-white bg-white text-black"
-                            : "border-zinc-600"
+                            ? "bg-zinc-800 text-white"
+                            : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
                         }`}
                       >
-                        {checked ? "✓" : ""}
-                      </span>
-                      {p.name}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null,
-          )}
+                        <span
+                          className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[9px] ${
+                            checked
+                              ? "border-white bg-white text-black"
+                              : "border-zinc-600"
+                          }`}
+                        >
+                          {checked ? "✓" : ""}
+                        </span>
+                        {p.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null,
+            )}
+          </div>
           {ungrouped.length > 0 && (
-            <div>
-              <div className="sticky top-0 bg-zinc-950 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+            <div className="max-h-40 overflow-y-auto border-t border-zinc-800">
+              <div className="sticky top-0 bg-zinc-950 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
                 Other
               </div>
               {ungrouped.map((p) => {
