@@ -332,9 +332,12 @@ app.get("/clips/game", async (req, res) => {
     const playerOptionPool = normalizedShots.filter((shot) => {
       const matchesTeam =
         teamValues.length === 0 || teamValues.includes(shot.teamTricode ?? "");
-      // result filter is only meaningful for shots; ignore it for other play types
+      // result filter applies to shots; non-shot actions always pass
+      const isShot =
+        shot.actionType?.toLowerCase() === "2pt" ||
+        shot.actionType?.toLowerCase() === "3pt";
       const matchesResult =
-        playType !== "shots" || result === "all" || shot.shotResult === result;
+        result === "all" || !isShot || shot.shotResult === result;
       const matchesQuarter =
         quarterValues.length === 0 || quarterValues.includes(shot.period ?? 0);
       const matchesShotValue =
@@ -786,11 +789,12 @@ app.get("/clips/player", async (req, res) => {
 
     const filteredActions = seasonActions.filter((action) => {
       if (excludedGameIdSet.has(action.gameId)) return false;
-      // result filter is only meaningful for shots; ignore it for other play types
+      // result filter applies to shots; non-shot actions always pass
+      const isShot =
+        action.actionType?.toLowerCase() === "2pt" ||
+        action.actionType?.toLowerCase() === "3pt";
       const matchesResult =
-        playType !== "shots" ||
-        result === "all" ||
-        action.shotResult === result;
+        result === "all" || !isShot || action.shotResult === result;
       const matchesQuarter =
         quarterValues.length === 0 ||
         quarterValues.includes(action.period ?? 0);

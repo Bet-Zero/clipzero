@@ -4,6 +4,8 @@
 
 export const PLAY_TYPES = [
   "all",
+  "all-offense",
+  "all-defense",
   "shots",
   "assists",
   "rebounds",
@@ -14,6 +16,19 @@ export const PLAY_TYPES = [
 ] as const;
 
 export type PlayType = (typeof PLAY_TYPES)[number];
+
+export const PLAY_TYPE_LABELS: Record<PlayType, string> = {
+  all: "All",
+  "all-offense": "All Offense",
+  "all-defense": "All Defense",
+  shots: "Shots",
+  assists: "Assists",
+  rebounds: "Rebounds",
+  turnovers: "Turnovers",
+  fouls: "Fouls",
+  steals: "Steals",
+  blocks: "Blocks",
+};
 
 export type FilterOption = {
   label: string;

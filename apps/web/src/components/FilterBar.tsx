@@ -15,6 +15,7 @@ import {
 } from "@/lib/filters";
 import {
   PLAY_TYPES,
+  PLAY_TYPE_LABELS,
   PLAY_TYPE_SPECIFIC_PARAMS,
   getFiltersForPlayType,
   FILTER_PRESETS,
@@ -506,7 +507,7 @@ export default function FilterBar({
                 >
                   {PLAY_TYPES.map((value) => (
                     <option key={value} value={value}>
-                      {value}
+                      {PLAY_TYPE_LABELS[value]}
                     </option>
                   ))}
                 </select>

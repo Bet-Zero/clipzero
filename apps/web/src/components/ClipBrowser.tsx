@@ -6,6 +6,7 @@ import {
   DEFAULT_RESULT,
   buildClipSearchParams,
 } from "@/lib/filters";
+import { PLAY_TYPE_LABELS } from "@/lib/filterConfig";
 import type { Clip } from "@/lib/types";
 import ClipPlayer from "@/components/ClipPlayer";
 import ClipRail from "@/components/ClipRail";
@@ -274,7 +275,7 @@ export default function ClipBrowser({
         {clips.length} of {total} clips
         {"  ·  "}
         {team || "All Teams"} · {quarter ? `Q${quarter}` : "All Quarters"} ·{" "}
-        {playType}
+        {PLAY_TYPE_LABELS[playType as keyof typeof PLAY_TYPE_LABELS] ?? playType}
         {player ? ` · ${player}` : ""}
         {playType === "shots" && result !== DEFAULT_RESULT
           ? ` · ${result}`

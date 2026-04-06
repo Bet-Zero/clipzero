@@ -27,6 +27,7 @@ import PlayerSearch from "@/components/PlayerSearch";
 import PlayerGameList from "@/components/PlayerGameList";
 import {
   PLAY_TYPES,
+  PLAY_TYPE_LABELS,
   getFiltersForPlayType,
   FILTER_PRESETS,
 } from "@/lib/filterConfig";
@@ -550,7 +551,12 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     const filters = getFiltersForPlayType(playType);
 
     if (playType !== DEFAULT_PLAY_TYPE) {
-      chips.push({ key: "playType", label: playType });
+      chips.push({
+        key: "playType",
+        label:
+          PLAY_TYPE_LABELS[playType as keyof typeof PLAY_TYPE_LABELS] ??
+          playType,
+      });
     }
     if (quarter) {
       for (const q of splitMultiValue(quarter)) {
@@ -730,7 +736,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                 >
                   {PLAY_TYPES.map((pt) => (
                     <option key={pt} value={pt}>
-                      {pt}
+                      {PLAY_TYPE_LABELS[pt]}
                     </option>
                   ))}
                 </select>

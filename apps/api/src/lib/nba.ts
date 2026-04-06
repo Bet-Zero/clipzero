@@ -132,6 +132,14 @@ export function getFilteredActions(
         );
       }
 
+      if (normalized === "all-offense") {
+        return isShot || actionType === "turnover";
+      }
+
+      if (normalized === "all-defense") {
+        return actionType === "steal" || actionType === "block";
+      }
+
       if (normalized === "shots") {
         return isShot;
       }
