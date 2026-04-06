@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Player } from "@/lib/types";
@@ -11,7 +11,6 @@ import {
   toggleMultiValue,
   hasMultiValue,
   splitMultiValue,
-  removeMultiValue,
   canonicalMultiValue,
 } from "@/lib/filters";
 import {
@@ -136,11 +135,7 @@ export default function FilterBar({
   const subType = params.get("subType") || "";
   const distanceBucket = params.get("distanceBucket") || "";
 
-  const [playerInput, setPlayerInput] = useState("");
-  const [isPlayerOpen, setIsPlayerOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(-1);
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
-  const listRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
@@ -166,15 +161,6 @@ export default function FilterBar({
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [isOverflowOpen]);
-
-  useEffect(() => {
-    setPlayerInput("");
-    setIsPlayerOpen(false);
-  }, [selectedPlayer, gameId, team, playType, quarter]);
-
-  useEffect(() => {
-    setActiveIndex(-1);
-  }, [playerInput]);
 
   // Build a URL with the given overrides merged into current filter state.
   // Omitting a key preserves its current value; passing "" clears it.
@@ -221,38 +207,6 @@ export default function FilterBar({
     navigate({ ...clears, playType: newPlayType, player: "" });
   }
 
-  const filteredPlayers = useMemo(() => {
-    const q = playerInput.trim().toLowerCase();
-    if (!q) return players.slice(0, 8);
-    const queryParts = q.split(/\s+/).filter(Boolean);
-    return players
-      .filter((p) => {
-        const name = p.name.toLowerCase();
-        const nameParts = name.split(/\s+/).filter(Boolean);
-        const reversedName = nameParts.slice().reverse().join(" ");
-        return (
-          name.includes(q) ||
-          reversedName.includes(q) ||
-          queryParts.every((part) =>
-            nameParts.some((namePart) => namePart.startsWith(part)),
-          )
-        );
-      })
-      .slice(0, 8);
-  }, [players, playerInput]);
-
-  function togglePlayer(name: string) {
-    setPlayerInput("");
-    setIsPlayerOpen(false);
-    navigate({ player: toggleMultiValue(selectedPlayer, name) });
-  }
-
-  function clearPlayer() {
-    setPlayerInput("");
-    setIsPlayerOpen(false);
-    navigate({ player: "" });
-  }
-
   const isFiltered =
     playType !== DEFAULT_PLAY_TYPE ||
     shotResult !== DEFAULT_RESULT ||
@@ -280,7 +234,6 @@ export default function FilterBar({
     if (gameId) search.set("gameId", gameId);
     const limit = params.get("limit");
     if (limit) search.set("limit", limit);
-    setPlayerInput("");
     router.push(`/?${search.toString()}`);
   }
 
@@ -423,135 +376,6 @@ export default function FilterBar({
                   ))}
                 </select>
               </label>
-
-              {/* Player search */}
-              <div className="relative min-w-[200px]">
-                <div className="flex items-center gap-2 text-xs text-zinc-500">
-                  <span className="shrink-0">Player</span>
-                  <div className="flex items-center gap-1">
-                    <input
-                      value={playerInput}
-                      onChange={(e) => {
-                        setPlayerInput(e.target.value);
-                        setIsPlayerOpen(true);
-                      }}
-                      onFocus={() => setIsPlayerOpen(true)}
-                      onBlur={() => {
-                        setTimeout(() => setIsPlayerOpen(false), 150);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "ArrowDown") {
-                          e.preventDefault();
-                          if (!isPlayerOpen) setIsPlayerOpen(true);
-                          setActiveIndex((i) =>
-                            filteredPlayers.length === 0
-                              ? -1
-                              : (i + 1) % filteredPlayers.length,
-                          );
-                          return;
-                        }
-                        if (e.key === "ArrowUp") {
-                          e.preventDefault();
-                          if (!isPlayerOpen) setIsPlayerOpen(true);
-                          setActiveIndex((i) =>
-                            filteredPlayers.length === 0
-                              ? -1
-                              : i <= 0
-                                ? filteredPlayers.length - 1
-                                : i - 1,
-                          );
-                          return;
-                        }
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          if (isPlayerOpen && activeIndex >= 0) {
-                            togglePlayer(filteredPlayers[activeIndex].name);
-                          }
-                          return;
-                        }
-                        if (e.key === "Escape") {
-                          if (isPlayerOpen) {
-                            setIsPlayerOpen(false);
-                            setActiveIndex(-1);
-                          } else {
-                            clearPlayer();
-                          }
-                        }
-                      }}
-                      placeholder="Search player"
-                      className="h-7 w-full rounded bg-zinc-900 px-3 text-sm text-white placeholder:text-zinc-500"
-                    />
-                    {selectedPlayer && (
-                      <button
-                        onClick={clearPlayer}
-                        className="h-7 rounded bg-zinc-900 px-2 text-sm text-zinc-400 hover:text-zinc-200"
-                        aria-label="Clear player"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                  {/* Selected player tags */}
-                  {splitMultiValue(selectedPlayer).length > 0 && (
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {splitMultiValue(selectedPlayer).map((name) => (
-                        <span
-                          key={name}
-                          className="inline-flex items-center gap-1 rounded-full bg-zinc-700 py-0.5 pl-2 pr-1 text-xs text-zinc-200"
-                        >
-                          {name}
-                          <button
-                            onClick={() =>
-                              navigate({
-                                player: removeMultiValue(selectedPlayer, name),
-                              })
-                            }
-                            className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-600 hover:text-zinc-100"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {isPlayerOpen && filteredPlayers.length > 0 && (
-                  <div
-                    ref={listRef}
-                    className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg"
-                  >
-                    {filteredPlayers.map((p, i) => {
-                      const isSelected = hasMultiValue(selectedPlayer, p.name);
-                      return (
-                        <button
-                          key={p.name}
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => togglePlayer(p.name)}
-                          className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-white ${
-                            isSelected
-                              ? "bg-zinc-800"
-                              : i === activeIndex
-                                ? "bg-zinc-700"
-                                : "hover:bg-zinc-800"
-                          }`}
-                        >
-                          <span
-                            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
-                              isSelected
-                                ? "border-white bg-white text-black"
-                                : "border-zinc-600"
-                            }`}
-                          >
-                            {isSelected ? "✓" : ""}
-                          </span>
-                          {p.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
 
               {/* Quarter — multi-select dropdown */}
               <MultiSelectDropdown
