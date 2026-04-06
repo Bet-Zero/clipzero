@@ -106,6 +106,145 @@ function MultiSelectDropdown({
   );
 }
 
+// Player selector grouped by team with multi-select checkmarks.
+function PlayerGroupedDropdown({
+  players,
+  teams,
+  selectedValues,
+  onToggle,
+  onClear,
+}: {
+  players: Player[];
+  teams: string[];
+  selectedValues: string[];
+  onToggle: (value: string) => void;
+  onClear?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  const summaryLabel = (() => {
+    if (selectedValues.length === 0) return "All Players";
+    if (selectedValues.length <= 2) return selectedValues.join(", ");
+    return `${selectedValues.length} players`;
+  })();
+
+  // Group players by team, preserving the teams order
+  const grouped = teams.map((t) => ({
+    team: t,
+    players: players.filter((p) => p.teamTricode === t),
+  }));
+  // Catch any players without a matching team
+  const ungrouped = players.filter(
+    (p) => !p.teamTricode || !teams.includes(p.teamTricode),
+  );
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="h-7 rounded bg-zinc-900 px-2 text-sm text-white hover:bg-zinc-800"
+      >
+        {summaryLabel}
+        <span className="ml-1 text-zinc-500">▾</span>
+      </button>
+      {open && (
+        <div className="absolute z-30 mt-1 max-h-80 min-w-[200px] overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg">
+          {grouped.map(({ team: t, players: teamPlayers }) =>
+            teamPlayers.length > 0 ? (
+              <div key={t}>
+                <div className="sticky top-0 bg-zinc-950 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                  {t}
+                </div>
+                {teamPlayers.map((p) => {
+                  const checked = selectedValues.includes(p.name);
+                  return (
+                    <button
+                      key={p.name}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => onToggle(p.name)}
+                      className={`flex w-full items-center gap-2 px-3 py-1 text-left text-sm ${
+                        checked
+                          ? "bg-zinc-800 text-white"
+                          : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[9px] ${
+                          checked
+                            ? "border-white bg-white text-black"
+                            : "border-zinc-600"
+                        }`}
+                      >
+                        {checked ? "✓" : ""}
+                      </span>
+                      {p.name}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null,
+          )}
+          {ungrouped.length > 0 && (
+            <div>
+              <div className="sticky top-0 bg-zinc-950 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                Other
+              </div>
+              {ungrouped.map((p) => {
+                const checked = selectedValues.includes(p.name);
+                return (
+                  <button
+                    key={p.name}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => onToggle(p.name)}
+                    className={`flex w-full items-center gap-2 px-3 py-1 text-left text-sm ${
+                      checked
+                        ? "bg-zinc-800 text-white"
+                        : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+                    }`}
+                  >
+                    <span
+                      className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[9px] ${
+                        checked
+                          ? "border-white bg-white text-black"
+                          : "border-zinc-600"
+                      }`}
+                    >
+                      {checked ? "✓" : ""}
+                    </span>
+                    {p.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {onClear && (
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                onClear();
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-2 border-t border-zinc-800 px-3 py-1.5 text-left text-xs text-zinc-500 hover:text-zinc-300"
+            >
+              Clear selection
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function FilterBar({
   players,
   teams,
@@ -269,20 +408,11 @@ export default function FilterBar({
       {portalTarget &&
         createPortal(
           <div ref={triggerRef} className="flex items-center gap-2">
-            {/* Player multi-select dropdown */}
+            {/* Player selector grouped by team */}
             {players.length > 0 && (
-              <MultiSelectDropdown
-                label=""
-                summaryLabel={(() => {
-                  const sel = splitMultiValue(selectedPlayer);
-                  if (sel.length === 0) return "All Players";
-                  if (sel.length <= 2) return sel.join(", ");
-                  return `${sel.length} players`;
-                })()}
-                options={players.map((p) => ({
-                  label: `${p.name}${p.teamTricode ? " (" + p.teamTricode + ")" : ""}`,
-                  value: p.name,
-                }))}
+              <PlayerGroupedDropdown
+                players={players}
+                teams={teams}
                 selectedValues={splitMultiValue(selectedPlayer)}
                 onToggle={(val) =>
                   navigate({
