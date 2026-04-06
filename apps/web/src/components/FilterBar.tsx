@@ -443,6 +443,33 @@ export default function FilterBar({
               />
             )}
 
+            {/* Team toggle buttons — compact, max 2–3 teams */}
+            {teams.length > 0 && (
+              <div className="flex items-center gap-1">
+                {teams.map((t) => {
+                  const active = hasMultiValue(team, t);
+                  return (
+                    <button
+                      key={t}
+                      onClick={() =>
+                        navigate({
+                          team: toggleMultiValue(team, t),
+                          player: "",
+                        })
+                      }
+                      className={`h-7 rounded px-2 text-xs font-medium transition-colors ${
+                        active
+                          ? "bg-white text-black"
+                          : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             <button
               onClick={() => setIsOverflowOpen((o) => !o)}
               className={`relative h-8 rounded px-3 text-sm transition-colors ${
@@ -497,34 +524,6 @@ export default function FilterBar({
                   ))}
                 </select>
               </label>
-
-              {/* Team — multi-select toggle buttons */}
-              <div className="flex items-center gap-2 text-xs text-zinc-500">
-                <span>Team</span>
-                <div className="flex gap-1">
-                  {teams.map((t) => {
-                    const active = hasMultiValue(team, t);
-                    return (
-                      <button
-                        key={t}
-                        onClick={() =>
-                          navigate({
-                            team: toggleMultiValue(team, t),
-                            player: "",
-                          })
-                        }
-                        className={`rounded px-3 py-0.5 text-sm ${
-                          active
-                            ? "bg-white text-black"
-                            : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800"
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
 
               {/* Player search */}
               <div className="relative min-w-[200px]">
