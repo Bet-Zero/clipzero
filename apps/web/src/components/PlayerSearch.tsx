@@ -116,7 +116,7 @@ export default function PlayerSearch({
             }
           }}
           placeholder="Search player..."
-          className="h-9 w-full rounded bg-zinc-900 px-3 text-sm text-white placeholder:text-zinc-500"
+          className="h-7 w-full rounded bg-zinc-900 px-2 text-sm text-white placeholder:text-zinc-500"
         />
         {selectedPlayer && (
           <button
@@ -126,7 +126,7 @@ export default function PlayerSearch({
               onClear();
               inputRef.current?.focus();
             }}
-            className="h-9 rounded bg-zinc-900 px-2 text-sm text-zinc-400 hover:text-zinc-200"
+            className="h-7 rounded bg-zinc-900 px-2 text-sm text-zinc-400 hover:text-zinc-200"
             aria-label="Clear player"
           >
             ×

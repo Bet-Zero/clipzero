@@ -21,7 +21,7 @@ export default function GameSelector({
     return (
       <select
         data-testid="game-selector"
-        className="h-9 rounded bg-zinc-900 px-3 text-sm text-zinc-500 cursor-not-allowed"
+        className="h-7 rounded bg-zinc-900 px-2 text-sm text-zinc-500 cursor-not-allowed"
         disabled
       >
         <option>
@@ -36,7 +36,7 @@ export default function GameSelector({
   return (
     <select
       data-testid="game-selector"
-      className="h-9 rounded bg-zinc-900 px-3 text-sm text-white"
+      className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
       value={selectedGameId}
       onChange={(e) => {
         const search = new URLSearchParams(params.toString());

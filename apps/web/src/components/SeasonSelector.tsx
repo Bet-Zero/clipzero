@@ -43,7 +43,7 @@ export default function SeasonSelector({
 
         router.push(`/?${search.toString()}`);
       }}
-      className="h-9 rounded bg-zinc-900 px-3 text-sm text-white"
+      className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
     >
       {SEASONS.map((s) => (
         <option key={s} value={s}>

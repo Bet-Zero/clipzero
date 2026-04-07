@@ -12,7 +12,7 @@ export default function ModeToggle({
       <button
         data-testid="mode-game"
         onClick={() => onSwitch("game")}
-        className={`rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+        className={`h-7 rounded px-3 text-xs font-medium transition-colors ${
           mode !== "player"
             ? "bg-zinc-700 text-white"
             : "text-zinc-400 hover:text-zinc-200"
@@ -23,7 +23,7 @@ export default function ModeToggle({
       <button
         data-testid="mode-player"
         onClick={() => onSwitch("player")}
-        className={`rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+        className={`h-7 rounded px-3 text-xs font-medium transition-colors ${
           mode === "player"
             ? "bg-zinc-700 text-white"
             : "text-zinc-400 hover:text-zinc-200"

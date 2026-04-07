@@ -4,14 +4,23 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { type Season, seasonBounds } from "@/lib/season";
 
 /** Params that are generally compatible across dates */
-const PRESERVE_ON_DATE_CHANGE = ["playType", "quarter", "result", "limit", "season"];
+const PRESERVE_ON_DATE_CHANGE = [
+  "playType",
+  "quarter",
+  "result",
+  "limit",
+  "season",
+];
 
 type DatePickerProps = {
   selectedDate: string;
   selectedSeason: Season;
 };
 
-export default function DatePicker({ selectedDate, selectedSeason }: DatePickerProps) {
+export default function DatePicker({
+  selectedDate,
+  selectedSeason,
+}: DatePickerProps) {
   const { start, end } = seasonBounds(selectedSeason);
   const router = useRouter();
   const params = useSearchParams();
@@ -33,7 +42,7 @@ export default function DatePicker({ selectedDate, selectedSeason }: DatePickerP
 
         router.push(`/?${search.toString()}`);
       }}
-      className="h-9 rounded bg-zinc-900 px-3 text-sm text-white"
+      className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
     />
   );
 }

@@ -787,7 +787,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                       distanceBucket: "",
                     })
                   }
-                  className="h-9 shrink-0 rounded bg-zinc-900 px-3 text-sm text-white"
+                  className="h-7 shrink-0 rounded bg-zinc-900 px-2 text-sm text-white"
                 >
                   {PLAY_TYPES.map((pt) => (
                     <option key={pt} value={pt}>
@@ -800,7 +800,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                   <select
                     value={opponent}
                     onChange={(e) => navigateTo({ opponent: e.target.value })}
-                    className="h-9 shrink-0 rounded bg-zinc-900 px-3 text-sm text-white"
+                    className="h-7 shrink-0 rounded bg-zinc-900 px-2 text-sm text-white"
                   >
                     <option value="">All Opponents</option>
                     {opponentOptions.map((o) => (
@@ -818,7 +818,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                         setIsGamesOpen((o) => !o);
                         setIsOverflowOpen(false);
                       }}
-                      className={`relative h-9 shrink-0 rounded px-3 text-sm transition-colors ${
+                      className={`relative h-7 shrink-0 rounded px-2 text-sm transition-colors ${
                         isGamesOpen
                           ? "bg-zinc-700 text-white"
                           : exclusionCount > 0
@@ -854,7 +854,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                     setIsOverflowOpen((o) => !o);
                     setIsGamesOpen(false);
                   }}
-                  className={`relative h-9 shrink-0 rounded px-3 text-sm transition-colors ${
+                  className={`relative h-7 shrink-0 rounded px-2 text-sm transition-colors ${
                     isOverflowOpen
                       ? "bg-zinc-700 text-white"
                       : activeFilterCount > 0
@@ -873,7 +873,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                 {isFiltered && (
                   <button
                     onClick={clearAllChips}
-                    className="h-9 shrink-0 rounded bg-zinc-800 px-3 text-sm text-zinc-300 hover:bg-zinc-700"
+                    className="px-2 text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
                   >
                     Clear
                   </button>

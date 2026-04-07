@@ -433,7 +433,7 @@ export default function FilterBar({
 
             {/* Team toggle buttons — compact, max 2–3 teams */}
             {teams.length > 0 && (
-              <div className="flex rounded bg-zinc-950 p-0.5">
+              <div className="flex h-7 items-center rounded bg-zinc-950 p-0.5">
                 {teams.map((t) => {
                   const active = hasMultiValue(team, t);
                   return (
@@ -445,7 +445,7 @@ export default function FilterBar({
                           player: "",
                         })
                       }
-                      className={`rounded-sm px-2 py-0.5 text-xs font-medium transition-colors ${
+                      className={`flex h-full items-center rounded-sm px-2 text-xs font-medium transition-colors ${
                         active
                           ? "bg-zinc-700 text-white"
                           : "text-zinc-500 hover:text-zinc-300"
@@ -460,7 +460,7 @@ export default function FilterBar({
 
             <button
               onClick={() => setIsOverflowOpen((o) => !o)}
-              className={`relative h-8 rounded px-3 text-sm transition-colors ${
+              className={`relative h-7 rounded px-2 text-sm transition-colors ${
                 isOverflowOpen
                   ? "bg-zinc-700 text-white"
                   : activeFilterCount > 0
@@ -479,7 +479,7 @@ export default function FilterBar({
             {isFiltered && (
               <button
                 onClick={clearFilters}
-                className="h-7 rounded bg-zinc-800 px-2 text-xs text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
+                className="px-2 text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
               >
                 Clear
               </button>
