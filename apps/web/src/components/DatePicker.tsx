@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type Season, seasonBounds } from "@/lib/season";
 
@@ -25,13 +26,20 @@ export default function DatePicker({
   const router = useRouter();
   const params = useSearchParams();
 
+  // Optimistic state for immediate visual feedback
+  const [displayDate, setDisplayDate] = useState(selectedDate);
+  useEffect(() => {
+    setDisplayDate(selectedDate);
+  }, [selectedDate]);
+
   return (
     <input
       type="date"
-      value={selectedDate}
+      value={displayDate}
       min={start}
       max={end}
       onChange={(e) => {
+        setDisplayDate(e.target.value);
         const search = new URLSearchParams();
         search.set("date", e.target.value);
 

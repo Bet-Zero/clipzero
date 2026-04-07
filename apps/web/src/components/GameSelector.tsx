@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Game } from "@/lib/types";
 
@@ -16,6 +17,12 @@ export default function GameSelector({
 }: GameSelectorProps) {
   const router = useRouter();
   const params = useSearchParams();
+
+  // Optimistic state for immediate visual feedback
+  const [displayGameId, setDisplayGameId] = useState(selectedGameId);
+  useEffect(() => {
+    setDisplayGameId(selectedGameId);
+  }, [selectedGameId]);
 
   if (games.length === 0) {
     return (
@@ -37,8 +44,9 @@ export default function GameSelector({
     <select
       data-testid="game-selector"
       className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
-      value={selectedGameId}
+      value={displayGameId}
       onChange={(e) => {
+        setDisplayGameId(e.target.value);
         const search = new URLSearchParams(params.toString());
         search.set("gameId", e.target.value);
         search.delete("player");

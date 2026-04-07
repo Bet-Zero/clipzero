@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   SEASONS,
@@ -18,11 +19,18 @@ export default function SeasonSelector({
   const router = useRouter();
   const params = useSearchParams();
 
+  // Optimistic state for immediate visual feedback
+  const [displaySeason, setDisplaySeason] = useState(selectedSeason);
+  useEffect(() => {
+    setDisplaySeason(selectedSeason);
+  }, [selectedSeason]);
+
   return (
     <select
-      value={selectedSeason}
+      value={displaySeason}
       onChange={(e) => {
         const newSeason = parseSeason(e.target.value);
+        setDisplaySeason(newSeason);
         const search = new URLSearchParams();
 
         search.set("season", newSeason);

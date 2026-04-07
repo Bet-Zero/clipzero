@@ -163,20 +163,33 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  // Filters from URL
-  const playType = params.get("playType") || DEFAULT_PLAY_TYPE;
-  const result = params.get("result") || DEFAULT_RESULT;
-  const quarter = params.get("quarter") || "";
-  const shotValue = params.get("shotValue") || "";
-  const subType = params.get("subType") || "";
-  const distanceBucket = params.get("distanceBucket") || "";
-  const opponent = params.get("opponent") || "";
+  // Optimistic pending state — allows controls to update instantly before
+  // the URL navigation round-trip completes.
+  const [pending, setPending] = useState<Record<string, string>>({});
+  const paramsKey = params.toString();
+  useEffect(() => {
+    setPending({});
+  }, [paramsKey]);
+
+  // Read a param, preferring any pending optimistic override.
+  const p = (key: string) => pending[key] ?? params.get(key) ?? "";
+
+  // Filters (with optimistic overrides)
+  const playType = p("playType") || DEFAULT_PLAY_TYPE;
+  const result = p("result") || DEFAULT_RESULT;
+  const quarter = p("quarter");
+  const shotValue = p("shotValue");
+  const subType = p("subType");
+  const distanceBucket = p("distanceBucket");
+  const opponent = p("opponent");
 
   const limit = 12;
 
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [overlayTarget, setOverlayTarget] = useState<HTMLElement | null>(null);
-  const [watchBarPortal, setWatchBarPortal] = useState<HTMLElement | null>(null);
+  const [watchBarPortal, setWatchBarPortal] = useState<HTMLElement | null>(
+    null,
+  );
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const [isGamesOpen, setIsGamesOpen] = useState(false);
   const playerTriggerRef = useRef<HTMLDivElement>(null);
@@ -561,6 +574,26 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   }
 
   function navigateTo(overrides: Partial<PlayerModeFilterState> = {}) {
+    // Apply optimistic updates for string filter params
+    const filterKeys = [
+      "playType",
+      "result",
+      "quarter",
+      "shotValue",
+      "subType",
+      "distanceBucket",
+      "opponent",
+    ] as const;
+    const updates: Record<string, string> = {};
+    for (const key of filterKeys) {
+      if (key in overrides)
+        updates[key] = String(
+          (overrides as Record<string, unknown>)[key] ?? "",
+        );
+    }
+    if (Object.keys(updates).length > 0) {
+      setPending((prev) => ({ ...prev, ...updates }));
+    }
     router.push(buildPlayerModeUrl(season, getFilterState(overrides)), {
       scroll: false,
     });
@@ -800,7 +833,8 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
         )}
 
       {/* Compact filter controls — portaled into the top bar (one line) */}
-      {!isWatchMode && portalTarget &&
+      {!isWatchMode &&
+        portalTarget &&
         createPortal(
           <div ref={playerTriggerRef} className="contents">
             <PlayerSearch
@@ -933,8 +967,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
             <div className="flex flex-wrap items-start gap-x-4 gap-y-2 px-4 py-2.5">
               {/* Play-type-specific filters from filterConfig */}
               {getFiltersForPlayType(playType).map((filter) => {
-                const currentValue =
-                  params.get(filter.param) || filter.defaultValue;
+                const currentValue = p(filter.param) || filter.defaultValue;
 
                 if (filter.style === "buttons") {
                   if (filter.multiSelect) {

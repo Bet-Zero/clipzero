@@ -266,24 +266,35 @@ export default function FilterBar({
   const params = useSearchParams();
   const { isWatchMode, enterWatchMode, exitWatchMode } = useWatchMode();
 
+  // Optimistic pending state — allows controls to update instantly before
+  // the URL navigation round-trip completes.
+  const [pending, setPending] = useState<Record<string, string>>({});
+  const paramsKey = params.toString();
+  useEffect(() => {
+    setPending({});
+  }, [paramsKey]);
+
+  // Read a param, preferring any pending optimistic override.
+  const p = (key: string) => pending[key] ?? params.get(key) ?? "";
+
   // Persistent URL context — not filter state
   const date = params.get("date") || "";
   const gameId = params.get("gameId") || "";
   const season = params.get("season") || "";
 
-  // Universal filters
-  const playType = params.get("playType") || DEFAULT_PLAY_TYPE;
-  const quarter = params.get("quarter") || "";
-  const team = params.get("team") || "";
-  const selectedPlayer = params.get("player") || "";
+  // Universal filters (with optimistic overrides)
+  const playType = p("playType") || DEFAULT_PLAY_TYPE;
+  const quarter = p("quarter");
+  const team = p("team");
+  const selectedPlayer = p("player");
 
   // Shot-specific filters
-  const shotResult = params.get("result") || DEFAULT_RESULT;
+  const shotResult = p("result") || DEFAULT_RESULT;
 
   // Play-type-specific filters from config
-  const shotValue = params.get("shotValue") || "";
-  const subType = params.get("subType") || "";
-  const distanceBucket = params.get("distanceBucket") || "";
+  const shotValue = p("shotValue");
+  const subType = p("subType");
+  const distanceBucket = p("distanceBucket");
 
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);
@@ -327,6 +338,7 @@ export default function FilterBar({
   // Build a URL with the given overrides merged into current filter state.
   // Omitting a key preserves its current value; passing "" clears it.
   function navigate(overrides: Record<string, string>) {
+    setPending((prev) => ({ ...prev, ...overrides }));
     const search = new URLSearchParams();
     if (season) search.set("season", season);
     if (date) search.set("date", date);
@@ -390,6 +402,16 @@ export default function FilterBar({
     (distanceBucket !== "" ? splitMultiValue(distanceBucket).length : 0);
 
   function clearFilters() {
+    setPending({
+      playType: "",
+      team: "",
+      quarter: "",
+      player: "",
+      result: "",
+      shotValue: "",
+      subType: "",
+      distanceBucket: "",
+    });
     const search = new URLSearchParams();
     if (season) search.set("season", season);
     if (date) search.set("date", date);
@@ -584,8 +606,7 @@ export default function FilterBar({
 
               {/* Play-type-specific filters from filterConfig */}
               {playTypeFilters.map((filter) => {
-                const currentValue =
-                  params.get(filter.param) || filter.defaultValue;
+                const currentValue = p(filter.param) || filter.defaultValue;
 
                 if (filter.style === "buttons") {
                   if (filter.multiSelect) {
