@@ -9,7 +9,7 @@ Private-launch setup for a fast NBA clip explorer.
 
 ## Local development
 
-1. Copy `/home/runner/work/clipzero/clipzero/.env.example` to `.env` values for the API and web environments you need.
+1. Copy `/home/runner/work/clipzero/clipzero/.env.example` to `.env` and fill in the values for the API and web environments you need.
 2. Install dependencies:
 
 ```bash

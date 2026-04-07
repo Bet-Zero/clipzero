@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { apiConfig } from "./config";
+import { logger, serializeError } from "./logger";
 
 const loadedCaches = new Map<string, Record<string, unknown>>();
 const pendingWrites = new Map<string, Promise<void>>();
@@ -40,11 +41,18 @@ async function writeCache(
   const snapshot = JSON.stringify(payload, null, 2);
 
   const previousWrite = pendingWrites.get(cacheName) ?? Promise.resolve();
-  const nextWrite = previousWrite.catch(() => undefined).then(async () => {
-    await ensureCacheDir();
-    await fs.writeFile(tempPath, snapshot, "utf-8");
-    await fs.rename(tempPath, filePath);
-  });
+  const nextWrite = previousWrite
+    .catch((error) => {
+      logger.warn("persistent_cache_previous_write_failed", {
+        cacheName,
+        ...serializeError(error),
+      });
+    })
+    .then(async () => {
+      await ensureCacheDir();
+      await fs.writeFile(tempPath, snapshot, "utf-8");
+      await fs.rename(tempPath, filePath);
+    });
 
   pendingWrites.set(cacheName, nextWrite);
   await nextWrite;

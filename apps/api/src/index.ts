@@ -43,22 +43,22 @@ type PlayerActionWithGame = {
   gameId: string;
   gameDate: string;
   matchup: string;
-  actionNumber?: number;
-  period?: number;
-  clock?: string;
-  teamId?: number;
-  teamTricode?: string;
-  personId?: number;
-  playerName?: string;
-  actionType?: string;
-  subType?: string;
-  shotResult?: string;
-  shotDistance?: number;
-  x?: number;
-  y?: number;
-  description?: string;
-  scoreHome?: string;
-  scoreAway?: string;
+  actionNumber?: number | undefined;
+  period?: number | undefined;
+  clock?: string | undefined;
+  teamId?: number | undefined;
+  teamTricode?: string | undefined;
+  personId?: number | undefined;
+  playerName?: string | undefined;
+  actionType?: string | undefined;
+  subType?: string | undefined;
+  shotResult?: string | undefined;
+  shotDistance?: number | undefined;
+  x?: number | undefined;
+  y?: number | undefined;
+  description?: string | undefined;
+  scoreHome?: string | undefined;
+  scoreAway?: string | undefined;
 };
 
 const playerSeasonActionsCache = new Map<string, PlayerActionWithGame[]>();
@@ -146,7 +146,8 @@ async function mapWithConcurrency<T, R>(
     while (nextIndex < items.length) {
       const currentIndex = nextIndex;
       nextIndex += 1;
-      results[currentIndex] = await worker(items[currentIndex]);
+      const item = items[currentIndex] as T;
+      results[currentIndex] = await worker(item);
     }
   }
 

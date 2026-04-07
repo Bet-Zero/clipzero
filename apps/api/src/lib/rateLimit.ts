@@ -16,7 +16,22 @@ const buckets = new Map<string, Bucket>();
 export function createRateLimiter(options: RateLimitOptions): RequestHandler {
   return (req, res, next) => {
     const now = Date.now();
-    const key = `${options.name}:${req.ip ?? "unknown"}`;
+    const forwardedFor = req.headers["x-forwarded-for"];
+    const forwardedIp =
+      typeof forwardedFor === "string"
+        ? forwardedFor.split(",")[0]?.trim()
+        : undefined;
+    const clientIp = req.ip ?? forwardedIp ?? req.socket.remoteAddress;
+
+    if (!clientIp) {
+      res.status(400).json({
+        error: "Unable to determine client IP address",
+        details: "Rate limiting requires a resolvable client address",
+      });
+      return;
+    }
+
+    const key = `${options.name}:${clientIp}`;
     const current = buckets.get(key);
 
     let bucket: Bucket;

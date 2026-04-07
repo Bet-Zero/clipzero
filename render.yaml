@@ -46,8 +46,8 @@ services:
       - key: NEXT_PUBLIC_API_BASE_URL
         value: https://clipzero-api.onrender.com
       - key: CLIPZERO_APP_PASSWORD
-        value: change-me-before-launch
+        value: REQUIRED_PRIVATE_LAUNCH_PASSWORD
       - key: CLIPZERO_ACCESS_TOKEN
-        value: replace-with-a-random-32-plus-char-token
+        value: REQUIRED_RANDOM_TOKEN_32_CHARS_MINIMUM
       - key: CLIPZERO_DISABLE_ACCESS
         value: "0"

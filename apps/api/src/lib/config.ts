@@ -22,7 +22,7 @@ function readOrigins(value: string | undefined): string[] {
 
 function resolveCacheDir(value: string | undefined): string {
   if (!value) {
-    return path.resolve(process.cwd(), "apps/api/.cache");
+    return path.resolve(process.cwd(), ".cache");
   }
 
   return path.isAbsolute(value) ? value : path.resolve(process.cwd(), value);

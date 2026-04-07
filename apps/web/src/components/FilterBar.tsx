@@ -13,6 +13,7 @@ import {
   splitMultiValue,
   canonicalMultiValue,
 } from "@/lib/filters";
+import { useDomElementById } from "@/lib/dom";
 import {
   PLAY_TYPES,
   PLAY_TYPE_LABELS,
@@ -303,18 +304,9 @@ export default function FilterBar({
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const portalTarget =
-    typeof document === "undefined"
-      ? null
-      : document.getElementById("filter-bar-portal");
-  const overlayTarget =
-    typeof document === "undefined"
-      ? null
-      : document.getElementById("filter-overlay-anchor");
-  const watchBarPortal =
-    typeof document === "undefined"
-      ? null
-      : document.getElementById("watch-bar-portal");
+  const portalTarget = useDomElementById("filter-bar-portal");
+  const overlayTarget = useDomElementById("filter-overlay-anchor");
+  const watchBarPortal = useDomElementById("watch-bar-portal");
 
   // Auto-enter watch mode when clips are loaded (players present + game selected).
   const hasClips = players.length > 0 && !!gameId;

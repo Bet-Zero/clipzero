@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { buildApiUrl, getApiUnavailableMessage } from "@/lib/api";
+import { useDomElementById } from "@/lib/dom";
 import {
   DEFAULT_PLAY_TYPE,
   DEFAULT_RESULT,
@@ -140,6 +141,15 @@ function normalizeDate(dateStr: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+function getCurrentActionNumber(params: ReadonlyURLSearchParams): number | null {
+  const raw =
+    typeof window === "undefined"
+      ? params.get("actionNumber")
+      : new URLSearchParams(window.location.search).get("actionNumber");
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export default function PlayerModeBrowser({ season }: { season: string }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -194,18 +204,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
 
   const limit = 12;
 
-  const portalTarget =
-    typeof document === "undefined"
-      ? null
-      : document.getElementById("player-filter-portal");
-  const overlayTarget =
-    typeof document === "undefined"
-      ? null
-      : document.getElementById("filter-overlay-anchor");
-  const watchBarPortal =
-    typeof document === "undefined"
-      ? null
-      : document.getElementById("watch-bar-portal");
+  const portalTarget = useDomElementById("player-filter-portal");
+  const overlayTarget = useDomElementById("filter-overlay-anchor");
+  const watchBarPortal = useDomElementById("watch-bar-portal");
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const [isGamesOpen, setIsGamesOpen] = useState(false);
   const playerTriggerRef = useRef<HTMLDivElement>(null);
@@ -368,10 +369,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
 
       // On the initial fetch, read actionNumber from URL to restore position
       // if the clip is already in the first loaded page.
-      const pinnedAction = !append
-        ? new URLSearchParams(window.location.search).get("actionNumber")
-        : null;
-      const pinnedNum = pinnedAction ? Number(pinnedAction) : null;
+      const pinnedNum = !append ? getCurrentActionNumber(params) : null;
 
       try {
         const search = buildPlayerClipSearchParams({
@@ -443,6 +441,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       subType,
       distanceBucket,
       opponent,
+      params,
       excludedDates,
       excludedGameIds,
     ],
@@ -565,8 +564,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   // Read actionNumber from window.location rather than params because
   // replaceState (used by setActionNumberInUrl for rail navigation) does NOT
   // update useSearchParams, so params.get() would return a stale value.
-  const an = new URLSearchParams(window.location.search).get("actionNumber");
-  const liveActionNumber = an ? Number(an) : null;
+  const liveActionNumber = getCurrentActionNumber(params);
 
   // Merge current component state with overrides into a complete filter state.
   function getFilterState(
