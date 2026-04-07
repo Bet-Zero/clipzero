@@ -20,6 +20,8 @@ import {
   getFiltersForPlayType,
   FILTER_PRESETS,
 } from "@/lib/filterConfig";
+import { useWatchMode } from "@/components/PageShell";
+import WatchBar, { buildGameSummary } from "@/components/WatchBar";
 
 // Reusable multi-select dropdown for filter options with checkmarks.
 function MultiSelectDropdown({
@@ -254,12 +256,15 @@ function PlayerGroupedDropdown({
 export default function FilterBar({
   players,
   teams,
+  matchup,
 }: {
   players: Player[];
   teams: string[];
+  matchup: string;
 }) {
   const router = useRouter();
   const params = useSearchParams();
+  const { isWatchMode, enterWatchMode, exitWatchMode } = useWatchMode();
 
   // Persistent URL context — not filter state
   const date = params.get("date") || "";
@@ -285,11 +290,23 @@ export default function FilterBar({
   const panelRef = useRef<HTMLDivElement>(null);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [overlayTarget, setOverlayTarget] = useState<HTMLElement | null>(null);
+  const [watchBarPortal, setWatchBarPortal] = useState<HTMLElement | null>(
+    null,
+  );
 
   useEffect(() => {
     setPortalTarget(document.getElementById("filter-bar-portal"));
     setOverlayTarget(document.getElementById("filter-overlay-anchor"));
+    setWatchBarPortal(document.getElementById("watch-bar-portal"));
   }, []);
+
+  // Auto-enter watch mode when clips are loaded (players present + game selected).
+  const hasClips = players.length > 0 && !!gameId;
+  useEffect(() => {
+    if (hasClips) {
+      enterWatchMode();
+    }
+  }, [hasClips, enterWatchMode]);
 
   useEffect(() => {
     if (!isOverflowOpen) return;
@@ -408,10 +425,26 @@ export default function FilterBar({
     );
   }
 
+  const gameSummary = buildGameSummary({
+    matchup,
+    player: selectedPlayer,
+    team,
+    playType,
+  });
+
   return (
     <>
+      {/* Watch mode: compact summary + Edit */}
+      {isWatchMode &&
+        watchBarPortal &&
+        createPortal(
+          <WatchBar summary={gameSummary} onEdit={exitWatchMode} />,
+          watchBarPortal,
+        )}
+
       {/* Buttons portaled into top bar — always one line */}
-      {portalTarget &&
+      {!isWatchMode &&
+        portalTarget &&
         createPortal(
           <div ref={triggerRef} className="flex items-center gap-2">
             {/* Player selector grouped by team */}
@@ -489,7 +522,8 @@ export default function FilterBar({
         )}
 
       {/* Floating filter panel — portaled into overlay anchor so it never pushes content */}
-      {isOverflowOpen &&
+      {!isWatchMode &&
+        isOverflowOpen &&
         overlayTarget &&
         createPortal(
           <div

@@ -22,10 +22,11 @@ test("game mode: page loads, URL canonicalizes, clip browser renders", async ({
   await expect(page).toHaveURL(/[?&]season=/, { timeout: 10_000 });
   await expect(page).toHaveURL(/[?&]date=/);
 
-  // Core controls render
-  await expect(page.getByTestId("mode-game")).toBeVisible();
-  await expect(page.getByTestId("mode-player")).toBeVisible();
-  await expect(page.getByTestId("game-selector")).toBeVisible();
+  // Core controls render — in setup mode OR watch mode (after clips load,
+  // the bar collapses to a summary + Edit button).
+  await expect(
+    page.getByTestId("mode-game").or(page.getByRole("button", { name: "Edit" })),
+  ).toBeVisible({ timeout: 10_000 });
 
   // Clips section renders something meaningful — accepts any of the expected states:
   // clip rail (clips loaded), "select a game" prompt, or API-unavailable message.
@@ -47,8 +48,14 @@ test("game mode: selecting a different game removes actionNumber from URL", asyn
   await page.goto("/");
   await expect(page).toHaveURL(/[?&]season=/, { timeout: 10_000 });
 
+  // If watch mode is active (clips loaded), click Edit to return to setup mode.
+  const editBtn = page.getByRole("button", { name: "Edit" });
+  if (await editBtn.isVisible()) {
+    await editBtn.click();
+  }
+
   const selector = page.getByTestId("game-selector");
-  await expect(selector).toBeVisible();
+  await expect(selector).toBeVisible({ timeout: 5_000 });
 
   // This test requires at least two selectable games; skip otherwise.
   const isDisabled = await selector.isDisabled();
@@ -201,6 +208,12 @@ test("game mode: changing playType clears incompatible shot filters from URL", a
   );
   await expect(page).toHaveURL(/[?&]season=/, { timeout: 10_000 });
   await expect(page).toHaveURL(/subType=jump-shot/);
+
+  // If watch mode is active, click Edit to return to setup mode.
+  const editBtnFilter = page.getByRole("button", { name: "Edit" });
+  if (await editBtnFilter.isVisible()) {
+    await editBtnFilter.click();
+  }
 
   // Open the filter panel and switch play type to rebounds.
   const filterBtn = page.getByRole("button", { name: /Filters/ });

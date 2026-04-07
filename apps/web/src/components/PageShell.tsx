@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, createContext, useContext } from "react";
 import { useRouter } from "next/navigation";
 import DatePicker from "@/components/DatePicker";
 import GameSelector from "@/components/GameSelector";
@@ -9,6 +9,23 @@ import PlayerModeBrowser from "@/components/PlayerModeBrowser";
 import SeasonSelector from "@/components/SeasonSelector";
 import type { Season } from "@/lib/season";
 import type { Game } from "@/lib/types";
+
+// ── Watch-mode context ──────────────────────────────────────────────
+type WatchModeCtx = {
+  isWatchMode: boolean;
+  enterWatchMode: () => void;
+  exitWatchMode: () => void;
+};
+
+const WatchModeContext = createContext<WatchModeCtx>({
+  isWatchMode: false,
+  enterWatchMode: () => {},
+  exitWatchMode: () => {},
+});
+
+export function useWatchMode() {
+  return useContext(WatchModeContext);
+}
 
 type Props = {
   initialMode: "game" | "player";
@@ -34,6 +51,7 @@ export default function PageShell({
   children,
 }: Props) {
   const [mode, setMode] = useState<"game" | "player">(initialMode);
+  const [isWatchMode, setIsWatchMode] = useState(false);
   // Remember whether the server already rendered game content for us.
   // Once true it stays true for the lifetime of this client component instance.
   const [hasGameContent] = useState(() => children != null);
@@ -42,6 +60,7 @@ export default function PageShell({
   const switchMode = useCallback(
     (newMode: "game" | "player") => {
       if (newMode === mode) return;
+      setIsWatchMode(false);
 
       if (newMode === "game" && !hasGameContent) {
         // No server-rendered game content available yet — need a server round-trip.
@@ -67,48 +86,84 @@ export default function PageShell({
     [mode, hasGameContent, gameDate, router],
   );
 
+  const enterWatchMode = useCallback(() => setIsWatchMode(true), []);
+  const exitWatchMode = useCallback(() => setIsWatchMode(false), []);
+
   return (
-    <main className="flex h-dvh flex-col bg-black text-white">
-      <div className="shrink-0 mx-auto flex w-full items-center gap-2 px-4 py-1.5">
-        <ModeToggle mode={mode} onSwitch={switchMode} />
-        <SeasonSelector selectedSeason={season} />
-        {mode === "game" && (
-          <>
-            <div className="h-5 w-px bg-zinc-700" aria-hidden="true" />
-            <DatePicker selectedDate={selectedDate} selectedSeason={season} />
-            <GameSelector
-              games={games}
-              selectedGameId={selectedGameId}
-              apiError={gamesApiError}
-            />
-            <div id="filter-bar-portal" />
-          </>
-        )}
-        {mode === "player" && (
-          <>
-            <div className="h-5 w-px bg-zinc-700 shrink-0" aria-hidden="true" />
-            <div id="player-filter-portal" className="contents" />
-          </>
-        )}
-      </div>
+    <WatchModeContext.Provider
+      value={{ isWatchMode, enterWatchMode, exitWatchMode }}
+    >
+      <main className="flex h-dvh flex-col bg-black text-white">
+        <div className="shrink-0 mx-auto flex w-full items-center gap-2 px-4 py-1.5">
+          {/* Watch mode bar — only visible when watching */}
+          <div
+            id="watch-bar-portal"
+            className={isWatchMode ? "contents" : "hidden"}
+          />
 
-      {/* Overlay anchor for filter panels — sits between the top bar and content.
+          {/* Setup mode controls — hidden when watching */}
+          {!isWatchMode && (
+            <>
+              <ModeToggle mode={mode} onSwitch={switchMode} />
+              <SeasonSelector selectedSeason={season} />
+            </>
+          )}
+          {mode === "game" && (
+            <>
+              {!isWatchMode && (
+                <>
+                  <div className="h-5 w-px bg-zinc-700" aria-hidden="true" />
+                  <DatePicker
+                    selectedDate={selectedDate}
+                    selectedSeason={season}
+                  />
+                  <GameSelector
+                    games={games}
+                    selectedGameId={selectedGameId}
+                    apiError={gamesApiError}
+                  />
+                </>
+              )}
+              <div
+                id="filter-bar-portal"
+                className={isWatchMode ? "hidden" : undefined}
+              />
+            </>
+          )}
+          {mode === "player" && (
+            <>
+              {!isWatchMode && (
+                <div
+                  className="h-5 w-px bg-zinc-700 shrink-0"
+                  aria-hidden="true"
+                />
+              )}
+              <div
+                id="player-filter-portal"
+                className={isWatchMode ? "hidden" : "contents"}
+              />
+            </>
+          )}
+        </div>
+
+        {/* Overlay anchor for filter panels — sits between the top bar and content.
           height: 0 keeps it out of flow; position: relative lets absolute children overlay content. */}
-      <div
-        id="filter-overlay-anchor"
-        className="relative shrink-0"
-        style={{ height: 0 }}
-      />
+        <div
+          id="filter-overlay-anchor"
+          className="relative shrink-0"
+          style={{ height: 0 }}
+        />
 
-      <div className="flex flex-1 min-h-0 flex-col">
-        {mode === "game" ? (
-          children
-        ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            <PlayerModeBrowser season={season} />
-          </div>
-        )}
-      </div>
-    </main>
+        <div className="flex flex-1 min-h-0 flex-col">
+          {mode === "game" ? (
+            children
+          ) : (
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <PlayerModeBrowser season={season} />
+            </div>
+          )}
+        </div>
+      </main>
+    </WatchModeContext.Provider>
   );
 }

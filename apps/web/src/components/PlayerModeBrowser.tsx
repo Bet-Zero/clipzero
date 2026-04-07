@@ -32,6 +32,8 @@ import {
   FILTER_PRESETS,
 } from "@/lib/filterConfig";
 import { type FilterChip } from "@/components/ActiveFilterChips";
+import { useWatchMode } from "@/components/PageShell";
+import WatchBar, { buildPlayerSummary } from "@/components/WatchBar";
 
 // Reusable multi-select dropdown for player mode filter options.
 function PlayerMultiSelectDropdown({
@@ -136,6 +138,7 @@ function setActionNumberInUrl(actionNumber: number | null) {
 export default function PlayerModeBrowser({ season }: { season: string }) {
   const router = useRouter();
   const params = useSearchParams();
+  const { isWatchMode, enterWatchMode, exitWatchMode } = useWatchMode();
 
   // Player selection state
   const [selectedPlayer, setSelectedPlayer] =
@@ -173,6 +176,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
 
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [overlayTarget, setOverlayTarget] = useState<HTMLElement | null>(null);
+  const [watchBarPortal, setWatchBarPortal] = useState<HTMLElement | null>(null);
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const [isGamesOpen, setIsGamesOpen] = useState(false);
   const playerTriggerRef = useRef<HTMLDivElement>(null);
@@ -181,7 +185,25 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   useEffect(() => {
     setPortalTarget(document.getElementById("player-filter-portal"));
     setOverlayTarget(document.getElementById("filter-overlay-anchor"));
+    setWatchBarPortal(document.getElementById("watch-bar-portal"));
   }, []);
+
+  // Auto-enter watch mode when clips first arrive.
+  // Reset when player/filter changes so new clip set triggers re-entry.
+  const watchModeAutoEntered = useRef(false);
+  const hasPlayerClips = clips.length > 0 && selectedPlayer !== null;
+  const filterKey = `${selectedPlayer?.personId}:${playType}:${result}:${quarter}:${shotValue}:${subType}:${distanceBucket}:${opponent}`;
+  const prevFilterKey = useRef(filterKey);
+  useEffect(() => {
+    if (prevFilterKey.current !== filterKey) {
+      prevFilterKey.current = filterKey;
+      watchModeAutoEntered.current = false;
+    }
+    if (hasPlayerClips && !watchModeAutoEntered.current) {
+      watchModeAutoEntered.current = true;
+      enterWatchMode();
+    }
+  }, [hasPlayerClips, filterKey, enterWatchMode]);
 
   useEffect(() => {
     if (!isOverflowOpen) return;
@@ -761,10 +783,24 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     );
   }
 
+  const playerSummary = buildPlayerSummary({
+    playerName: selectedPlayer?.displayName ?? "",
+    opponent,
+    playType,
+  });
+
   return (
     <div>
+      {/* Watch mode: compact summary + Edit */}
+      {isWatchMode &&
+        watchBarPortal &&
+        createPortal(
+          <WatchBar summary={playerSummary} onEdit={exitWatchMode} />,
+          watchBarPortal,
+        )}
+
       {/* Compact filter controls — portaled into the top bar (one line) */}
-      {portalTarget &&
+      {!isWatchMode && portalTarget &&
         createPortal(
           <div ref={playerTriggerRef} className="contents">
             <PlayerSearch
@@ -885,7 +921,8 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
         )}
 
       {/* Floating filter panel — portaled into overlay anchor, never pushes content */}
-      {isOverflowOpen &&
+      {!isWatchMode &&
+        isOverflowOpen &&
         overlayTarget &&
         selectedPlayer &&
         createPortal(

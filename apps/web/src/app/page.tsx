@@ -143,6 +143,7 @@ async function ClipsSection({
   distanceBucket,
   actionNumber,
   homeTeamTricode,
+  matchup,
 }: {
   gameId: string;
   gamesApiError: boolean;
@@ -158,11 +159,12 @@ async function ClipsSection({
   distanceBucket: string;
   actionNumber: number | null;
   homeTeamTricode?: string;
+  matchup?: string;
 }) {
   if (gamesApiError) {
     return (
       <>
-        <FilterBar players={[]} teams={[]} />
+        <FilterBar players={[]} teams={[]} matchup="" />
         <div className="mx-auto max-w-3xl px-4 py-6 text-sm text-red-400">
           API unavailable — is the backend running on localhost:4000?
         </div>
@@ -173,7 +175,7 @@ async function ClipsSection({
   if (!gameId) {
     return (
       <>
-        <FilterBar players={[]} teams={[]} />
+        <FilterBar players={[]} teams={[]} matchup="" />
         <div className="mx-auto max-w-3xl px-4 py-6 text-sm text-zinc-400">
           Select a game to load clips.
         </div>
@@ -199,7 +201,7 @@ async function ClipsSection({
   if (clipsData.apiError) {
     return (
       <>
-        <FilterBar players={[]} teams={[]} />
+        <FilterBar players={[]} teams={[]} matchup="" />
         <div className="mx-auto max-w-3xl px-4 py-6 text-sm text-red-400">
           Could not load clips — is the backend running on localhost:4000?
         </div>
@@ -219,7 +221,7 @@ async function ClipsSection({
 
   return (
     <>
-      <FilterBar players={players} teams={teams} />
+      <FilterBar players={players} teams={teams} matchup={matchup ?? ""} />
 
       <ClipBrowser
         key={filterKey}
@@ -403,6 +405,7 @@ export default async function Home({
           distanceBucket={distanceBucket}
           actionNumber={actionNumber}
           homeTeamTricode={selectedGame?.homeTeam?.teamTricode}
+          matchup={selectedGame?.matchup ?? ""}
         />
       </Suspense>
     </PageShell>
