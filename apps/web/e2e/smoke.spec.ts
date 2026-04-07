@@ -11,6 +11,101 @@
 
 import { test, expect } from "@playwright/test";
 
+const mockPlayerGameLog = {
+  personId: 2544,
+  season: "2025-26",
+  count: 2,
+  games: [
+    {
+      gameId: "game-1",
+      gameDate: "2026-01-15",
+      matchup: "LAL vs. BOS",
+      wl: "W",
+      min: "35",
+      pts: 28,
+      reb: 8,
+      ast: 9,
+    },
+    {
+      gameId: "game-2",
+      gameDate: "2026-01-18",
+      matchup: "LAL @ DAL",
+      wl: "L",
+      min: "37",
+      pts: 31,
+      reb: 7,
+      ast: 10,
+    },
+  ],
+};
+
+function mockPlayerClipsPayload(opponent = "") {
+  const clips =
+    opponent === "BOS"
+      ? [
+          {
+            gameId: "game-1",
+            gameDate: "2026-01-15",
+            matchup: "LAL vs. BOS",
+            actionNumber: 101,
+            period: 1,
+            clock: "PT10M00.00S",
+            teamTricode: "LAL",
+            personId: 2544,
+            playerName: "LeBron James",
+            actionType: "2PT",
+            subType: "layup",
+            shotResult: "Made",
+            shotDistance: 3,
+            description: "LeBron James makes layup",
+            scoreHome: "2",
+            scoreAway: "0",
+            videoUrl: null,
+            thumbnailUrl: null,
+          },
+        ]
+      : [
+          {
+            gameId: "game-2",
+            gameDate: "2026-01-18",
+            matchup: "LAL @ DAL",
+            actionNumber: 202,
+            period: 2,
+            clock: "PT08M30.00S",
+            teamTricode: "LAL",
+            personId: 2544,
+            playerName: "LeBron James",
+            actionType: "3PT",
+            subType: "jump-shot",
+            shotResult: "Made",
+            shotDistance: 25,
+            description: "LeBron James makes 3pt jump shot",
+            scoreHome: "12",
+            scoreAway: "15",
+            videoUrl: null,
+            thumbnailUrl: null,
+          },
+        ];
+
+  return {
+    personId: 2544,
+    season: "2025-26",
+    playType: "all",
+    result: "all",
+    quarter: "all",
+    count: clips.length,
+    total: clips.length,
+    offset: 0,
+    limit: 12,
+    hasMore: false,
+    nextOffset: null,
+    gamesIncluded: clips.length,
+    gamesExcluded: 0,
+    exclusions: [],
+    clips,
+  };
+}
+
 // ── 1. Game mode loads clips ────────────────────────────────────────────────
 
 test("game mode: page loads, URL canonicalizes, clip browser renders", async ({
@@ -346,4 +441,153 @@ test("game mode: clicking a preset updates URL and shows chips", async ({
 
   // Preset params should be gone from URL.
   await expect(page).not.toHaveURL(/shotValue=3pt/, { timeout: 5_000 });
+});
+
+test("game mode: Edit returns setup controls after watch mode collapse", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page).toHaveURL(/[?&]season=/, { timeout: 10_000 });
+
+  const editBtn = page.getByRole("button", { name: "Edit" });
+  try {
+    await editBtn.waitFor({ state: "visible", timeout: 15_000 });
+  } catch {
+    test.skip();
+    return;
+  }
+
+  await editBtn.click();
+  await expect(page.getByTestId("mode-game")).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByTestId("game-selector")).toBeVisible();
+});
+
+test("game mode: no-games dates show an intentional empty state", async ({
+  page,
+}) => {
+  await page.goto("/?season=2025-26&date=2025-10-01");
+
+  const selector = page.getByTestId("game-selector");
+  await expect(selector).toBeVisible({ timeout: 10_000 });
+  await expect(selector).toBeDisabled();
+  await expect(selector).toContainText(/No games for this date|API unavailable/);
+});
+
+test("player mode: watch mode collapse appears and Edit restores setup", async ({
+  page,
+}) => {
+  await page.route("**/players/2544/games*", async (route) => {
+    await route.fulfill({ json: mockPlayerGameLog });
+  });
+  await page.route("**/clips/player*", async (route) => {
+    await route.fulfill({ json: mockPlayerClipsPayload() });
+  });
+
+  await page.goto(
+    "/?mode=player&season=2025-26&personId=2544&playerName=LeBron%20James&teamTricode=LAL",
+  );
+
+  await expect(page.getByTestId("watch-bar")).toBeVisible({ timeout: 10_000 });
+  await page.getByRole("button", { name: "Edit" }).click();
+  await expect(page.getByTestId("player-search-input")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Filters/ })).toBeVisible();
+});
+
+test("player mode: opponent filter updates URL and summary", async ({ page }) => {
+  await page.route("**/players/2544/games*", async (route) => {
+    await route.fulfill({ json: mockPlayerGameLog });
+  });
+  await page.route("**/clips/player*", async (route) => {
+    const url = new URL(route.request().url());
+    const opponent = url.searchParams.get("opponent") ?? "";
+    await route.fulfill({ json: mockPlayerClipsPayload(opponent) });
+  });
+
+  await page.goto(
+    "/?mode=player&season=2025-26&personId=2544&playerName=LeBron%20James&teamTricode=LAL",
+  );
+
+  await expect(page.getByRole("button", { name: "Edit" })).toBeVisible({
+    timeout: 10_000,
+  });
+  await page.getByRole("button", { name: "Edit" }).click();
+  await page.getByTestId("player-opponent-select").selectOption("BOS");
+
+  await expect(page).toHaveURL(/opponent=BOS/, { timeout: 5_000 });
+  await expect(page.getByTestId("watch-bar")).toContainText("vs BOS", {
+    timeout: 10_000,
+  });
+});
+
+test("player mode: empty search results render a clear state", async ({
+  page,
+}) => {
+  await page.route("**/players*", async (route) => {
+    await route.fulfill({
+      json: { count: 0, totalMatches: 0, players: [] },
+    });
+  });
+
+  await page.goto("/?mode=player&season=2025-26");
+  await page.getByTestId("player-search-input").fill("zzzz");
+  await expect(page.getByText("No players found for this search.")).toBeVisible({
+    timeout: 5_000,
+  });
+});
+
+test("player mode: excluding every game shows a clear empty state", async ({
+  page,
+}) => {
+  await page.route("**/players/2544/games*", async (route) => {
+    await route.fulfill({ json: mockPlayerGameLog });
+  });
+  await page.route("**/clips/player*", async (route) => {
+    const url = new URL(route.request().url());
+    const excluded = url.searchParams.get("excludeGameIds") ?? "";
+    if (excluded.includes("game-1") && excluded.includes("game-2")) {
+      await route.fulfill({
+        json: {
+          ...mockPlayerClipsPayload(),
+          count: 0,
+          total: 0,
+          gamesIncluded: 0,
+          gamesExcluded: 2,
+          clips: [],
+        },
+      });
+      return;
+    }
+
+    await route.fulfill({ json: mockPlayerClipsPayload() });
+  });
+
+  await page.goto(
+    "/?mode=player&season=2025-26&personId=2544&playerName=LeBron%20James&teamTricode=LAL",
+  );
+
+  const chips = page.getByTestId("game-chip");
+  await expect(chips.first()).toBeVisible({ timeout: 10_000 });
+  await chips.nth(0).click();
+  await chips.nth(1).click();
+
+  await expect(
+    page.getByText("All selected games are excluded. Clear exclusions to load clips again."),
+  ).toBeVisible({ timeout: 5_000 });
+});
+
+test("player mode: API failures during clip browsing surface clearly", async ({
+  page,
+}) => {
+  await page.route("**/players/2544/games*", async (route) => {
+    await route.fulfill({ json: mockPlayerGameLog });
+  });
+  await page.route("**/clips/player*", (route) => route.abort());
+
+  await page.goto(
+    "/?mode=player&season=2025-26&personId=2544&playerName=LeBron%20James&teamTricode=LAL",
+  );
+
+  await expect(page.getByText("API unavailable", { exact: false })).toBeVisible({
+    timeout: 10_000,
+  });
 });

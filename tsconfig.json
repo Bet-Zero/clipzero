@@ -39,11 +39,12 @@
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
+    "ignoreDeprecations": "6.0",
     "skipLibCheck": true,
 
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "moduleResolution": "node10"
   },
-  "exclude": ["apps/**", "packages/**", "node_modules"]
+  "exclude": ["node_modules"]
 }

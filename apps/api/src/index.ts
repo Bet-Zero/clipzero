@@ -1,6 +1,8 @@
 import cors from "cors";
 import express from "express";
+import { apiConfig } from "./lib/config";
 import { getCachedGames, setCachedGames } from "./lib/gamesCache";
+import { logger, serializeError } from "./lib/logger";
 import {
   getFilteredActions,
   getGamesByDate,
@@ -16,10 +18,15 @@ import type {
   PlayerGameLogEntry,
   RawAction,
 } from "./lib/nba";
+import {
+  getPersistentValue,
+  setPersistentValue,
+} from "./lib/persistentCache";
+import { createRateLimiter } from "./lib/rateLimit";
 import { matchesNormalizedGroup } from "./lib/subtypeGroups";
 
 const app = express();
-const port = 4000;
+const port = apiConfig.port;
 const clipCache = new Map<string, unknown>();
 const gamesCache = new Map<string, unknown>();
 const videoAssetCache = new Map<
@@ -66,11 +73,54 @@ function normalizeDate(dateStr: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+async function getCachedVideoAsset(
+  gameId: string,
+  actionNumber: number,
+): Promise<{ videoUrl: string | null; thumbnailUrl: string | null }> {
+  const cacheKey = `${gameId}:${actionNumber}`;
+  const memoryCached = videoAssetCache.get(cacheKey);
+  if (memoryCached) return memoryCached;
+
+  const persisted = await getPersistentValue<{
+    videoUrl: string | null;
+    thumbnailUrl: string | null;
+  }>("video-assets", cacheKey);
+  if (persisted) {
+    videoAssetCache.set(cacheKey, persisted);
+    return persisted;
+  }
+
+  try {
+    const asset = await getVideoEventAsset(gameId, actionNumber);
+    const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
+    const cachedValue = {
+      videoUrl: firstVideo?.murl ?? null,
+      thumbnailUrl: firstVideo?.mth ?? null,
+    };
+    videoAssetCache.set(cacheKey, cachedValue);
+    await setPersistentValue("video-assets", cacheKey, cachedValue);
+    return cachedValue;
+  } catch {
+    const cachedValue = { videoUrl: null, thumbnailUrl: null };
+    videoAssetCache.set(cacheKey, cachedValue);
+    await setPersistentValue("video-assets", cacheKey, cachedValue);
+    return cachedValue;
+  }
+}
+
 async function getCachedPlayByPlay(gameId: string): Promise<RawAction[]> {
   const cached = playByPlayCache.get(gameId);
   if (cached) return cached;
+
+  const persisted = await getPersistentValue<RawAction[]>("play-by-play", gameId);
+  if (persisted) {
+    playByPlayCache.set(gameId, persisted);
+    return persisted;
+  }
+
   const actions = await getPlayByPlay(gameId);
   playByPlayCache.set(gameId, actions);
+  await setPersistentValue("play-by-play", gameId, actions);
   return actions;
 }
 
@@ -107,8 +157,165 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
-app.use(cors());
+async function getCachedPlayerDirectory(
+  season: string,
+): Promise<PlayerDirectoryEntry[]> {
+  const cached = playerDirectoryCache.get(season);
+  if (cached) return cached;
+
+  const persisted = await getPersistentValue<PlayerDirectoryEntry[]>(
+    "player-directory",
+    season,
+  );
+  if (persisted) {
+    playerDirectoryCache.set(season, persisted);
+    return persisted;
+  }
+
+  const directory = await getAllPlayers(season);
+  playerDirectoryCache.set(season, directory);
+  await setPersistentValue("player-directory", season, directory);
+  return directory;
+}
+
+async function getCachedPlayerGameLogForSeason(
+  personId: number,
+  season: string,
+): Promise<PlayerGameLogEntry[]> {
+  const cacheKey = `${personId}:${season}`;
+  const cached = playerGameLogCache.get(cacheKey);
+  if (cached) return cached;
+
+  const persisted = await getPersistentValue<PlayerGameLogEntry[]>(
+    "player-game-logs",
+    cacheKey,
+  );
+  if (persisted) {
+    playerGameLogCache.set(cacheKey, persisted);
+    return persisted;
+  }
+
+  const gameLog = await getPlayerGameLog(personId, season);
+  playerGameLogCache.set(cacheKey, gameLog);
+  await setPersistentValue("player-game-logs", cacheKey, gameLog);
+  return gameLog;
+}
+
+async function getCachedSeasonActions(
+  cacheKey: string,
+): Promise<PlayerActionWithGame[] | null> {
+  const cached = playerSeasonActionsCache.get(cacheKey);
+  if (cached) return cached;
+
+  const persisted = await getPersistentValue<PlayerActionWithGame[]>(
+    "player-season-actions",
+    cacheKey,
+  );
+  if (persisted) {
+    playerSeasonActionsCache.set(cacheKey, persisted);
+    return persisted;
+  }
+
+  return null;
+}
+
+async function setCachedSeasonActions(
+  cacheKey: string,
+  actions: PlayerActionWithGame[],
+): Promise<void> {
+  playerSeasonActionsCache.set(cacheKey, actions);
+  await setPersistentValue("player-season-actions", cacheKey, actions);
+}
+
+function getRequestIp(req: express.Request): string {
+  return req.ip ?? req.socket.remoteAddress ?? "unknown";
+}
+
+function logRouteError(route: string, error: unknown, meta: Record<string, unknown>) {
+  logger.error(`${route}_failed`, {
+    ...meta,
+    ...serializeError(error),
+  });
+}
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || apiConfig.allowedOrigins.length === 0) {
+        callback(null, true);
+        return;
+      }
+
+      if (apiConfig.allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("Origin not allowed by ClipZero API"));
+    },
+  }),
+);
 app.use(express.json());
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+  res.on("finish", () => {
+    logger.info("request", {
+      method: req.method,
+      path: req.path,
+      statusCode: res.statusCode,
+      durationMs: Date.now() - startedAt,
+      ip: getRequestIp(req),
+    });
+  });
+  next();
+});
+app.use((req, res, next) => {
+  if (req.path === "/health") {
+    next();
+    return;
+  }
+
+  if (!apiConfig.disabled) {
+    next();
+    return;
+  }
+
+  res.status(503).json({
+    error: "ClipZero access is temporarily disabled",
+    details: "Disable the CLIPZERO_DISABLE_ACCESS switch to restore traffic",
+  });
+});
+app.use(
+  createRateLimiter({
+    name: "global",
+    windowMs: apiConfig.rateLimit.windowMs,
+    max: apiConfig.rateLimit.max,
+  }),
+);
+app.use(
+  "/clips/game",
+  createRateLimiter({
+    name: "clips-game",
+    windowMs: apiConfig.rateLimit.heavyWindowMs,
+    max: apiConfig.rateLimit.heavyMax,
+  }),
+);
+app.use(
+  "/clips/player",
+  createRateLimiter({
+    name: "clips-player",
+    windowMs: apiConfig.rateLimit.heavyWindowMs,
+    max: apiConfig.rateLimit.heavyMax,
+  }),
+);
+app.use(
+  "/players",
+  createRateLimiter({
+    name: "players",
+    windowMs: apiConfig.rateLimit.playersWindowMs,
+    max: apiConfig.rateLimit.playersMax,
+  }),
+);
 
 function matchesDistanceBucket(
   distance: number | undefined,
@@ -130,7 +337,12 @@ function matchesDistanceBucket(
 }
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true });
+  res.json({
+    ok: true,
+    disabled: apiConfig.disabled,
+    cacheDir: apiConfig.cacheDir,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.get("/games", async (req, res) => {
@@ -172,6 +384,9 @@ app.get("/games", async (req, res) => {
 
     res.json(payload);
   } catch (error: any) {
+    logRouteError("games", error, {
+      date: typeof req.query.date === "string" ? req.query.date : "",
+    });
     res.status(500).json({
       error: "Failed to fetch games",
       details: error?.response?.status ?? error?.message ?? "unknown error",
@@ -195,6 +410,7 @@ app.get("/clips/test", async (_req, res) => {
       thumbnailUrl: firstVideo?.mth ?? null,
     });
   } catch (error: any) {
+    logRouteError("clips_test", error, {});
     res.status(500).json({
       error: "Failed to fetch test clip",
       details: error?.response?.status ?? error?.message ?? "unknown error",
@@ -317,10 +533,10 @@ app.get("/clips/game", async (req, res) => {
       }
     }
 
-    const actions = await getPlayByPlay(gameId);
+    const actions = await getCachedPlayByPlay(gameId);
     const allShots = getFilteredActions(gameId, actions, playType);
 
-    const playerNameMap = await getPlayerNameMapForGame(gameId);
+    const playerNameMap = await getCachedPlayerNameMap(gameId);
 
     const normalizedShots = allShots.map((shot) => ({
       ...shot,
@@ -391,10 +607,8 @@ app.get("/clips/game", async (req, res) => {
         };
       }
 
-      const assetCacheKey = `${gameId}:${shot.actionNumber}`;
-      const cachedAsset = videoAssetCache.get(assetCacheKey);
-
-      if (cachedAsset) {
+      const cachedAsset = await getCachedVideoAsset(gameId, shot.actionNumber);
+      if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
         assetCacheHits += 1;
         return {
           ...shot,
@@ -403,35 +617,11 @@ app.get("/clips/game", async (req, res) => {
         };
       }
 
-      try {
-        assetCacheMisses += 1;
-        const asset = await getVideoEventAsset(gameId, shot.actionNumber);
-        const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
-
-        const cachedValue = {
-          videoUrl: firstVideo?.murl ?? null,
-          thumbnailUrl: firstVideo?.mth ?? null,
-        };
-
-        videoAssetCache.set(assetCacheKey, cachedValue);
-
-        return {
-          ...shot,
-          ...cachedValue,
-        };
-      } catch {
-        const cachedValue = {
-          videoUrl: null,
-          thumbnailUrl: null,
-        };
-
-        videoAssetCache.set(assetCacheKey, cachedValue);
-
-        return {
-          ...shot,
-          ...cachedValue,
-        };
-      }
+      assetCacheMisses += 1;
+      return {
+        ...shot,
+        ...cachedAsset,
+      };
     });
 
     const hasMore = offset + clips.length < filteredShots.length;
@@ -464,11 +654,27 @@ app.get("/clips/game", async (req, res) => {
       clipCache.set(cacheKey, payload);
     }
 
-    console.log(
-      `[clips] game=${gameId} playType=${playType} quarter=${quarterParam || "all"} team=${team || "all"} player=${player || "all"} result=${result} offset=${offset} count=${clips.length}/${filteredShots.length} hasMore=${hasMore} nextOffset=${nextOffset} assetHits=${assetCacheHits} assetMisses=${assetCacheMisses} time=${msSince(startedAt)}`,
-    );
+    logger.info("clips_game_ready", {
+      gameId,
+      playType,
+      quarter: quarterParam || "all",
+      team: team || "all",
+      player: player || "all",
+      result,
+      offset,
+      clipCount: clips.length,
+      totalCount: filteredShots.length,
+      hasMore,
+      nextOffset,
+      assetCacheHits,
+      assetCacheMisses,
+      time: msSince(startedAt),
+    });
     res.json(payload);
   } catch (error: any) {
+    logRouteError("clips_game", error, {
+      gameId: typeof req.query.gameId === "string" ? req.query.gameId : "",
+    });
     res.status(500).json({
       error: "Failed to fetch game clips",
       details: error?.response?.status ?? error?.message ?? "unknown error",
@@ -493,11 +699,7 @@ app.get("/players", async (req, res) => {
         ? req.query.season.trim()
         : "2025-26";
 
-    let directory = playerDirectoryCache.get(season);
-    if (!directory) {
-      directory = await getAllPlayers(season);
-      playerDirectoryCache.set(season, directory);
-    }
+    const directory = await getCachedPlayerDirectory(season);
 
     let matches = directory;
     if (q) {
@@ -523,6 +725,10 @@ app.get("/players", async (req, res) => {
       })),
     });
   } catch (error: any) {
+    logRouteError("players", error, {
+      season:
+        typeof req.query.season === "string" ? req.query.season.trim() : "2025-26",
+    });
     res.status(500).json({
       error: "Failed to fetch players",
       details: error?.response?.status ?? error?.message ?? "unknown error",
@@ -548,12 +754,7 @@ app.get("/players/:personId/games", async (req, res) => {
         ? req.query.season.trim()
         : "2025-26";
 
-    const cacheKey = `${personId}:${season}`;
-    let gameLog = playerGameLogCache.get(cacheKey);
-    if (!gameLog) {
-      gameLog = await getPlayerGameLog(personId, season);
-      playerGameLogCache.set(cacheKey, gameLog);
-    }
+    const gameLog = await getCachedPlayerGameLogForSeason(personId, season);
 
     res.json({
       personId,
@@ -562,6 +763,9 @@ app.get("/players/:personId/games", async (req, res) => {
       games: gameLog,
     });
   } catch (error: any) {
+    logRouteError("player_games", error, {
+      personId: req.params.personId,
+    });
     res.status(500).json({
       error: "Failed to fetch player game log",
       details: error?.response?.status ?? error?.message ?? "unknown error",
@@ -702,18 +906,13 @@ app.get("/clips/player", async (req, res) => {
     }
 
     // 1. Get the player's game log
-    const gameLogCacheKey = `${personId}:${season}`;
-    let gameLog = playerGameLogCache.get(gameLogCacheKey);
-    if (!gameLog) {
-      gameLog = await getPlayerGameLog(personId, season);
-      playerGameLogCache.set(gameLogCacheKey, gameLog);
-    }
+    const gameLog = await getCachedPlayerGameLogForSeason(personId, season);
 
     // 2. Get or build season-level actions cache
     //    Keyed by personId:season:playType — reused across result/quarter/exclusion/page changes
     const seasonCacheKey = `${personId}:${season}:${playType}`;
-    const seasonCacheHit = playerSeasonActionsCache.has(seasonCacheKey);
-    let seasonActions = playerSeasonActionsCache.get(seasonCacheKey);
+    let seasonActions = await getCachedSeasonActions(seasonCacheKey);
+    const seasonCacheHit = seasonActions !== null;
 
     if (!seasonActions) {
       const collected: PlayerActionWithGame[] = [];
@@ -747,9 +946,12 @@ app.get("/clips/player", async (req, res) => {
 
           collected.push(...playerActions);
         } catch (err) {
-          console.warn(
-            `[clips/player] Failed to fetch game ${game.gameId}: ${err instanceof Error ? err.message : "unknown"}`,
-          );
+          logger.warn("clips_player_game_fetch_failed", {
+            gameId: game.gameId,
+            personId,
+            season,
+            errorMessage: err instanceof Error ? err.message : "unknown",
+          });
         }
       });
 
@@ -762,7 +964,7 @@ app.get("/clips/player", async (req, res) => {
       });
 
       seasonActions = collected;
-      playerSeasonActionsCache.set(seasonCacheKey, seasonActions);
+      await setCachedSeasonActions(seasonCacheKey, seasonActions);
     }
 
     // 3. Apply exclusions + result/quarter filters from cached season data
@@ -846,31 +1048,17 @@ app.get("/clips/player", async (req, res) => {
         return { ...action, videoUrl: null, thumbnailUrl: null };
       }
 
-      const assetCacheKey = `${action.gameId}:${action.actionNumber}`;
-      const cachedAsset = videoAssetCache.get(assetCacheKey);
-      if (cachedAsset) {
+      const cachedAsset = await getCachedVideoAsset(
+        action.gameId,
+        action.actionNumber,
+      );
+      if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
         assetCacheHits += 1;
         return { ...action, ...cachedAsset };
       }
 
-      try {
-        assetCacheMisses += 1;
-        const asset = await getVideoEventAsset(
-          action.gameId,
-          action.actionNumber,
-        );
-        const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
-        const cachedValue = {
-          videoUrl: firstVideo?.murl ?? null,
-          thumbnailUrl: firstVideo?.mth ?? null,
-        };
-        videoAssetCache.set(assetCacheKey, cachedValue);
-        return { ...action, ...cachedValue };
-      } catch {
-        const cachedValue = { videoUrl: null, thumbnailUrl: null };
-        videoAssetCache.set(assetCacheKey, cachedValue);
-        return { ...action, ...cachedValue };
-      }
+      assetCacheMisses += 1;
+      return { ...action, ...cachedAsset };
     });
 
     const hasMore = offset + clips.length < total;
@@ -909,12 +1097,31 @@ app.get("/clips/player", async (req, res) => {
       playerClipCache.set(cacheKey, payload);
     }
 
-    console.log(
-      `[clips/player] personId=${personId} season=${season} playType=${playType} result=${result} quarter=${quarterParam || "all"} opponent=${opponent || "all"} games=${gameLog.length - excludedGames.length}/${gameLog.length} offset=${offset} count=${clips.length}/${total} hasMore=${hasMore} assetHits=${assetCacheHits} assetMisses=${assetCacheMisses} seasonCache=${seasonCacheHit ? "hit" : "miss"} time=${msSince(startedAt)}`,
-    );
+    logger.info("clips_player_ready", {
+      personId,
+      season,
+      playType,
+      result,
+      quarter: quarterParam || "all",
+      opponent: opponent || "all",
+      gamesIncluded: gameLog.length - excludedGames.length,
+      gamesTotal: gameLog.length,
+      offset,
+      clipCount: clips.length,
+      totalCount: total,
+      hasMore,
+      assetCacheHits,
+      assetCacheMisses,
+      seasonCache: seasonCacheHit ? "hit" : "miss",
+      time: msSince(startedAt),
+    });
 
     res.json(payload);
   } catch (error: any) {
+    logRouteError("clips_player", error, {
+      personId:
+        typeof req.query.personId === "string" ? req.query.personId : "",
+    });
     res.status(500).json({
       error: "Failed to fetch player clips",
       details: error?.response?.status ?? error?.message ?? "unknown error",
@@ -923,5 +1130,11 @@ app.get("/clips/player", async (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`ClipZero API running on http://localhost:${port}`);
+  logger.info("api_started", {
+    port,
+    cacheDir: apiConfig.cacheDir,
+    disabled: apiConfig.disabled,
+    allowedOrigins:
+      apiConfig.allowedOrigins.length > 0 ? apiConfig.allowedOrigins : ["*"],
+  });
 });

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import ClipBrowser from "@/components/ClipBrowser";
 import FilterBar from "@/components/FilterBar";
 import PageShell from "@/components/PageShell";
-import { buildApiUrl } from "@/lib/api";
+import { buildApiUrl, getApiUnavailableMessage } from "@/lib/api";
 import {
   parseSeason,
   seasonForDate,
@@ -166,7 +166,7 @@ async function ClipsSection({
       <>
         <FilterBar players={[]} teams={[]} matchup="" />
         <div className="mx-auto max-w-3xl px-4 py-6 text-sm text-red-400">
-          API unavailable — is the backend running on localhost:4000?
+          {getApiUnavailableMessage()}
         </div>
       </>
     );
@@ -203,7 +203,7 @@ async function ClipsSection({
       <>
         <FilterBar players={[]} teams={[]} matchup="" />
         <div className="mx-auto max-w-3xl px-4 py-6 text-sm text-red-400">
-          Could not load clips — is the backend running on localhost:4000?
+          {getApiUnavailableMessage()}
         </div>
       </>
     );

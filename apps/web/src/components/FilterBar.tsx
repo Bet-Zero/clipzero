@@ -268,14 +268,18 @@ export default function FilterBar({
 
   // Optimistic pending state — allows controls to update instantly before
   // the URL navigation round-trip completes.
-  const [pending, setPending] = useState<Record<string, string>>({});
+  const [pending, setPending] = useState<{
+    sourceKey: string;
+    values: Record<string, string>;
+  }>({
+    sourceKey: params.toString(),
+    values: {},
+  });
   const paramsKey = params.toString();
-  useEffect(() => {
-    setPending({});
-  }, [paramsKey]);
+  const optimisticValues = pending.sourceKey === paramsKey ? pending.values : {};
 
   // Read a param, preferring any pending optimistic override.
-  const p = (key: string) => pending[key] ?? params.get(key) ?? "";
+  const p = (key: string) => optimisticValues[key] ?? params.get(key) ?? "";
 
   // Persistent URL context — not filter state
   const date = params.get("date") || "";
@@ -299,17 +303,18 @@ export default function FilterBar({
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
-  const [overlayTarget, setOverlayTarget] = useState<HTMLElement | null>(null);
-  const [watchBarPortal, setWatchBarPortal] = useState<HTMLElement | null>(
-    null,
-  );
-
-  useEffect(() => {
-    setPortalTarget(document.getElementById("filter-bar-portal"));
-    setOverlayTarget(document.getElementById("filter-overlay-anchor"));
-    setWatchBarPortal(document.getElementById("watch-bar-portal"));
-  }, []);
+  const portalTarget =
+    typeof document === "undefined"
+      ? null
+      : document.getElementById("filter-bar-portal");
+  const overlayTarget =
+    typeof document === "undefined"
+      ? null
+      : document.getElementById("filter-overlay-anchor");
+  const watchBarPortal =
+    typeof document === "undefined"
+      ? null
+      : document.getElementById("watch-bar-portal");
 
   // Auto-enter watch mode when clips are loaded (players present + game selected).
   const hasClips = players.length > 0 && !!gameId;
@@ -338,7 +343,13 @@ export default function FilterBar({
   // Build a URL with the given overrides merged into current filter state.
   // Omitting a key preserves its current value; passing "" clears it.
   function navigate(overrides: Record<string, string>) {
-    setPending((prev) => ({ ...prev, ...overrides }));
+    setPending((prev) => ({
+      sourceKey: paramsKey,
+      values:
+        prev.sourceKey === paramsKey
+          ? { ...prev.values, ...overrides }
+          : { ...overrides },
+    }));
     const search = new URLSearchParams();
     if (season) search.set("season", season);
     if (date) search.set("date", date);
@@ -403,14 +414,17 @@ export default function FilterBar({
 
   function clearFilters() {
     setPending({
-      playType: "",
-      team: "",
-      quarter: "",
-      player: "",
-      result: "",
-      shotValue: "",
-      subType: "",
-      distanceBucket: "",
+      sourceKey: paramsKey,
+      values: {
+        playType: "",
+        team: "",
+        quarter: "",
+        player: "",
+        result: "",
+        shotValue: "",
+        subType: "",
+        distanceBucket: "",
+      },
     });
     const search = new URLSearchParams();
     if (season) search.set("season", season);

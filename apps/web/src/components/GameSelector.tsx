@@ -31,13 +31,13 @@ export default function GameSelector({
         className="h-7 rounded bg-zinc-900 px-2 text-sm text-zinc-500 cursor-not-allowed"
         disabled
       >
-        <option>
-          {apiError
-            ? "API unavailable — check localhost:4000"
-            : "No games for this date"}
-        </option>
-      </select>
-    );
+          <option>
+            {apiError
+              ? "API unavailable — check the configured API"
+              : "No games for this date"}
+          </option>
+        </select>
+      );
   }
 
   return (

@@ -32,8 +32,6 @@ export default function PlayerGameList({
   const [isExpanded, setIsExpanded] = useState(false);
   const [viewMode, setViewMode] = useState<"games" | "dates">("games");
 
-  if (games.length === 0) return null;
-
   const excludedCount = games.filter((g) => {
     const nd = normalizeDate(g.gameDate);
     return excludedGameIds.has(g.gameId) || excludedDates.has(nd);
@@ -56,6 +54,8 @@ export default function PlayerGameList({
     }
     return groups;
   }, [games]);
+
+  if (games.length === 0) return null;
 
   const visibleGames = isExpanded ? games : games.slice(0, 5);
   const visibleDates = isExpanded ? dateGroups : dateGroups.slice(0, 8);

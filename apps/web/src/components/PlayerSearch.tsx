@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { buildApiUrl } from "@/lib/api";
+import { buildApiUrl, getApiUnavailableMessage } from "@/lib/api";
 import type { PlayerSearchResult } from "@/lib/types";
 
 type Props = {
@@ -48,9 +48,9 @@ export default function PlayerSearch({
     debounceRef.current = setTimeout(async () => {
       setLoading(true);
       setSearchError(null);
-      try {
-        const params = new URLSearchParams({ q: q.trim(), season });
-        const res = await fetch(buildApiUrl("/players", params));
+        try {
+          const params = new URLSearchParams({ q: q.trim(), season });
+          const res = await fetch(buildApiUrl("/players", params));
         if (!res.ok) {
           setResults([]);
           setSearchError(`Search failed (HTTP ${res.status})`);
@@ -62,10 +62,9 @@ export default function PlayerSearch({
       } catch (err) {
         setResults([]);
         setSearchError(
-          err instanceof TypeError
-            ? "API unavailable — is the backend running on localhost:4000?"
-            : "Search failed",
+          err instanceof TypeError ? getApiUnavailableMessage() : "Search failed",
         );
+        setIsOpen(true);
       } finally {
         setLoading(false);
       }
@@ -137,6 +136,12 @@ export default function PlayerSearch({
 
       {searchError && (
         <p className="mt-1 text-xs text-red-400">{searchError}</p>
+      )}
+
+      {isOpen && !loading && !searchError && query.trim().length >= 2 && results.length === 0 && (
+        <div className="absolute z-30 mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-400 shadow-lg">
+          No players found for this search.
+        </div>
       )}
 
       {isOpen && results.length > 0 && (
