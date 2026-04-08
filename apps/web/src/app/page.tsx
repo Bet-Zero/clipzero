@@ -21,22 +21,33 @@ import {
 
 async function getGames(
   date?: string,
-): Promise<{ games: Game[]; apiError: boolean }> {
+): Promise<{ games: Game[]; apiError: boolean; apiErrorMessage?: string }> {
   const search = new URLSearchParams();
   if (date) search.set("date", date);
 
   try {
-    const res = await fetch(
-      buildApiUrl("/games", search.toString() ? search : undefined),
-      {
-        cache: "no-store",
-      },
-    );
-    if (!res.ok) return { games: [], apiError: true };
+    const url = buildApiUrl("/games", search.toString() ? search : undefined);
+    const res = await fetch(url, { cache: "no-store" });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return {
+        games: [],
+        apiError: true,
+        apiErrorMessage: `GET /games failed: ${res.status} ${res.statusText}${
+          text ? ` — ${text}` : ""
+        }`,
+      };
+    }
+
     const data = await res.json();
     return { games: data.games ?? [], apiError: false };
-  } catch {
-    return { games: [], apiError: true };
+  } catch (error) {
+    return {
+      games: [],
+      apiError: true,
+      apiErrorMessage: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
@@ -131,6 +142,7 @@ function ClipsFallback() {
 async function ClipsSection({
   gameId,
   gamesApiError,
+  gamesApiErrorMessage,
   limit,
   player,
   result,
@@ -147,6 +159,7 @@ async function ClipsSection({
 }: {
   gameId: string;
   gamesApiError: boolean;
+  gamesApiErrorMessage?: string;
   limit: number;
   player: string;
   result: string;
@@ -166,7 +179,7 @@ async function ClipsSection({
       <>
         <FilterBar players={[]} teams={[]} matchup="" />
         <div className="mx-auto max-w-3xl px-4 py-6 text-sm text-red-400">
-          {getApiUnavailableMessage()}
+          {gamesApiErrorMessage || getApiUnavailableMessage()}
         </div>
       </>
     );
@@ -306,7 +319,11 @@ export default async function Home({
       ? params.date
       : seasonDefault;
 
-  const { games, apiError: gamesApiError } = await getGames(selectedDate);
+  const {
+    games,
+    apiError: gamesApiError,
+    apiErrorMessage: gamesApiErrorMessage,
+  } = await getGames(selectedDate);
 
   // Canonicalize URL: redirect whenever the resolved state diverges from the raw params.
   // Triggers when: season was inferred or coerced, date was inferred or corrected, or
@@ -393,6 +410,7 @@ export default async function Home({
         <ClipsSection
           gameId={selectedGameId}
           gamesApiError={gamesApiError}
+          gamesApiErrorMessage={gamesApiErrorMessage}
           limit={limit}
           player={playerFilter}
           result={resultFilter}
