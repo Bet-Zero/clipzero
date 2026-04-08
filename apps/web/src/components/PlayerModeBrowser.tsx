@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
-import { buildApiUrl } from "@/lib/api";
+import { buildApiUrl, getApiUnavailableMessage } from "@/lib/api";
+import { useDomElementById } from "@/lib/dom";
 import {
   DEFAULT_PLAY_TYPE,
   DEFAULT_RESULT,
@@ -13,7 +14,6 @@ import {
   splitMultiValue,
   hasMultiValue,
   toggleMultiValue,
-  removeMultiValue,
 } from "@/lib/filters";
 import type {
   Clip,
@@ -135,6 +135,21 @@ function setActionNumberInUrl(actionNumber: number | null) {
   window.history.replaceState(null, "", url.toString());
 }
 
+function normalizeDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  return d.toISOString().slice(0, 10);
+}
+
+function getCurrentActionNumber(params: ReadonlyURLSearchParams): number | null {
+  const raw =
+    typeof window === "undefined"
+      ? params.get("actionNumber")
+      : new URLSearchParams(window.location.search).get("actionNumber");
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export default function PlayerModeBrowser({ season }: { season: string }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -165,14 +180,18 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
 
   // Optimistic pending state — allows controls to update instantly before
   // the URL navigation round-trip completes.
-  const [pending, setPending] = useState<Record<string, string>>({});
+  const [pending, setPending] = useState<{
+    sourceKey: string;
+    values: Record<string, string>;
+  }>({
+    sourceKey: params.toString(),
+    values: {},
+  });
   const paramsKey = params.toString();
-  useEffect(() => {
-    setPending({});
-  }, [paramsKey]);
+  const optimisticValues = pending.sourceKey === paramsKey ? pending.values : {};
 
   // Read a param, preferring any pending optimistic override.
-  const p = (key: string) => pending[key] ?? params.get(key) ?? "";
+  const p = (key: string) => optimisticValues[key] ?? params.get(key) ?? "";
 
   // Filters (with optimistic overrides)
   const playType = p("playType") || DEFAULT_PLAY_TYPE;
@@ -185,21 +204,14 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
 
   const limit = 12;
 
-  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
-  const [overlayTarget, setOverlayTarget] = useState<HTMLElement | null>(null);
-  const [watchBarPortal, setWatchBarPortal] = useState<HTMLElement | null>(
-    null,
-  );
+  const portalTarget = useDomElementById("player-filter-portal");
+  const overlayTarget = useDomElementById("filter-overlay-anchor");
+  const watchBarPortal = useDomElementById("watch-bar-portal");
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const [isGamesOpen, setIsGamesOpen] = useState(false);
   const playerTriggerRef = useRef<HTMLDivElement>(null);
   const playerPanelRef = useRef<HTMLDivElement>(null);
   const gamesTriggerRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    setPortalTarget(document.getElementById("player-filter-portal"));
-    setOverlayTarget(document.getElementById("filter-overlay-anchor"));
-    setWatchBarPortal(document.getElementById("watch-bar-portal"));
-  }, []);
 
   // Auto-enter watch mode when clips first arrive.
   // Reset when player/filter changes so new clip set triggers re-entry.
@@ -296,7 +308,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
           setGameLog([]);
           setGameLogError(
             err instanceof TypeError
-              ? "API unavailable — is the backend running on localhost:4000?"
+              ? getApiUnavailableMessage()
               : `Could not load game log (${err instanceof Error ? err.message : "error"})`,
           );
         }
@@ -326,6 +338,22 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     return [...opps].sort().map((t) => ({ label: `vs ${t}`, value: t }));
   }, [selectedPlayer, gameLog]);
 
+  const includedGameCount = useMemo(
+    () =>
+      gameLog.reduce((count, game) => {
+        const normalizedDate = normalizeDate(game.gameDate);
+        if (
+          excludedGameIds.has(game.gameId) ||
+          excludedDates.has(normalizedDate)
+        ) {
+          return count;
+        }
+
+        return count + 1;
+      }, 0),
+    [gameLog, excludedGameIds, excludedDates],
+  );
+
   // Fetch clips when player, exclusions, or filters change
   const fetchClips = useCallback(
     async (offset: number, append: boolean) => {
@@ -341,8 +369,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
 
       // On the initial fetch, read actionNumber from URL to restore position
       // if the clip is already in the first loaded page.
-      const pinnedAction = !append ? params.get("actionNumber") : null;
-      const pinnedNum = pinnedAction ? Number(pinnedAction) : null;
+      const pinnedNum = !append ? getCurrentActionNumber(params) : null;
 
       try {
         const search = buildPlayerClipSearchParams({
@@ -395,7 +422,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       } catch (err) {
         setError(
           err instanceof TypeError
-            ? "API unavailable — is the backend running on localhost:4000?"
+            ? getApiUnavailableMessage()
             : `Could not load clips (${err instanceof Error ? err.message : "error"})`,
         );
       } finally {
@@ -414,6 +441,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       subType,
       distanceBucket,
       opponent,
+      params,
       excludedDates,
       excludedGameIds,
     ],
@@ -536,8 +564,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   // Read actionNumber from window.location rather than params because
   // replaceState (used by setActionNumberInUrl for rail navigation) does NOT
   // update useSearchParams, so params.get() would return a stale value.
-  const an = new URLSearchParams(window.location.search).get("actionNumber");
-  const liveActionNumber = an ? Number(an) : null;
+  const liveActionNumber = getCurrentActionNumber(params);
 
   // Merge current component state with overrides into a complete filter state.
   function getFilterState(
@@ -592,7 +619,13 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
         );
     }
     if (Object.keys(updates).length > 0) {
-      setPending((prev) => ({ ...prev, ...updates }));
+      setPending((prev) => ({
+        sourceKey: paramsKey,
+        values:
+          prev.sourceKey === paramsKey
+            ? { ...prev.values, ...updates }
+            : { ...updates },
+      }));
     }
     router.push(buildPlayerModeUrl(season, getFilterState(overrides)), {
       scroll: false,
@@ -632,14 +665,22 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
 
   function toggleGameId(gameId: string) {
     const next = new Set(excludedGameIds);
-    next.has(gameId) ? next.delete(gameId) : next.add(gameId);
+    if (next.has(gameId)) {
+      next.delete(gameId);
+    } else {
+      next.add(gameId);
+    }
     setExcludedGameIds(next);
     navigateTo({ excludedGameIds: next });
   }
 
   function toggleDate(date: string) {
     const next = new Set(excludedDates);
-    next.has(date) ? next.delete(date) : next.add(date);
+    if (next.has(date)) {
+      next.delete(date);
+    } else {
+      next.add(date);
+    }
     setExcludedDates(next);
     navigateTo({ excludedDates: next });
   }
@@ -707,7 +748,6 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     }
 
     return chips;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     playType,
     quarter,
@@ -719,47 +759,6 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     excludedGameIds.size,
     excludedDates.size,
   ]);
-
-  function removeChip(key: string, value?: string) {
-    if (key === "playType") {
-      navigateTo({
-        playType: DEFAULT_PLAY_TYPE,
-        result: DEFAULT_RESULT,
-        shotValue: "",
-        subType: "",
-        distanceBucket: "",
-      });
-      return;
-    }
-    if (key === "opponent") {
-      navigateTo({ opponent: "" });
-      return;
-    }
-    if (key === "exclusions") {
-      setExcludedGameIds(new Set());
-      setExcludedDates(new Set());
-      navigateTo({ excludedGameIds: new Set(), excludedDates: new Set() });
-      return;
-    }
-    // Multi-select params: remove one value from the comma-separated list
-    if (value) {
-      const multiParams: Record<string, string> = {
-        quarter,
-        subType,
-        distanceBucket,
-      };
-      if (key in multiParams) {
-        navigateTo({
-          [key]: removeMultiValue(multiParams[key], value),
-        } as Partial<PlayerModeFilterState>);
-        return;
-      }
-    }
-    const filter = getFiltersForPlayType(playType).find((f) => f.param === key);
-    navigateTo({
-      [key]: filter?.defaultValue ?? "",
-    } as Partial<PlayerModeFilterState>);
-  }
 
   function clearAllChips() {
     setExcludedGameIds(new Set());
@@ -868,6 +867,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
 
                 {opponentOptions.length > 0 && (
                   <select
+                    data-testid="player-opponent-select"
                     value={opponent}
                     onChange={(e) => navigateTo({ opponent: e.target.value })}
                     className="h-7 shrink-0 rounded bg-zinc-900 px-2 text-sm text-white"
@@ -1185,6 +1185,15 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
         </div>
       )}
 
+      {selectedPlayer &&
+        !gameLogLoading &&
+        !gameLogError &&
+        gameLog.length === 0 && (
+          <div className="mx-auto max-w-3xl px-4 py-6 text-sm text-zinc-400">
+            No games found for this player in the selected season.
+          </div>
+        )}
+
       {initialLoading && (
         <div className="mx-auto max-w-3xl px-4 py-6">
           <div className="mb-2 text-sm text-zinc-400">
@@ -1216,6 +1225,17 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
           {error}
         </div>
       )}
+
+      {!initialLoading &&
+        !clipsLoading &&
+        !error &&
+        selectedPlayer &&
+        gameLog.length > 0 &&
+        includedGameCount === 0 && (
+          <div className="mx-auto max-w-3xl px-4 py-6 text-sm text-zinc-400">
+            All selected games are excluded. Clear exclusions to load clips again.
+          </div>
+        )}
 
       {/* Clips viewer */}
       {!initialLoading && clips.length > 0 && (
@@ -1252,6 +1272,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
         !clipsLoading &&
         selectedPlayer &&
         gameLog.length > 0 &&
+        includedGameCount > 0 &&
         clips.length === 0 &&
         !error && (
           <div className="mx-auto max-w-3xl px-4 py-6 text-sm text-zinc-400">

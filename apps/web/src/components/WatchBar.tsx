@@ -97,7 +97,7 @@ type WatchBarProps = {
 
 export default function WatchBar({ summary, onEdit }: WatchBarProps) {
   return (
-    <div className="flex items-center gap-3">
+    <div data-testid="watch-bar" className="flex items-center gap-3">
       <span className="truncate text-sm text-zinc-300">{summary}</span>
       <button
         onClick={onEdit}

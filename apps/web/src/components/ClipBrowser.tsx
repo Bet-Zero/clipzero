@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { buildApiUrl } from "@/lib/api";
+import { buildApiUrl, getApiUnavailableMessage } from "@/lib/api";
 import {
   DEFAULT_RESULT,
   buildClipSearchParams,
@@ -163,7 +163,7 @@ export default function ClipBrowser({
     } catch (err) {
       setError(
         err instanceof TypeError
-          ? "API unavailable — is the backend running on localhost:4000?"
+          ? getApiUnavailableMessage()
           : `Could not load clips (${err instanceof Error ? err.message : "error"})`,
       );
     } finally {
