@@ -126,6 +126,36 @@ function emptyPlayerClipsPayload() {
   };
 }
 
+function mockGameClipsPayload() {
+  return {
+    total: 1,
+    offset: 0,
+    limit: 12,
+    hasMore: false,
+    nextOffset: null,
+    players: [{ name: "Anthony Davis", teamTricode: "LAL" }],
+    clips: [
+      {
+        gameId: "game-lal-bos",
+        actionNumber: 101,
+        period: 1,
+        clock: "PT10M00.00S",
+        teamTricode: "LAL",
+        playerName: "Anthony Davis",
+        actionType: "2PT",
+        subType: "layup",
+        shotResult: "Made",
+        shotDistance: 4,
+        description: "Anthony Davis makes layup",
+        scoreHome: "2",
+        scoreAway: "0",
+        videoUrl: null,
+        thumbnailUrl: null,
+      },
+    ],
+  };
+}
+
 // ── 1. Game mode loads clips ────────────────────────────────────────────────
 
 test("game mode: page loads, URL canonicalizes, clip browser renders", async ({
@@ -423,9 +453,13 @@ test("game mode: multi-select player values are sorted in URL", async ({
 
 // ── 11. Removing one chip from a multi-value filter ─────────────────────────
 
-test.skip("game mode: quarter multi-select keeps setup controls available", async ({
+test("game mode: quarter multi-select keeps setup controls available", async ({
   page,
 }) => {
+  await page.route("**/clips/game*", async (route) => {
+    await route.fulfill({ json: mockGameClipsPayload() });
+  });
+
   // Start with two quarters selected (canonical order).
   await page.goto("/?gameId=game-lal-bos&quarter=1,4");
 
@@ -433,12 +467,11 @@ test.skip("game mode: quarter multi-select keeps setup controls available", asyn
   await expect(page).toHaveURL(/quarter=1,4/);
 
   const editBtn = page.getByRole("button", { name: "Edit" });
-  if (await editBtn.isVisible()) {
-    await editBtn.click();
-  }
+  await editBtn.waitFor({ state: "visible", timeout: 10_000 });
+  await editBtn.click();
 
   const filterBtn = page.getByRole("button", { name: /Filters/ });
-  await expect(filterBtn).toBeVisible({ timeout: 5_000 });
+  await expect(filterBtn).toBeVisible({ timeout: 10_000 });
   await expect(page).toHaveURL(/quarter=1,4/);
 });
 
