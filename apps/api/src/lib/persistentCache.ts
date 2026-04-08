@@ -4,6 +4,7 @@ import { apiConfig } from "./config";
 import { logger, serializeError } from "./logger";
 
 const loadedCaches = new Map<string, Record<string, unknown>>();
+const inFlightLoads = new Map<string, Promise<Record<string, unknown>>>();
 const pendingWrites = new Map<string, Promise<void>>();
 
 function cacheFile(cacheName: string): string {
@@ -18,18 +19,28 @@ async function loadCache(cacheName: string): Promise<Record<string, unknown>> {
   const existing = loadedCaches.get(cacheName);
   if (existing) return existing;
 
-  await ensureCacheDir();
+  const inFlight = inFlightLoads.get(cacheName);
+  if (inFlight) return inFlight;
 
-  try {
-    const raw = await fs.readFile(cacheFile(cacheName), "utf-8");
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    loadedCaches.set(cacheName, parsed);
-    return parsed;
-  } catch {
-    const empty: Record<string, unknown> = {};
-    loadedCaches.set(cacheName, empty);
-    return empty;
-  }
+  const loadPromise = (async () => {
+    await ensureCacheDir();
+
+    try {
+      const raw = await fs.readFile(cacheFile(cacheName), "utf-8");
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      loadedCaches.set(cacheName, parsed);
+      return parsed;
+    } catch {
+      const empty: Record<string, unknown> = {};
+      loadedCaches.set(cacheName, empty);
+      return empty;
+    } finally {
+      inFlightLoads.delete(cacheName);
+    }
+  })();
+
+  inFlightLoads.set(cacheName, loadPromise);
+  return loadPromise;
 }
 
 async function writeCache(

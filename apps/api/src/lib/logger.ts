@@ -2,15 +2,37 @@ type LogLevel = "info" | "warn" | "error";
 
 type LogMeta = Record<string, unknown>;
 
+function getCircularReplacer() {
+  const seen = new WeakSet<object>();
+
+  return (_key: string, value: unknown) => {
+    if (typeof value !== "object" || value === null) {
+      return value;
+    }
+
+    if (seen.has(value)) {
+      return "[Circular]";
+    }
+
+    seen.add(value);
+    return value;
+  };
+}
+
 function write(level: LogLevel, message: string, meta: LogMeta = {}) {
   const entry = {
     ts: new Date().toISOString(),
     level,
     message,
-    ...meta,
+    meta,
   };
 
-  const line = JSON.stringify(entry);
+  let line: string;
+  try {
+    line = JSON.stringify(entry);
+  } catch {
+    line = JSON.stringify(entry, getCircularReplacer());
+  }
 
   if (level === "error") {
     console.error(line);

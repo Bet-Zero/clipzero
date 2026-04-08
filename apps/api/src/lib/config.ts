@@ -31,6 +31,8 @@ function resolveCacheDir(value: string | undefined): string {
 export const apiConfig = {
   port: readIntEnv("PORT", 4000),
   cacheDir: resolveCacheDir(process.env.CLIPZERO_CACHE_DIR),
+  // Prefer CLIPZERO_API_DISABLED for new usage; CLIPZERO_DISABLE_ACCESS
+  // remains supported for compatibility during the migration.
   disabled:
     readBoolEnv("CLIPZERO_DISABLE_ACCESS") ||
     readBoolEnv("CLIPZERO_API_DISABLED"),

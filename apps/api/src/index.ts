@@ -26,6 +26,7 @@ import { createRateLimiter } from "./lib/rateLimit";
 import { matchesNormalizedGroup } from "./lib/subtypeGroups";
 
 const app = express();
+app.set("trust proxy", true);
 const port = apiConfig.port;
 const clipCache = new Map<string, unknown>();
 const gamesCache = new Map<string, unknown>();
@@ -90,6 +91,22 @@ async function getCachedVideoAsset(
     return persisted;
   }
 
+  function persistCachedValue(
+    cachedValue: { videoUrl: string | null; thumbnailUrl: string | null },
+  ) {
+    void setPersistentValue("video-assets", cacheKey, cachedValue).catch(
+      (error) => {
+        logger.warn("persistent_cache_write_failed", {
+          cacheName: "video-assets",
+          cacheKey,
+          gameId,
+          actionNumber,
+          ...serializeError(error),
+        });
+      },
+    );
+  }
+
   try {
     const asset = await getVideoEventAsset(gameId, actionNumber);
     const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
@@ -98,14 +115,28 @@ async function getCachedVideoAsset(
       thumbnailUrl: firstVideo?.mth ?? null,
     };
     videoAssetCache.set(cacheKey, cachedValue);
-    await setPersistentValue("video-assets", cacheKey, cachedValue);
+    persistCachedValue(cachedValue);
     return cachedValue;
   } catch {
     const cachedValue = { videoUrl: null, thumbnailUrl: null };
     videoAssetCache.set(cacheKey, cachedValue);
-    await setPersistentValue("video-assets", cacheKey, cachedValue);
+    persistCachedValue(cachedValue);
     return cachedValue;
   }
+}
+
+function persistValueBestEffort<T>(
+  cacheName: string,
+  cacheKey: string,
+  value: T,
+): void {
+  void setPersistentValue(cacheName, cacheKey, value).catch((error) => {
+    logger.warn("persistent_cache_write_failed", {
+      cacheName,
+      cacheKey,
+      ...serializeError(error),
+    });
+  });
 }
 
 async function getCachedPlayByPlay(gameId: string): Promise<RawAction[]> {
@@ -120,7 +151,7 @@ async function getCachedPlayByPlay(gameId: string): Promise<RawAction[]> {
 
   const actions = await getPlayByPlay(gameId);
   playByPlayCache.set(gameId, actions);
-  await setPersistentValue("play-by-play", gameId, actions);
+  persistValueBestEffort("play-by-play", gameId, actions);
   return actions;
 }
 
@@ -175,7 +206,7 @@ async function getCachedPlayerDirectory(
 
   const directory = await getAllPlayers(season);
   playerDirectoryCache.set(season, directory);
-  await setPersistentValue("player-directory", season, directory);
+  persistValueBestEffort("player-directory", season, directory);
   return directory;
 }
 
@@ -198,7 +229,7 @@ async function getCachedPlayerGameLogForSeason(
 
   const gameLog = await getPlayerGameLog(personId, season);
   playerGameLogCache.set(cacheKey, gameLog);
-  await setPersistentValue("player-game-logs", cacheKey, gameLog);
+  persistValueBestEffort("player-game-logs", cacheKey, gameLog);
   return gameLog;
 }
 
@@ -225,7 +256,7 @@ async function setCachedSeasonActions(
   actions: PlayerActionWithGame[],
 ): Promise<void> {
   playerSeasonActionsCache.set(cacheKey, actions);
-  await setPersistentValue("player-season-actions", cacheKey, actions);
+  persistValueBestEffort("player-season-actions", cacheKey, actions);
 }
 
 function getRequestIp(req: express.Request): string {
