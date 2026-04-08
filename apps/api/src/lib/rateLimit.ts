@@ -26,7 +26,7 @@ const cleanupInterval = setInterval(() => {
   }
 }, BUCKET_CLEANUP_INTERVAL_MS);
 
-cleanupInterval.unref?.();
+cleanupInterval.unref();
 
 export function createRateLimiter(options: RateLimitOptions): RequestHandler {
   return (req, res, next) => {
