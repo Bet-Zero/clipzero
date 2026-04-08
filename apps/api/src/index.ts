@@ -453,8 +453,8 @@ app.get("/clips/test", async (_req, res) => {
 app.get("/clips/game", async (req, res) => {
   try {
     const startedAt = Date.now();
-    let assetCacheHits = 0;
-    let assetCacheMisses = 0;
+    let assetUrlsResolved = 0;
+    let assetUrlsUnresolved = 0;
     const gameId =
       typeof req.query.gameId === "string" && req.query.gameId.trim() !== ""
         ? req.query.gameId
@@ -641,7 +641,7 @@ app.get("/clips/game", async (req, res) => {
 
       const cachedAsset = await getCachedVideoAsset(gameId, shot.actionNumber);
       if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
-        assetCacheHits += 1;
+        assetUrlsResolved += 1;
         return {
           ...shot,
           videoUrl: cachedAsset.videoUrl,
@@ -649,7 +649,7 @@ app.get("/clips/game", async (req, res) => {
         };
       }
 
-      assetCacheMisses += 1;
+      assetUrlsUnresolved += 1;
       return {
         ...shot,
         ...cachedAsset,
@@ -698,8 +698,8 @@ app.get("/clips/game", async (req, res) => {
       totalCount: filteredShots.length,
       hasMore,
       nextOffset,
-      assetCacheHits,
-      assetCacheMisses,
+      assetUrlsResolved,
+      assetUrlsUnresolved,
       time: msSince(startedAt),
     });
     res.json(payload);
@@ -1072,8 +1072,8 @@ app.get("/clips/player", async (req, res) => {
     const pageActions = filteredActions.slice(offset, offset + limit);
 
     // 6. Resolve video URLs for the page
-    let assetCacheHits = 0;
-    let assetCacheMisses = 0;
+    let assetUrlsResolved = 0;
+    let assetUrlsUnresolved = 0;
 
     const clips = await mapWithConcurrency(pageActions, 6, async (action) => {
       if (!action.actionNumber) {
@@ -1085,11 +1085,11 @@ app.get("/clips/player", async (req, res) => {
         action.actionNumber,
       );
       if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
-        assetCacheHits += 1;
+        assetUrlsResolved += 1;
         return { ...action, ...cachedAsset };
       }
 
-      assetCacheMisses += 1;
+      assetUrlsUnresolved += 1;
       return { ...action, ...cachedAsset };
     });
 
@@ -1142,8 +1142,8 @@ app.get("/clips/player", async (req, res) => {
       clipCount: clips.length,
       totalCount: total,
       hasMore,
-      assetCacheHits,
-      assetCacheMisses,
+      assetUrlsResolved,
+      assetUrlsUnresolved,
       seasonCache: seasonCacheHit ? "hit" : "miss",
       time: msSince(startedAt),
     });
