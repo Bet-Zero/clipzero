@@ -18,10 +18,7 @@ import type {
   PlayerGameLogEntry,
   RawAction,
 } from "./lib/nba";
-import {
-  getPersistentValue,
-  setPersistentValue,
-} from "./lib/persistentCache";
+import { getPersistentValue, setPersistentValue } from "./lib/persistentCache";
 import { createRateLimiter } from "./lib/rateLimit";
 import { matchesNormalizedGroup } from "./lib/subtypeGroups";
 
@@ -91,9 +88,10 @@ async function getCachedVideoAsset(
     return persisted;
   }
 
-  function persistCachedValue(
-    cachedValue: { videoUrl: string | null; thumbnailUrl: string | null },
-  ) {
+  function persistCachedValue(cachedValue: {
+    videoUrl: string | null;
+    thumbnailUrl: string | null;
+  }) {
     void setPersistentValue("video-assets", cacheKey, cachedValue).catch(
       (error) => {
         logger.warn("persistent_cache_write_failed", {
@@ -143,7 +141,10 @@ async function getCachedPlayByPlay(gameId: string): Promise<RawAction[]> {
   const cached = playByPlayCache.get(gameId);
   if (cached) return cached;
 
-  const persisted = await getPersistentValue<RawAction[]>("play-by-play", gameId);
+  const persisted = await getPersistentValue<RawAction[]>(
+    "play-by-play",
+    gameId,
+  );
   if (persisted) {
     playByPlayCache.set(gameId, persisted);
     return persisted;
@@ -263,7 +264,11 @@ function getRequestIp(req: express.Request): string {
   return req.ip ?? req.socket.remoteAddress ?? "unknown";
 }
 
-function logRouteError(route: string, error: unknown, meta: Record<string, unknown>) {
+function logRouteError(
+  route: string,
+  error: unknown,
+  meta: Record<string, unknown>,
+) {
   logger.error(`${route}_failed`, {
     ...meta,
     ...serializeError(error),
@@ -397,7 +402,13 @@ app.get("/games", async (req, res) => {
       return res.json(diskCached);
     }
 
-    const games = date ? await getGamesByDate(date) : await getTodaysGames();
+    const todayUtc = new Date().toISOString().slice(0, 10);
+    // Use the fast CDN scoreboard for today's date; the slower stats.nba.com
+    // endpoint is only used for historical dates to avoid Render timeouts.
+    const games =
+      !date || date === todayUtc
+        ? await getTodaysGames()
+        : await getGamesByDate(date);
 
     const payload = {
       count: games.length,
@@ -759,7 +770,9 @@ app.get("/players", async (req, res) => {
   } catch (error: any) {
     logRouteError("players", error, {
       season:
-        typeof req.query.season === "string" ? req.query.season.trim() : "2025-26",
+        typeof req.query.season === "string"
+          ? req.query.season.trim()
+          : "2025-26",
     });
     res.status(500).json({
       error: "Failed to fetch players",

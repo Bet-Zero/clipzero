@@ -327,7 +327,7 @@ export async function getGamesByDate(date: string): Promise<ScoreboardGame[]> {
       GameDate: formatDateForNba(date),
       LeagueID: "00",
     },
-    timeout: 20000,
+    timeout: 60000,
   });
 
   const games = response.data?.scoreboard?.games ?? [];
