@@ -8,15 +8,14 @@ export function passwordMatches(
 
   const candidateBuffer = Buffer.from(candidate);
   const expectedBuffer = Buffer.from(expected);
-  const maxLength = Math.max(candidateBuffer.length, expectedBuffer.length);
+  const maxLength = Math.max(candidateBuffer.length, expectedBuffer.length) + 4;
   const paddedCandidateBuffer = Buffer.alloc(maxLength);
   const paddedExpectedBuffer = Buffer.alloc(maxLength);
 
-  candidateBuffer.copy(paddedCandidateBuffer);
-  expectedBuffer.copy(paddedExpectedBuffer);
+  paddedCandidateBuffer.writeUInt32BE(candidateBuffer.length, 0);
+  paddedExpectedBuffer.writeUInt32BE(expectedBuffer.length, 0);
+  candidateBuffer.copy(paddedCandidateBuffer, 4);
+  expectedBuffer.copy(paddedExpectedBuffer, 4);
 
-  return (
-    timingSafeEqual(paddedCandidateBuffer, paddedExpectedBuffer) &&
-    candidateBuffer.length === expectedBuffer.length
-  );
+  return timingSafeEqual(paddedCandidateBuffer, paddedExpectedBuffer);
 }

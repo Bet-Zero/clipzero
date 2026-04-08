@@ -10,16 +10,16 @@ type Bucket = {
   count: number;
   resetAt: number;
   lastAccessed: number;
+  windowMs: number;
 };
 
 const buckets = new Map<string, Bucket>();
 const BUCKET_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
-let bucketTtlMs = 60_000;
 
 const cleanupInterval = setInterval(() => {
   const now = Date.now();
   for (const [key, bucket] of buckets) {
-    if (now - bucket.lastAccessed > bucketTtlMs) {
+    if (now - bucket.lastAccessed > bucket.windowMs) {
       buckets.delete(key);
     }
   }
@@ -28,8 +28,6 @@ const cleanupInterval = setInterval(() => {
 cleanupInterval.unref?.();
 
 export function createRateLimiter(options: RateLimitOptions): RequestHandler {
-  bucketTtlMs = Math.max(bucketTtlMs, options.windowMs);
-
   return (req, res, next) => {
     const now = Date.now();
     const forwardedFor = req.headers["x-forwarded-for"];
@@ -56,6 +54,7 @@ export function createRateLimiter(options: RateLimitOptions): RequestHandler {
         count: 0,
         resetAt: now + options.windowMs,
         lastAccessed: now,
+        windowMs: options.windowMs,
       };
     } else {
       bucket = current;
