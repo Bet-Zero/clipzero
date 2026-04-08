@@ -1,7 +1,7 @@
-const DEFAULT_API_BASE = "http://localhost:4000";
+const DEFAULT_API_BASE = "https://clipzero-api.onrender.com";
 
 export function getApiBase(): string {
-  return process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE;
+  return "https://clipzero-api.onrender.com";
 }
 
 export function getApiLabel(): string {
