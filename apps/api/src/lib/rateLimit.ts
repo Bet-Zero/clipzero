@@ -14,8 +14,8 @@ type Bucket = {
 };
 
 const buckets = new Map<string, Bucket>();
-const FIVE_MINUTES_IN_MS = 5 * 60 * 1000;
-const BUCKET_CLEANUP_INTERVAL_MS = FIVE_MINUTES_IN_MS;
+const ONE_MINUTE_IN_MS = 60 * 1000;
+const BUCKET_CLEANUP_INTERVAL_MS = ONE_MINUTE_IN_MS;
 
 const cleanupInterval = setInterval(() => {
   const now = Date.now();
