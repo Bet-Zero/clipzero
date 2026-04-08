@@ -9,11 +9,27 @@ type RateLimitOptions = {
 type Bucket = {
   count: number;
   resetAt: number;
+  lastAccessed: number;
 };
 
 const buckets = new Map<string, Bucket>();
+const BUCKET_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+let bucketTtlMs = 60_000;
+
+const cleanupInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [key, bucket] of buckets) {
+    if (now - bucket.lastAccessed > bucketTtlMs) {
+      buckets.delete(key);
+    }
+  }
+}, BUCKET_CLEANUP_INTERVAL_MS);
+
+cleanupInterval.unref?.();
 
 export function createRateLimiter(options: RateLimitOptions): RequestHandler {
+  bucketTtlMs = Math.max(bucketTtlMs, options.windowMs);
+
   return (req, res, next) => {
     const now = Date.now();
     const forwardedFor = req.headers["x-forwarded-for"];
@@ -39,9 +55,11 @@ export function createRateLimiter(options: RateLimitOptions): RequestHandler {
       bucket = {
         count: 0,
         resetAt: now + options.windowMs,
+        lastAccessed: now,
       };
     } else {
       bucket = current;
+      bucket.lastAccessed = now;
     }
 
     bucket.count += 1;

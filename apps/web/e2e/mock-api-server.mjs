@@ -184,7 +184,12 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url || "/", `http://127.0.0.1:${port}`);
 
   if (req.method === "OPTIONS") {
-    sendJson(res, 204, {});
+    res.writeHead(204, {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    });
+    res.end();
     return;
   }
 
@@ -206,8 +211,6 @@ const server = http.createServer((req, res) => {
   if (url.pathname === "/clips/game") {
     const clip = buildGameClip(url.searchParams);
     sendJson(res, 200, {
-      gameId: clip.gameId,
-      count: 1,
       total: 1,
       offset: Number(url.searchParams.get("offset") || 0),
       limit: Number(url.searchParams.get("limit") || 12),

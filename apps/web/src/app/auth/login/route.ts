@@ -13,11 +13,15 @@ export async function POST(request: Request) {
   const nextPath = sanitizeNextPath(formData.get("next")?.toString());
 
   if (isAccessDisabled()) {
-    return NextResponse.redirect(new URL("/login?disabled=1", request.url));
+    return NextResponse.redirect(new URL("/login?disabled=1", request.url), {
+      status: 303,
+    });
   }
 
   if (!isAccessGateEnabled()) {
-    return NextResponse.redirect(new URL(nextPath, request.url));
+    return NextResponse.redirect(new URL(nextPath, request.url), {
+      status: 303,
+    });
   }
 
   const password = formData.get("password")?.toString() ?? "";
@@ -29,11 +33,13 @@ export async function POST(request: Request) {
     if (nextPath !== "/") {
       loginUrl.searchParams.set("next", nextPath);
     }
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(loginUrl, { status: 303 });
   }
 
   const token = getAccessToken();
-  const response = NextResponse.redirect(new URL(nextPath, request.url));
+  const response = NextResponse.redirect(new URL(nextPath, request.url), {
+    status: 303,
+  });
   response.cookies.set(ACCESS_COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
