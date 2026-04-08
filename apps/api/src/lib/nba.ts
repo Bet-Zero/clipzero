@@ -232,7 +232,7 @@ export async function getPlayerNameMapForGame(gameId: string) {
 
   const response = await axios.get<BoxScoreResponse>(url, {
     headers: NBA_HEADERS,
-    timeout: 20000,
+    timeout: 60000,
   });
 
   const homePlayers = response.data?.game?.homeTeam?.players ?? [];
@@ -267,7 +267,7 @@ export async function getVideoEventAsset(gameId: string, gameEventId: number) {
       GameID: gameId,
       GameEventID: gameEventId,
     },
-    timeout: 20000,
+    timeout: 60000,
   });
 
   return response.data;
