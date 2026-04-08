@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useRouter, useSearchParams } from "next/navigation";
+import {
+  useRouter,
+  useSearchParams,
+  type ReadonlyURLSearchParams,
+} from "next/navigation";
 import { buildApiUrl, getApiUnavailableMessage } from "@/lib/api";
 import { useDomElementById } from "@/lib/dom";
 import {
@@ -141,7 +145,9 @@ function normalizeDate(dateStr: string): string {
   return d.toISOString().slice(0, 10);
 }
 
-function getCurrentActionNumber(params: ReadonlyURLSearchParams): number | null {
+function getCurrentActionNumber(
+  params: ReadonlyURLSearchParams,
+): number | null {
   const raw =
     typeof window === "undefined"
       ? params.get("actionNumber")
@@ -188,7 +194,8 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     values: {},
   });
   const paramsKey = params.toString();
-  const optimisticValues = pending.sourceKey === paramsKey ? pending.values : {};
+  const optimisticValues =
+    pending.sourceKey === paramsKey ? pending.values : {};
 
   // Read a param, preferring any pending optimistic override.
   const p = (key: string) => optimisticValues[key] ?? params.get(key) ?? "";
@@ -1233,7 +1240,8 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
         gameLog.length > 0 &&
         includedGameCount === 0 && (
           <div className="mx-auto max-w-3xl px-4 py-6 text-sm text-zinc-400">
-            All selected games are excluded. Clear exclusions to load clips again.
+            All selected games are excluded. Clear exclusions to load clips
+            again.
           </div>
         )}
 
