@@ -17,14 +17,14 @@ cd /home/runner/work/clipzero/clipzero
 npm ci
 ```
 
-3. Start the API:
+1. Start the API:
 
 ```bash
 cd /home/runner/work/clipzero/clipzero
 npm run dev:api
 ```
 
-4. Start the web app in a second shell:
+1. Start the web app in a second shell:
 
 ```bash
 cd /home/runner/work/clipzero/clipzero
