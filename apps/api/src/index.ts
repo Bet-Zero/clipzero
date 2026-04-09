@@ -122,10 +122,8 @@ async function getCachedVideoAsset(
     }
     return cachedValue;
   } catch {
-    // Don't persist failures — allow retry on next server restart.
-    const cachedValue = { videoUrl: null, thumbnailUrl: null };
-    videoAssetCache.set(cacheKey, cachedValue);
-    return cachedValue;
+    // Don't cache failures at all — allow retry on every subsequent request.
+    return { videoUrl: null, thumbnailUrl: null };
   }
 }
 
@@ -647,7 +645,7 @@ app.get("/clips/game", async (req, res) => {
 
     const shots = filteredShots.slice(offset, offset + limit);
 
-    const clips = await mapWithConcurrency(shots, 6, async (shot) => {
+    const clips = await mapWithConcurrency(shots, 3, async (shot) => {
       if (!shot.actionNumber) {
         return {
           ...shot,
@@ -701,8 +699,9 @@ app.get("/clips/game", async (req, res) => {
       ...(targetIndex !== undefined ? { targetIndex } : {}),
     };
 
-    // Only cache when no actionNumber lookup (to keep cache entries stable)
-    if (!targetActionNumber) {
+    // Only cache when no actionNumber lookup and all video assets resolved —
+    // don't lock in a response with missing clips that could be retried.
+    if (!targetActionNumber && assetUrlsUnresolved === 0) {
       clipCache.set(cacheKey, payload);
     }
 
@@ -1104,7 +1103,7 @@ app.get("/clips/player", async (req, res) => {
     let assetUrlsResolved = 0;
     let assetUrlsUnresolved = 0;
 
-    const clips = await mapWithConcurrency(pageActions, 6, async (action) => {
+    const clips = await mapWithConcurrency(pageActions, 3, async (action) => {
       if (!action.actionNumber) {
         return { ...action, videoUrl: null, thumbnailUrl: null };
       }
@@ -1153,8 +1152,9 @@ app.get("/clips/player", async (req, res) => {
       ...(targetIndex !== undefined ? { targetIndex } : {}),
     };
 
-    // Only cache when no actionNumber lookup
-    if (!targetActionNumber) {
+    // Only cache when no actionNumber lookup and all video assets resolved —
+    // don't lock in a response with missing clips that could be retried.
+    if (!targetActionNumber && assetUrlsUnresolved === 0) {
       playerClipCache.set(cacheKey, payload);
     }
 
