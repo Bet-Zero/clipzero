@@ -2,10 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildApiUrl, getApiUnavailableMessage } from "@/lib/api";
-import {
-  DEFAULT_RESULT,
-  buildClipSearchParams,
-} from "@/lib/filters";
+import { DEFAULT_RESULT, buildClipSearchParams } from "@/lib/filters";
 import { PLAY_TYPE_LABELS } from "@/lib/filterConfig";
 import type { Clip } from "@/lib/types";
 import ClipPlayer from "@/components/ClipPlayer";
@@ -87,6 +84,9 @@ export default function ClipBrowser({
   activeIndexRef.current = activeIndex;
   const hasMoreRef = useRef(hasMore);
   hasMoreRef.current = hasMore;
+  // Stable ref for nextOffset so loadMore doesn't need it as a dep.
+  const nextOffsetRef = useRef(nextOffset);
+  nextOffsetRef.current = nextOffset;
   const pendingAdvanceRef = useRef(false);
 
   // Deep-link restore: if the URL has an actionNumber that isn't in the first
@@ -133,7 +133,14 @@ export default function ClipBrowser({
   }, []);
 
   const loadMore = useCallback(async () => {
-    if (loadingRef.current || !hasMore || nextOffset === null) return;
+    // Read hasMore and nextOffset from refs so this callback stays stable
+    // and the ClipRail IntersectionObserver doesn't reconnect after every batch.
+    if (
+      loadingRef.current ||
+      !hasMoreRef.current ||
+      nextOffsetRef.current === null
+    )
+      return;
     loadingRef.current = true;
     setLoading(true);
     setError(null);
@@ -141,7 +148,7 @@ export default function ClipBrowser({
       const search = buildClipSearchParams({
         gameId,
         limit: initialLimit,
-        offset: nextOffset,
+        offset: nextOffsetRef.current,
         player,
         result,
         playType,
@@ -171,8 +178,6 @@ export default function ClipBrowser({
       setLoading(false);
     }
   }, [
-    hasMore,
-    nextOffset,
     gameId,
     player,
     result,
@@ -275,7 +280,8 @@ export default function ClipBrowser({
         {clips.length} of {total} clips
         {"  ·  "}
         {team || "All Teams"} · {quarter ? `Q${quarter}` : "All Quarters"} ·{" "}
-        {PLAY_TYPE_LABELS[playType as keyof typeof PLAY_TYPE_LABELS] ?? playType}
+        {PLAY_TYPE_LABELS[playType as keyof typeof PLAY_TYPE_LABELS] ??
+          playType}
         {player ? ` · ${player}` : ""}
         {playType === "shots" && result !== DEFAULT_RESULT
           ? ` · ${result}`
