@@ -29,14 +29,14 @@ export default function ClipRail({
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
 
-  // Scroll active item into view within the rail when selection changes.
+  // Scroll to center the active item within the rail when selection changes.
   useEffect(() => {
     const el = itemRefs.current.get(activeIndex);
-    el?.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-      inline: "nearest",
-    });
+    const container = scrollRef.current;
+    if (!el || !container) return;
+    const targetScrollLeft =
+      el.offsetLeft - container.clientWidth / 2 + el.offsetWidth / 2;
+    container.scrollTo({ left: targetScrollLeft, behavior: "smooth" });
   }, [activeIndex]);
 
   // IntersectionObserver: trigger load when sentinel scrolls near the right edge.
