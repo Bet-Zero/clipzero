@@ -650,7 +650,10 @@ app.get("/clips/game", async (req, res) => {
         };
       }
 
-      const cachedAsset = await getCachedVideoAsset(gameId, shot.actionNumber);
+      const cachedAsset = await getCachedVideoAsset(
+        gameId,
+        shot.videoActionNumber ?? shot.actionNumber,
+      );
       if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
         assetUrlsResolved += 1;
         return {

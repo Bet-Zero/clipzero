@@ -22,6 +22,7 @@ export type RawAction = {
 export type ClipRecord = {
   gameId: string;
   actionNumber?: number;
+  videoActionNumber?: number;
   period?: number;
   clock?: string;
   teamId?: number;
@@ -141,10 +142,14 @@ export function getFilteredActions(
     };
   }
 
-  return actions.flatMap((action) => {
+  return actions.flatMap((action, index) => {
     const actionType = action.actionType?.toLowerCase() ?? "";
     const description = action.description ?? "";
     const isShot = actionType === "2pt" || actionType === "3pt";
+    const isStealOrBlock = actionType === "steal" || actionType === "block";
+    const videoActionNumber = isStealOrBlock
+      ? actions[index - 1]?.actionNumber
+      : undefined;
 
     if (normalized === "all") {
       if (
@@ -154,7 +159,7 @@ export function getFilteredActions(
         actionType === "block" ||
         actionType === "foul"
       )
-        return [makeRecord(action)];
+        return [{ ...makeRecord(action), videoActionNumber }];
       return [];
     }
 
@@ -165,13 +170,13 @@ export function getFilteredActions(
 
     if (normalized === "all-defense") {
       if (actionType === "steal" || actionType === "block")
-        return [makeRecord(action)];
+        return [{ ...makeRecord(action), videoActionNumber }];
       return [];
     }
 
     if (normalized === "good-plays") {
       if (actionType === "steal" || actionType === "block") {
-        return [makeRecord(action)];
+        return [{ ...makeRecord(action), videoActionNumber }];
       }
       if (isShot && action.shotResult === "Made") {
         const records: ReturnType<typeof makeRecord>[] = [makeRecord(action)];
@@ -226,12 +231,14 @@ export function getFilteredActions(
     }
 
     if (normalized === "steals") {
-      if (actionType === "steal") return [makeRecord(action)];
+      if (actionType === "steal")
+        return [{ ...makeRecord(action), videoActionNumber }];
       return [];
     }
 
     if (normalized === "blocks") {
-      if (actionType === "block") return [makeRecord(action)];
+      if (actionType === "block")
+        return [{ ...makeRecord(action), videoActionNumber }];
       return [];
     }
 
