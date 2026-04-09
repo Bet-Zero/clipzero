@@ -974,6 +974,7 @@ app.get("/clips/player", async (req, res) => {
 
           const filtered = getFilteredActions(game.gameId, actions, playType);
 
+          const targetPlayerName = playerNameMap.get(personId);
           const playerActions = filtered
             .map((action) => ({
               ...action,
@@ -982,7 +983,13 @@ app.get("/clips/player", async (req, res) => {
                   ? playerNameMap.get(action.personId)
                   : undefined) ?? action.playerName,
             }))
-            .filter((action) => action.personId === personId)
+            .filter(
+              (action) =>
+                action.personId === personId ||
+                (!action.personId &&
+                  targetPlayerName &&
+                  action.playerName === targetPlayerName),
+            )
             .map((action) => ({
               ...action,
               gameDate: gameDateNorm,

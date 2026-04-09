@@ -116,89 +116,132 @@ export function getFilteredActions(
     return match?.[1]?.trim() ?? null;
   }
 
-  return actions
-    .filter((action) => {
-      const actionType = action.actionType?.toLowerCase() ?? "";
-      const description = action.description ?? "";
-      const isShot = actionType === "2pt" || actionType === "3pt";
+  function makeRecord(
+    action: RawAction,
+    overrides?: { playerName?: string; personId?: number },
+  ) {
+    return {
+      gameId,
+      actionNumber: action.actionNumber,
+      period: action.period,
+      clock: action.clock,
+      teamId: action.teamId,
+      teamTricode: action.teamTricode,
+      personId: overrides?.personId ?? action.personId,
+      playerName: overrides?.playerName ?? action.playerName,
+      actionType: action.actionType,
+      subType: action.subType,
+      shotResult: action.shotResult,
+      shotDistance: action.shotDistance,
+      x: action.x,
+      y: action.y,
+      description: action.description,
+      scoreHome: action.scoreHome,
+      scoreAway: action.scoreAway,
+    };
+  }
 
-      if (normalized === "all") {
-        return (
-          isShot ||
-          actionType === "turnover" ||
-          actionType === "steal" ||
-          actionType === "block" ||
-          actionType === "foul"
-        );
+  return actions.flatMap((action) => {
+    const actionType = action.actionType?.toLowerCase() ?? "";
+    const description = action.description ?? "";
+    const isShot = actionType === "2pt" || actionType === "3pt";
+
+    if (normalized === "all") {
+      if (
+        isShot ||
+        actionType === "turnover" ||
+        actionType === "steal" ||
+        actionType === "block" ||
+        actionType === "foul"
+      )
+        return [makeRecord(action)];
+      return [];
+    }
+
+    if (normalized === "all-offense") {
+      if (isShot || actionType === "turnover") return [makeRecord(action)];
+      return [];
+    }
+
+    if (normalized === "all-defense") {
+      if (actionType === "steal" || actionType === "block")
+        return [makeRecord(action)];
+      return [];
+    }
+
+    if (normalized === "good-plays") {
+      if (actionType === "steal" || actionType === "block") {
+        return [makeRecord(action)];
       }
-
-      if (normalized === "all-offense") {
-        return isShot || actionType === "turnover";
+      if (isShot && action.shotResult === "Made") {
+        const records: ReturnType<typeof makeRecord>[] = [makeRecord(action)];
+        const assisterName = parseAssistName(description);
+        if (assisterName) {
+          records.push(
+            makeRecord(action, {
+              playerName: assisterName,
+              personId: undefined as unknown as number,
+            }),
+          );
+        }
+        return records;
       }
+      return [];
+    }
 
-      if (normalized === "all-defense") {
-        return actionType === "steal" || actionType === "block";
+    if (normalized === "bad-plays") {
+      if (
+        (isShot && action.shotResult === "Missed") ||
+        actionType === "turnover" ||
+        actionType === "foul"
+      )
+        return [makeRecord(action)];
+      return [];
+    }
+
+    if (normalized === "shots") {
+      if (isShot) return [makeRecord(action)];
+      return [];
+    }
+
+    if (normalized === "assists") {
+      if (isShot && /\bAST\b/i.test(description)) {
+        return [
+          makeRecord(action, {
+            playerName: parseAssistName(description) ?? action.playerName,
+          }),
+        ];
       }
+      return [];
+    }
 
-      if (normalized === "shots") {
-        return isShot;
-      }
+    if (normalized === "rebounds") {
+      if (actionType === "rebound") return [makeRecord(action)];
+      return [];
+    }
 
-      if (normalized === "assists") {
-        return isShot && /\bAST\b/i.test(description);
-      }
+    if (normalized === "turnovers") {
+      if (actionType === "turnover") return [makeRecord(action)];
+      return [];
+    }
 
-      if (normalized === "rebounds") {
-        return actionType === "rebound";
-      }
+    if (normalized === "steals") {
+      if (actionType === "steal") return [makeRecord(action)];
+      return [];
+    }
 
-      if (normalized === "turnovers") {
-        return actionType === "turnover";
-      }
+    if (normalized === "blocks") {
+      if (actionType === "block") return [makeRecord(action)];
+      return [];
+    }
 
-      if (normalized === "steals") {
-        return actionType === "steal";
-      }
+    if (normalized === "fouls") {
+      if (actionType === "foul") return [makeRecord(action)];
+      return [];
+    }
 
-      if (normalized === "blocks") {
-        return actionType === "block";
-      }
-
-      if (normalized === "fouls") {
-        return actionType === "foul";
-      }
-
-      return false;
-    })
-    .map((action) => {
-      const description = action.description;
-
-      let playerName = action.playerName;
-
-      if (normalized === "assists") {
-        playerName = parseAssistName(description) ?? action.playerName;
-      }
-
-      return {
-        gameId,
-        actionNumber: action.actionNumber,
-        period: action.period,
-        clock: action.clock,
-        teamId: action.teamId,
-        teamTricode: action.teamTricode,
-        personId: action.personId,
-        playerName,
-        actionType: action.actionType,
-        subType: action.subType,
-        shotResult: action.shotResult,
-        shotDistance: action.shotDistance,
-        x: action.x,
-        y: action.y,
-        description: action.description,
-        scoreHome: action.scoreHome,
-        scoreAway: action.scoreAway,
-      };
-    });
+    return [];
+  });
 }
 
 function getShotActions(gameId: string, actions: RawAction[]) {
