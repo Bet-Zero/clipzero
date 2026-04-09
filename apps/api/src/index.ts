@@ -83,7 +83,9 @@ async function getCachedVideoAsset(
     videoUrl: string | null;
     thumbnailUrl: string | null;
   }>("video-assets", cacheKey);
-  if (persisted) {
+  // Only use persisted value if it has a valid URL — don't serve stale nulls
+  // from previously failed fetches.
+  if (persisted && (persisted.videoUrl || persisted.thumbnailUrl)) {
     videoAssetCache.set(cacheKey, persisted);
     return persisted;
   }
@@ -113,12 +115,16 @@ async function getCachedVideoAsset(
       thumbnailUrl: firstVideo?.mth ?? null,
     };
     videoAssetCache.set(cacheKey, cachedValue);
-    persistCachedValue(cachedValue);
+    // Only persist to disk when we have a valid URL — don't permanently cache
+    // failures or empty results so they can be retried on future requests.
+    if (cachedValue.videoUrl || cachedValue.thumbnailUrl) {
+      persistCachedValue(cachedValue);
+    }
     return cachedValue;
   } catch {
+    // Don't persist failures — allow retry on next server restart.
     const cachedValue = { videoUrl: null, thumbnailUrl: null };
     videoAssetCache.set(cacheKey, cachedValue);
-    persistCachedValue(cachedValue);
     return cachedValue;
   }
 }
