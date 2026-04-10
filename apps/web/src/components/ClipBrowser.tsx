@@ -111,25 +111,23 @@ export default function ClipBrowser({
 
   // Navigate to the previous clip.
   const goToPrev = useCallback(() => {
-    setActiveIndex((prev) => {
-      if (prev <= 0) return prev;
-      const next = prev - 1;
-      const clip = clipsRef.current[next];
-      setActionNumberInUrl(clip?.actionNumber ?? null);
-      return next;
-    });
+    const prev = activeIndexRef.current;
+    if (prev <= 0) return;
+    const next = prev - 1;
+    const clip = clipsRef.current[next];
+    setActiveIndex(next);
+    setActionNumberInUrl(clip?.actionNumber ?? null);
   }, []);
 
   // Navigate to the next clip, auto-loading more if near the end.
   const goToNext = useCallback(() => {
-    setActiveIndex((prev) => {
-      const maxIndex = clipsRef.current.length - 1;
-      if (prev >= maxIndex) return prev;
-      const next = prev + 1;
-      const clip = clipsRef.current[next];
-      setActionNumberInUrl(clip?.actionNumber ?? null);
-      return next;
-    });
+    const prev = activeIndexRef.current;
+    const maxIndex = clipsRef.current.length - 1;
+    if (prev >= maxIndex) return;
+    const next = prev + 1;
+    const clip = clipsRef.current[next];
+    setActiveIndex(next);
+    setActionNumberInUrl(clip?.actionNumber ?? null);
   }, []);
 
   const loadMore = useCallback(async () => {
