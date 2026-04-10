@@ -168,7 +168,7 @@ function PlayerGroupedDropdown({
               teamPlayers.length > 0 ? (
                 <div
                   key={t}
-                  className="scrollbar-overlay max-h-80 min-w-[160px] overflow-y-auto border-r border-zinc-800 last:border-r-0"
+                  className="scrollbar-overlay max-h-80 w-[160px] overflow-y-auto border-r border-zinc-800 last:border-r-0"
                 >
                   <div className="sticky top-0 bg-zinc-950 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
                     {t}
@@ -195,7 +195,7 @@ function PlayerGroupedDropdown({
                         >
                           {checked ? "✓" : ""}
                         </span>
-                        {p.name}
+                        <span className="whitespace-nowrap">{p.name}</span>
                       </button>
                     );
                   })}
@@ -230,7 +230,7 @@ function PlayerGroupedDropdown({
                     >
                       {checked ? "✓" : ""}
                     </span>
-                    {p.name}
+                    <span className="whitespace-nowrap">{p.name}</span>
                   </button>
                 );
               })}
@@ -277,7 +277,8 @@ export default function FilterBar({
     values: {},
   });
   const paramsKey = params.toString();
-  const optimisticValues = pending.sourceKey === paramsKey ? pending.values : {};
+  const optimisticValues =
+    pending.sourceKey === paramsKey ? pending.values : {};
 
   // Read a param, preferring any pending optimistic override.
   const p = (key: string) => optimisticValues[key] ?? params.get(key) ?? "";

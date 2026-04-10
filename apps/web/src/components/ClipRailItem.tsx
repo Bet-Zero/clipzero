@@ -127,7 +127,7 @@ const ClipRailItem = forwardRef<HTMLButtonElement, Props>(
         <div className="flex flex-1 flex-col gap-1 px-2.5 pt-2 pb-2.5">
           {/* Action description — bold + white for makes, normal for misses */}
           <p
-            className={`line-clamp-3 text-[11px] leading-snug ${
+            className={`line-clamp-3 h-[45px] overflow-hidden text-[11px] leading-snug ${
               clip.shotResult === "Made"
                 ? "font-semibold text-white"
                 : "text-zinc-400"
@@ -156,11 +156,19 @@ const ClipRailItem = forwardRef<HTMLButtonElement, Props>(
                     const isMade = clip.shotResult === "Made";
                     return (
                       <>
-                        <span className={isMade && !isHome ? "font-bold text-white" : ""}>
+                        <span
+                          className={
+                            isMade && !isHome ? "font-bold text-white" : ""
+                          }
+                        >
                           {clip.scoreAway}
                         </span>
                         –
-                        <span className={isMade && isHome ? "font-bold text-white" : ""}>
+                        <span
+                          className={
+                            isMade && isHome ? "font-bold text-white" : ""
+                          }
+                        >
                           {clip.scoreHome}
                         </span>
                       </>
