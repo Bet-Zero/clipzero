@@ -22,7 +22,7 @@ describe("passwordMatches", () => {
     expect(passwordMatches("short", "a-much-longer-password")).toBe(false);
   });
 
-  it("returns true for empty candidate matching empty expected", () => {
+  it("returns false for empty candidate matching empty expected", () => {
     // empty expected means no password configured → should return false
     expect(passwordMatches("", "")).toBe(false);
   });

@@ -84,9 +84,9 @@ describe("buildApiUrl", () => {
 
   it("builds URL with empty search params (no query string)", () => {
     process.env.NEXT_PUBLIC_API_BASE_URL = "http://localhost:4000";
-    buildApiUrl("/clips", new URLSearchParams());
+    const result = buildApiUrl("/clips", new URLSearchParams());
     // Empty params should produce a URL without '?'
-    expect(buildApiUrl("/clips")).toBe("http://localhost:4000/clips");
+    expect(result).toBe("http://localhost:4000/clips");
   });
 
   it("builds URL with multiple search params", () => {
