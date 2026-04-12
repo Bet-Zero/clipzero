@@ -14,6 +14,9 @@
     "start:web": "npm run start -w apps/web",
     "start:api": "npm run start -w apps/api",
     "lint:web": "npm run lint -w apps/web",
+    "test:api": "npm run test -w apps/api",
+    "test:web": "npm run test -w apps/web",
+    "test": "npm run test:api && npm run test:web",
     "test:e2e": "npm run test:e2e -w apps/web"
   }
 }
