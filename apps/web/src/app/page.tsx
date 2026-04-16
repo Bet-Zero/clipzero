@@ -269,6 +269,7 @@ async function ClipsSection({
         distanceBucket={distanceBucket}
         initialActionNumber={actionNumber}
         homeTeamTricode={homeTeamTricode}
+        positionGroup={positionGroup}
       />
     </>
   );

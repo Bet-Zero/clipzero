@@ -25,6 +25,8 @@ type Props = {
   distanceBucket: string;
   initialActionNumber: number | null;
   homeTeamTricode?: string;
+  positionGroup?: string;
+  playerIds?: string;
 };
 
 function setActionNumberInUrl(actionNumber: number | null) {
@@ -54,6 +56,8 @@ export default function ClipBrowser({
   distanceBucket,
   initialActionNumber,
   homeTeamTricode,
+  positionGroup,
+  playerIds,
 }: Props) {
   const [clips, setClips] = useState<Clip[]>(initialClips);
   const [total, setTotal] = useState(initialTotal);
@@ -155,6 +159,8 @@ export default function ClipBrowser({
         shotValue,
         subType,
         distanceBucket,
+        positionGroup,
+        playerIds,
       });
 
       const res = await fetch(buildApiUrl("/clips/game", search));
