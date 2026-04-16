@@ -59,6 +59,14 @@ export default function PlayerGroupManager({
     };
   }, [season]);
 
+  // Eagerly cancel in-flight requests and timers when the modal closes
+  useEffect(() => {
+    if (!open) {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
+    }
+  }, [open]);
+
   // Close on click outside
   useEffect(() => {
     if (!open) return;

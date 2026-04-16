@@ -337,7 +337,7 @@ export default function FilterBar({
         search.delete("group");
         search.delete("playerIds");
       }
-      router.push(`/?${cleanSearchString(search)}`);
+      router.replace(`/?${cleanSearchString(search)}`);
     }
   }, [params, router]);
 

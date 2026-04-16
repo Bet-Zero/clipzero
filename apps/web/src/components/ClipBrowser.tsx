@@ -27,7 +27,7 @@ type Props = {
   homeTeamTricode?: string;
   positionGroup?: string;
   playerIds?: string;
-  season?: string;
+  season: string;
 };
 
 function setActionNumberInUrl(actionNumber: number | null) {

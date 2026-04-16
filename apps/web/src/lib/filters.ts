@@ -66,7 +66,7 @@ type ClipQueryParams = {
   actionNumber?: number | null;
   positionGroup?: string;
   playerIds?: string;
-  season?: string;
+  season: string;
 };
 
 export function buildClipSearchParams(

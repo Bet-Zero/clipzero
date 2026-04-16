@@ -68,7 +68,7 @@ async function getClips(
   actionNumber?: number | null,
   positionGroup?: string,
   playerIds?: string,
-  season?: string,
+  season: string = "2025-26",
 ): Promise<ClipsResult> {
   const search = buildClipSearchParams({
     gameId,
