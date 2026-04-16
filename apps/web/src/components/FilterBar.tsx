@@ -326,7 +326,12 @@ export default function FilterBar({
       const search = new URLSearchParams(params.toString());
       if (match) {
         // Group still exists — refresh playerIds in case membership changed
-        search.set("playerIds", match.playerIds?.join(",") ?? "");
+        const ids = match.playerIds?.join(",");
+        if (ids) {
+          search.set("playerIds", ids);
+        } else {
+          search.delete("playerIds");
+        }
       } else {
         // Group was deleted — clear selection
         search.delete("group");

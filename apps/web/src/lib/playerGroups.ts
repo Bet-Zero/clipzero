@@ -34,7 +34,11 @@ export const POSITION_GROUPS: PlayerGroup[] = [
 function isPlayerGroup(item: unknown): item is PlayerGroup {
   if (typeof item !== "object" || item === null) return false;
   const obj = item as Record<string, unknown>;
-  return typeof obj.id === "string" && typeof obj.name === "string";
+  return (
+    typeof obj.id === "string" &&
+    typeof obj.name === "string" &&
+    (obj.type === "trait" || obj.type === "custom")
+  );
 }
 
 function readStorage(): PlayerGroup[] {
