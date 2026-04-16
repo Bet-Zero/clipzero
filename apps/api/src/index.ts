@@ -561,6 +561,54 @@ app.get("/clips/game", async (req, res) => {
           .filter(Boolean)
       : [];
 
+    // playerIds: explicit set of personIds to filter by (used by custom groups)
+    const playerIdsParam =
+      typeof req.query.playerIds === "string"
+        ? req.query.playerIds.trim()
+        : "";
+    const playerIdValues = playerIdsParam
+      ? new Set(
+          playerIdsParam
+            .split(",")
+            .map((id) => Number(id.trim()))
+            .filter((n) => Number.isFinite(n) && n > 0),
+        )
+      : null;
+
+    // positionGroup: filter by player position (e.g. "G", "F", "C")
+    const positionGroup =
+      typeof req.query.positionGroup === "string"
+        ? req.query.positionGroup.trim().toUpperCase()
+        : "";
+
+    // Resolve positionGroup → set of personIds
+    let positionPlayerIds: Set<number> | null = null;
+    if (positionGroup) {
+      const season =
+        typeof req.query.season === "string" && req.query.season.trim() !== ""
+          ? req.query.season.trim()
+          : "2025-26";
+      const directory = await getCachedPlayerDirectory(season);
+      positionPlayerIds = new Set(
+        directory
+          .filter((p) => {
+            // Inclusive match: "C" matches "C", "F-C", "C-F"
+            const parts = p.position.split("-").map((s) => s.trim());
+            return parts.includes(positionGroup);
+          })
+          .map((p) => p.personId),
+      );
+    }
+
+    // Merge playerIds and positionPlayerIds into a single filter set
+    const personIdFilter =
+      playerIdValues || positionPlayerIds
+        ? new Set([
+            ...(playerIdValues ?? []),
+            ...(positionPlayerIds ?? []),
+          ])
+        : null;
+
     const actionNumberParam =
       typeof req.query.actionNumber === "string"
         ? Number(req.query.actionNumber)
@@ -570,7 +618,7 @@ app.get("/clips/game", async (req, res) => {
         ? actionNumberParam
         : null;
 
-    const cacheKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${limit}:${offset}`;
+    const cacheKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${playerIdsParam}:${positionGroup}:${limit}:${offset}`;
     // Bypass response cache when an actionNumber lookup is requested,
     // since targetIndex is not part of the cached payload.
     if (!targetActionNumber) {
@@ -595,6 +643,9 @@ app.get("/clips/game", async (req, res) => {
     const playerOptionPool = normalizedShots.filter((shot) => {
       const matchesTeam =
         teamValues.length === 0 || teamValues.includes(shot.teamTricode ?? "");
+      // personId-based group filter (playerIds / positionGroup)
+      const matchesPersonIdFilter =
+        !personIdFilter || personIdFilter.has(shot.personId ?? 0);
       // result filter applies to shots; non-shot actions always pass
       const isShot =
         shot.actionType?.toLowerCase() === "2pt" ||
@@ -617,6 +668,7 @@ app.get("/clips/game", async (req, res) => {
         );
       return (
         matchesTeam &&
+        matchesPersonIdFilter &&
         matchesResult &&
         matchesQuarter &&
         matchesShotValue &&
@@ -770,6 +822,7 @@ app.get("/players", async (req, res) => {
         personId: p.personId,
         displayName: p.displayName,
         teamTricode: p.teamTricode,
+        position: p.position,
       })),
     });
   } catch (error: any) {

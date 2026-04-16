@@ -415,6 +415,7 @@ export type PlayerDirectoryEntry = {
   displayName: string;
   teamId: number;
   teamTricode: string;
+  position: string;
 };
 
 export type PlayerGameLogEntry = {
@@ -458,6 +459,7 @@ export async function getAllPlayers(
   const iDisplayName = idx("DISPLAY_FIRST_LAST");
   const iTeamId = idx("TEAM_ID");
   const iTeamAbbr = idx("TEAM_ABBREVIATION");
+  const iPosition = idx("POSITION");
 
   if (iPersonId === -1 || iDisplayName === -1) return [];
 
@@ -471,6 +473,8 @@ export async function getAllPlayers(
       displayName: row[iDisplayName] as string,
       teamId: (row[iTeamId] as number) ?? 0,
       teamTricode: (row[iTeamAbbr] as string) ?? "",
+      position:
+        iPosition !== -1 ? ((row[iPosition] as string) ?? "") : "",
     }));
 }
 
