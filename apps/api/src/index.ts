@@ -600,7 +600,11 @@ app.get("/clips/game", async (req, res) => {
       );
     }
 
-    // Merge playerIds and positionPlayerIds into a single filter set
+    // Merge playerIds and positionPlayerIds into a single filter set.
+    // When both are present, we union them (OR semantics) — this allows
+    // combining a position filter with explicit player IDs. In practice,
+    // the frontend only sends one at a time (positionGroup for trait groups,
+    // playerIds for custom groups), so the union is a safe default.
     const personIdFilter =
       playerIdValues || positionPlayerIds
         ? new Set([
