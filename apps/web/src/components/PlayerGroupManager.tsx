@@ -37,6 +37,8 @@ export default function PlayerGroupManager({
   const [searchResults, setSearchResults] = useState<PlayerSearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const searchSeqRef = useRef(0);
   const dialogRef = useRef<HTMLDivElement>(null);
 
   // Load groups on open
@@ -48,6 +50,14 @@ export default function PlayerGroupManager({
       setSearchResults([]);
     }
   }, [open]);
+
+  // Cleanup debounce timer and abort pending fetch on unmount or season change
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
+    };
+  }, [season]);
 
   // Close on click outside
   useEffect(() => {
@@ -79,18 +89,29 @@ export default function PlayerGroupManager({
         return;
       }
       debounceRef.current = setTimeout(async () => {
+        // Cancel any in-flight request
+        abortRef.current?.abort();
+        const controller = new AbortController();
+        abortRef.current = controller;
+        const seq = ++searchSeqRef.current;
+
         setSearchLoading(true);
         try {
           const params = new URLSearchParams({ q: q.trim(), season });
-          const res = await fetch(buildApiUrl("/players", params));
-          if (res.ok) {
+          const res = await fetch(buildApiUrl("/players", params), {
+            signal: controller.signal,
+          });
+          // Only apply results if this is still the latest request
+          if (seq === searchSeqRef.current && res.ok) {
             const data = await res.json();
             setSearchResults(data.players ?? []);
           }
         } catch {
-          // ignore
+          // ignore (AbortError or network failure)
         } finally {
-          setSearchLoading(false);
+          if (seq === searchSeqRef.current) {
+            setSearchLoading(false);
+          }
         }
       }, 250);
     },

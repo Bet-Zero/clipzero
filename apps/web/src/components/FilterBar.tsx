@@ -316,8 +316,25 @@ export default function FilterBar({
   const [groupManagerOpen, setGroupManagerOpen] = useState(false);
 
   const refreshCustomGroups = useCallback(() => {
-    setCustomGroups(getCustomGroups());
-  }, []);
+    const updated = getCustomGroups();
+    setCustomGroups(updated);
+    // Reconcile: if a custom group is currently selected, ensure it still exists
+    // and update playerIds to reflect any edits; if deleted, clear selection.
+    const currentGroup = params.get("group") || "";
+    if (currentGroup.startsWith("custom:")) {
+      const match = updated.find((g) => g.id === currentGroup);
+      const search = new URLSearchParams(params.toString());
+      if (match) {
+        // Group still exists — refresh playerIds in case membership changed
+        search.set("playerIds", match.playerIds?.join(",") ?? "");
+      } else {
+        // Group was deleted — clear selection
+        search.delete("group");
+        search.delete("playerIds");
+      }
+      router.push(`/?${cleanSearchString(search)}`);
+    }
+  }, [params, router]);
 
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);

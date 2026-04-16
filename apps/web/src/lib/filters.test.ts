@@ -281,6 +281,7 @@ describe("parsePlayerModeParams", () => {
       personId: 2544,
       displayName: "LeBron James",
       teamTricode: "LAL",
+      position: "",
     });
     expect(state.playType).toBe("shots");
     expect(state.result).toBe("Made");

@@ -581,19 +581,21 @@ app.get("/clips/game", async (req, res) => {
         ? req.query.positionGroup.trim().toUpperCase()
         : "";
 
+    // Season used for positionGroup resolution and cache keying
+    const season =
+      typeof req.query.season === "string" && req.query.season.trim() !== ""
+        ? req.query.season.trim()
+        : "2025-26";
+
     // Resolve positionGroup → set of personIds
     let positionPlayerIds: Set<number> | null = null;
     if (positionGroup) {
-      const season =
-        typeof req.query.season === "string" && req.query.season.trim() !== ""
-          ? req.query.season.trim()
-          : "2025-26";
       const directory = await getCachedPlayerDirectory(season);
       positionPlayerIds = new Set(
         directory
           .filter((p) => {
             // Inclusive match: "C" matches "C", "F-C", "C-F"
-            const parts = p.position.split("-").map((s) => s.trim());
+            const parts = (p.position ?? "").split("-").map((s) => s.trim());
             return parts.includes(positionGroup);
           })
           .map((p) => p.personId),
@@ -622,7 +624,7 @@ app.get("/clips/game", async (req, res) => {
         ? actionNumberParam
         : null;
 
-    const cacheKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${playerIdsParam}:${positionGroup}:${limit}:${offset}`;
+    const cacheKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${playerIdsParam}:${positionGroup}:${season}:${limit}:${offset}`;
     // Bypass response cache when an actionNumber lookup is requested,
     // since targetIndex is not part of the cached payload.
     if (!targetActionNumber) {

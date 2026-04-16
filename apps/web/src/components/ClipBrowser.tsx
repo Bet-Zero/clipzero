@@ -27,6 +27,7 @@ type Props = {
   homeTeamTricode?: string;
   positionGroup?: string;
   playerIds?: string;
+  season?: string;
 };
 
 function setActionNumberInUrl(actionNumber: number | null) {
@@ -58,6 +59,7 @@ export default function ClipBrowser({
   homeTeamTricode,
   positionGroup,
   playerIds,
+  season,
 }: Props) {
   const [clips, setClips] = useState<Clip[]>(initialClips);
   const [total, setTotal] = useState(initialTotal);
@@ -161,6 +163,7 @@ export default function ClipBrowser({
         distanceBucket,
         positionGroup,
         playerIds,
+        season,
       });
 
       const res = await fetch(buildApiUrl("/clips/game", search));
@@ -194,6 +197,7 @@ export default function ClipBrowser({
     initialLimit,
     positionGroup,
     playerIds,
+    season,
   ]);
 
   // Auto-advance: when the active clip's video ends, move to the next clip.

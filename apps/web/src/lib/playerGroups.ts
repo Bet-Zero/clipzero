@@ -31,13 +31,20 @@ export const POSITION_GROUPS: PlayerGroup[] = [
 
 // ── Custom group CRUD (localStorage) ──
 
+function isPlayerGroup(item: unknown): item is PlayerGroup {
+  if (typeof item !== "object" || item === null) return false;
+  const obj = item as Record<string, unknown>;
+  return typeof obj.id === "string" && typeof obj.name === "string";
+}
+
 function readStorage(): PlayerGroup[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isPlayerGroup);
   } catch {
     return [];
   }
@@ -45,7 +52,11 @@ function readStorage(): PlayerGroup[] {
 
 function writeStorage(groups: PlayerGroup[]) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
+  } catch {
+    // Quota or security errors — silently ignore
+  }
 }
 
 /** Get all custom player groups from localStorage. */
