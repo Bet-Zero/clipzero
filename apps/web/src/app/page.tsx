@@ -66,6 +66,9 @@ async function getClips(
   distanceBucket?: string,
   offset?: number,
   actionNumber?: number | null,
+  positionGroup?: string,
+  playerIds?: string,
+  season: string = "2025-26",
 ): Promise<ClipsResult> {
   const search = buildClipSearchParams({
     gameId,
@@ -80,6 +83,9 @@ async function getClips(
     subType,
     distanceBucket,
     actionNumber,
+    positionGroup,
+    playerIds,
+    season,
   });
 
   const empty: ClipsResult = {
@@ -156,6 +162,9 @@ async function ClipsSection({
   actionNumber,
   homeTeamTricode,
   matchup,
+  group,
+  playerIds: playerIdsProp,
+  season,
 }: {
   gameId: string;
   gamesApiError: boolean;
@@ -173,6 +182,9 @@ async function ClipsSection({
   actionNumber: number | null;
   homeTeamTricode?: string;
   matchup?: string;
+  group: string;
+  playerIds: string;
+  season: string;
 }) {
   if (gamesApiError) {
     return (
@@ -196,6 +208,17 @@ async function ClipsSection({
     );
   }
 
+  // Resolve group param into API filter params:
+  // - "position:X" → positionGroup=X
+  // - "custom:..." → playerIds from URL (resolved client-side in FilterBar)
+  let positionGroup: string | undefined;
+  let playerIds: string | undefined;
+  if (group.startsWith("position:")) {
+    positionGroup = group.slice("position:".length);
+  } else if (group.startsWith("custom:") && playerIdsProp) {
+    playerIds = playerIdsProp;
+  }
+
   const clipsData = await getClips(
     gameId,
     limit,
@@ -209,6 +232,9 @@ async function ClipsSection({
     distanceBucket,
     undefined,
     actionNumber,
+    positionGroup,
+    playerIds,
+    season,
   );
 
   if (clipsData.apiError) {
@@ -230,7 +256,7 @@ async function ClipsSection({
     nextOffset: initialNextOffset,
   } = clipsData;
 
-  const filterKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarter}:${shotValue}:${subType}:${distanceBucket}:${limit}`;
+  const filterKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarter}:${shotValue}:${subType}:${distanceBucket}:${group}:${playerIds ?? ""}:${limit}`;
 
   return (
     <>
@@ -254,6 +280,9 @@ async function ClipsSection({
         distanceBucket={distanceBucket}
         initialActionNumber={actionNumber}
         homeTeamTricode={homeTeamTricode}
+        positionGroup={positionGroup}
+        playerIds={playerIds}
+        season={season}
       />
     </>
   );
@@ -282,6 +311,8 @@ export default async function Home({
     teamTricode?: string;
     excludeGameIds?: string;
     excludeDates?: string;
+    group?: string;
+    playerIds?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -364,6 +395,8 @@ export default async function Home({
       if (params.actionNumber)
         canonical.set("actionNumber", params.actionNumber);
     }
+    if (params.group) canonical.set("group", params.group);
+    if (params.playerIds) canonical.set("playerIds", params.playerIds);
     redirect(`/?${cleanSearchString(canonical)}`);
   }
 
@@ -379,6 +412,8 @@ export default async function Home({
   const shotValue = params.shotValue || "";
   const subType = params.subType || "";
   const distanceBucket = params.distanceBucket || "";
+  const group = params.group || "";
+  const playerIdsParam = params.playerIds || "";
 
   const selectedGame = selectedGameId
     ? games.find((game) => game.gameId === selectedGameId)
@@ -424,6 +459,9 @@ export default async function Home({
           actionNumber={actionNumber}
           homeTeamTricode={selectedGame?.homeTeam?.teamTricode}
           matchup={selectedGame?.matchup ?? ""}
+          group={group}
+          playerIds={playerIdsParam}
+          season={selectedSeason}
         />
       </Suspense>
     </PageShell>

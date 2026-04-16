@@ -145,6 +145,7 @@ describe("buildClipSearchParams", () => {
       gameId: "0022501115",
       limit: 20,
       offset: 0,
+      season: "2025-26",
     });
     expect(params.get("gameId")).toBe("0022501115");
     expect(params.get("limit")).toBe("20");
@@ -156,6 +157,7 @@ describe("buildClipSearchParams", () => {
       gameId: "123",
       limit: 10,
       offset: 5,
+      season: "2025-26",
       player: "LeBron",
       result: "Made",
       playType: "shots",
@@ -182,6 +184,7 @@ describe("buildClipSearchParams", () => {
       gameId: "123",
       limit: 10,
       offset: 0,
+      season: "2025-26",
     });
     expect(params.has("player")).toBe(false);
     expect(params.has("result")).toBe(false);
@@ -194,6 +197,7 @@ describe("buildClipSearchParams", () => {
       gameId: "123",
       limit: 10,
       offset: 0,
+      season: "2025-26",
       result: DEFAULT_RESULT,
     });
     expect(params.has("result")).toBe(false);
@@ -281,6 +285,7 @@ describe("parsePlayerModeParams", () => {
       personId: 2544,
       displayName: "LeBron James",
       teamTricode: "LAL",
+      position: "",
     });
     expect(state.playType).toBe("shots");
     expect(state.result).toBe("Made");

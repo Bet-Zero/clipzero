@@ -231,6 +231,7 @@ const server = http.createServer((req, res) => {
               personId: 2544,
               displayName: "LeBron James",
               teamTricode: "LAL",
+              position: "F",
             },
           ]
         : [];
@@ -270,6 +271,13 @@ const server = http.createServer((req, res) => {
           ast: 10,
         },
       ],
+    });
+    return;
+  }
+
+  if (url.pathname === "/groups/positions") {
+    sendJson(res, 200, {
+      positions: ["G", "F", "C", "G-F", "F-C", "F-G", "C-F"],
     });
     return;
   }

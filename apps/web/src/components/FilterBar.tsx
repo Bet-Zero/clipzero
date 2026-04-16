@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Player } from "@/lib/types";
+import type { Player, PlayerGroup } from "@/lib/types";
 import {
   DEFAULT_PLAY_TYPE,
   DEFAULT_RESULT,
@@ -23,6 +23,12 @@ import {
 } from "@/lib/filterConfig";
 import { useWatchMode } from "@/components/PageShell";
 import WatchBar, { buildGameSummary } from "@/components/WatchBar";
+import {
+  POSITION_GROUPS,
+  getCustomGroups,
+  getPlayerGroup,
+} from "@/lib/playerGroups";
+import PlayerGroupManager from "@/components/PlayerGroupManager";
 
 // Reusable multi-select dropdown for filter options with checkmarks.
 function MultiSelectDropdown({
@@ -302,6 +308,39 @@ export default function FilterBar({
   const subType = p("subType");
   const distanceBucket = p("distanceBucket");
 
+  // Group filter
+  const group = p("group");
+  const [customGroups, setCustomGroups] = useState<PlayerGroup[]>(() =>
+    typeof window !== "undefined" ? getCustomGroups() : [],
+  );
+  const [groupManagerOpen, setGroupManagerOpen] = useState(false);
+
+  const refreshCustomGroups = useCallback(() => {
+    const updated = getCustomGroups();
+    setCustomGroups(updated);
+    // Reconcile: if a custom group is currently selected, ensure it still exists
+    // and update playerIds to reflect any edits; if deleted, clear selection.
+    const currentGroup = params.get("group") || "";
+    if (currentGroup.startsWith("custom:")) {
+      const match = updated.find((g) => g.id === currentGroup);
+      const search = new URLSearchParams(params.toString());
+      if (match) {
+        // Group still exists — refresh playerIds in case membership changed
+        const ids = match.playerIds?.join(",");
+        if (ids) {
+          search.set("playerIds", ids);
+        } else {
+          search.delete("playerIds");
+        }
+      } else {
+        // Group was deleted — clear selection
+        search.delete("group");
+        search.delete("playerIds");
+      }
+      router.replace(`/?${cleanSearchString(search)}`);
+    }
+  }, [params, router]);
+
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -357,6 +396,8 @@ export default function FilterBar({
       shotValue,
       subType,
       distanceBucket,
+      group,
+      playerIds: p("playerIds"),
       ...overrides,
     };
 
@@ -373,6 +414,8 @@ export default function FilterBar({
       search.set("subType", canonicalMultiValue(state.subType));
     if (state.distanceBucket)
       search.set("distanceBucket", canonicalMultiValue(state.distanceBucket));
+    if (state.group) search.set("group", state.group);
+    if (state.playerIds) search.set("playerIds", state.playerIds);
 
     router.push(`/?${cleanSearchString(search)}`);
   }
@@ -393,7 +436,8 @@ export default function FilterBar({
     team !== "" ||
     shotValue !== "" ||
     subType !== "" ||
-    distanceBucket !== "";
+    distanceBucket !== "" ||
+    group !== "";
 
   const activeFilterCount =
     (playType !== DEFAULT_PLAY_TYPE ? 1 : 0) +
@@ -403,7 +447,8 @@ export default function FilterBar({
     (shotResult !== DEFAULT_RESULT && playType === "shots" ? 1 : 0) +
     (shotValue !== "" ? 1 : 0) +
     (subType !== "" ? splitMultiValue(subType).length : 0) +
-    (distanceBucket !== "" ? splitMultiValue(distanceBucket).length : 0);
+    (distanceBucket !== "" ? splitMultiValue(distanceBucket).length : 0) +
+    (group !== "" ? 1 : 0);
 
   function clearFilters() {
     setPending({
@@ -417,6 +462,7 @@ export default function FilterBar({
         shotValue: "",
         subType: "",
         distanceBucket: "",
+        group: "",
       },
     });
     const search = new URLSearchParams();
@@ -611,6 +657,53 @@ export default function FilterBar({
                 onClear={quarter ? () => navigate({ quarter: "" }) : undefined}
               />
 
+              {/* Player Group — unified dropdown for positions + custom groups */}
+              <label className="flex items-center gap-2 text-xs text-zinc-500">
+                Group
+                <select
+                  value={group}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val.startsWith("custom:")) {
+                      // Resolve custom group to playerIds
+                      const resolved = getPlayerGroup(val);
+                      const ids = resolved?.playerIds?.join(",") ?? "";
+                      navigate({ group: val, playerIds: ids });
+                    } else {
+                      // Position groups or "All" — clear playerIds
+                      navigate({ group: val, playerIds: "" });
+                    }
+                  }}
+                  className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
+                >
+                  <option value="">All Players</option>
+                  <optgroup label="Position">
+                    {POSITION_GROUPS.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  {customGroups.length > 0 && (
+                    <optgroup label="Custom">
+                      {customGroups.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              </label>
+
+              <button
+                type="button"
+                onClick={() => setGroupManagerOpen(true)}
+                className="h-7 rounded bg-zinc-900 px-2 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+              >
+                Manage Groups
+              </button>
+
               {/* Play-type-specific filters from filterConfig */}
               {playTypeFilters.map((filter) => {
                 const currentValue = p(filter.param) || filter.defaultValue;
@@ -771,6 +864,14 @@ export default function FilterBar({
           </div>,
           overlayTarget,
         )}
+
+      {/* Player Group Manager modal */}
+      <PlayerGroupManager
+        season={season || "2025-26"}
+        open={groupManagerOpen}
+        onClose={() => setGroupManagerOpen(false)}
+        onGroupsChanged={refreshCustomGroups}
+      />
     </>
   );
 }

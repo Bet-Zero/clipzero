@@ -55,6 +55,7 @@ export type PlayerSearchResult = {
   personId: number;
   displayName: string;
   teamTricode: string;
+  position: string;
 };
 
 export type PlayerGameLogEntry = {
@@ -99,4 +100,23 @@ export type PlayerModeFilterState = {
   excludedGameIds: Set<string>;
   excludedDates: Set<string>;
   actionNumber: number | null;
+};
+
+// ── Player grouping types ──
+
+export type PlayerGroupType = "trait" | "custom";
+
+/** A saved player group — either trait-based (resolved dynamically) or custom (explicit player list). */
+export type PlayerGroup = {
+  id: string; // e.g. "position:C", "custom:my-bigs"
+  name: string; // display label e.g. "Centers", "My Bigs"
+  type: PlayerGroupType;
+  /** For trait groups: the trait field (e.g. "position") */
+  traitField?: string;
+  /** For trait groups: the trait value (e.g. "C") */
+  traitValue?: string;
+  /** For custom groups: explicitly selected player IDs */
+  playerIds?: number[];
+  /** For custom groups: display names for offline rendering */
+  playerNames?: string[];
 };

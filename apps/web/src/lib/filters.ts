@@ -64,6 +64,9 @@ type ClipQueryParams = {
   subType?: string;
   distanceBucket?: string;
   actionNumber?: number | null;
+  positionGroup?: string;
+  playerIds?: string;
+  season: string;
 };
 
 export function buildClipSearchParams(
@@ -85,6 +88,9 @@ export function buildClipSearchParams(
     search.set("distanceBucket", params.distanceBucket);
   if (params.actionNumber)
     search.set("actionNumber", String(params.actionNumber));
+  if (params.positionGroup) search.set("positionGroup", params.positionGroup);
+  if (params.playerIds) search.set("playerIds", params.playerIds);
+  if (params.season) search.set("season", params.season);
   return search;
 }
 
@@ -150,6 +156,7 @@ export function parsePlayerModeParams(
             personId: Number(personId),
             displayName: playerName,
             teamTricode: params.get("teamTricode") || "",
+            position: params.get("position") || "",
           }
         : null,
     playType: params.get("playType") || DEFAULT_PLAY_TYPE,
