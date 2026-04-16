@@ -161,6 +161,7 @@ async function ClipsSection({
   homeTeamTricode,
   matchup,
   group,
+  playerIds: playerIdsProp,
 }: {
   gameId: string;
   gamesApiError: boolean;
@@ -179,6 +180,7 @@ async function ClipsSection({
   homeTeamTricode?: string;
   matchup?: string;
   group: string;
+  playerIds: string;
 }) {
   if (gamesApiError) {
     return (
@@ -204,10 +206,13 @@ async function ClipsSection({
 
   // Resolve group param into API filter params:
   // - "position:X" → positionGroup=X
-  // - "custom:..." → resolved client-side, passed as playerIds (not here — SSR can't read localStorage)
+  // - "custom:..." → playerIds from URL (resolved client-side in FilterBar)
   let positionGroup: string | undefined;
+  let playerIds: string | undefined;
   if (group.startsWith("position:")) {
     positionGroup = group.slice("position:".length);
+  } else if (group.startsWith("custom:") && playerIdsProp) {
+    playerIds = playerIdsProp;
   }
 
   const clipsData = await getClips(
@@ -224,6 +229,7 @@ async function ClipsSection({
     undefined,
     actionNumber,
     positionGroup,
+    playerIds,
   );
 
   if (clipsData.apiError) {
@@ -270,6 +276,7 @@ async function ClipsSection({
         initialActionNumber={actionNumber}
         homeTeamTricode={homeTeamTricode}
         positionGroup={positionGroup}
+        playerIds={playerIds}
       />
     </>
   );
@@ -299,6 +306,7 @@ export default async function Home({
     excludeGameIds?: string;
     excludeDates?: string;
     group?: string;
+    playerIds?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -382,6 +390,7 @@ export default async function Home({
         canonical.set("actionNumber", params.actionNumber);
     }
     if (params.group) canonical.set("group", params.group);
+    if (params.playerIds) canonical.set("playerIds", params.playerIds);
     redirect(`/?${cleanSearchString(canonical)}`);
   }
 
@@ -398,6 +407,7 @@ export default async function Home({
   const subType = params.subType || "";
   const distanceBucket = params.distanceBucket || "";
   const group = params.group || "";
+  const playerIdsParam = params.playerIds || "";
 
   const selectedGame = selectedGameId
     ? games.find((game) => game.gameId === selectedGameId)
@@ -444,6 +454,7 @@ export default async function Home({
           homeTeamTricode={selectedGame?.homeTeam?.teamTricode}
           matchup={selectedGame?.matchup ?? ""}
           group={group}
+          playerIds={playerIdsParam}
         />
       </Suspense>
     </PageShell>

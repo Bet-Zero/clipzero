@@ -310,13 +310,10 @@ export default function FilterBar({
 
   // Group filter
   const group = p("group");
-  const [customGroups, setCustomGroups] = useState<PlayerGroup[]>([]);
+  const [customGroups, setCustomGroups] = useState<PlayerGroup[]>(() =>
+    typeof window !== "undefined" ? getCustomGroups() : [],
+  );
   const [groupManagerOpen, setGroupManagerOpen] = useState(false);
-
-  // Load custom groups from localStorage on mount
-  useEffect(() => {
-    setCustomGroups(getCustomGroups());
-  }, []);
 
   const refreshCustomGroups = useCallback(() => {
     setCustomGroups(getCustomGroups());
@@ -378,6 +375,7 @@ export default function FilterBar({
       subType,
       distanceBucket,
       group,
+      playerIds: p("playerIds"),
       ...overrides,
     };
 
@@ -395,6 +393,7 @@ export default function FilterBar({
     if (state.distanceBucket)
       search.set("distanceBucket", canonicalMultiValue(state.distanceBucket));
     if (state.group) search.set("group", state.group);
+    if (state.playerIds) search.set("playerIds", state.playerIds);
 
     router.push(`/?${cleanSearchString(search)}`);
   }
@@ -641,7 +640,18 @@ export default function FilterBar({
                 Group
                 <select
                   value={group}
-                  onChange={(e) => navigate({ group: e.target.value })}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val.startsWith("custom:")) {
+                      // Resolve custom group to playerIds
+                      const resolved = getPlayerGroup(val);
+                      const ids = resolved?.playerIds?.join(",") ?? "";
+                      navigate({ group: val, playerIds: ids });
+                    } else {
+                      // Position groups or "All" — clear playerIds
+                      navigate({ group: val, playerIds: "" });
+                    }
+                  }}
                   className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
                 >
                   <option value="">All Players</option>

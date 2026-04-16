@@ -192,6 +192,8 @@ export default function ClipBrowser({
     subType,
     distanceBucket,
     initialLimit,
+    positionGroup,
+    playerIds,
   ]);
 
   // Auto-advance: when the active clip's video ends, move to the next clip.
