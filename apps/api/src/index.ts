@@ -408,7 +408,7 @@ app.get("/games", async (req, res) => {
 
     const todayUtc = new Date().toISOString().slice(0, 10);
     // Use the fast CDN scoreboard for today's date; the slower stats.nba.com
-    // endpoint is only used for historical dates to avoid Render timeouts.
+    // endpoint is only used for historical dates to reduce latency risk.
     const games =
       !date || date === todayUtc
         ? await getTodaysGames()
@@ -563,9 +563,7 @@ app.get("/clips/game", async (req, res) => {
 
     // playerIds: explicit set of personIds to filter by (used by custom groups)
     const playerIdsParam =
-      typeof req.query.playerIds === "string"
-        ? req.query.playerIds.trim()
-        : "";
+      typeof req.query.playerIds === "string" ? req.query.playerIds.trim() : "";
     const playerIdValues = playerIdsParam
       ? new Set(
           playerIdsParam
@@ -609,10 +607,7 @@ app.get("/clips/game", async (req, res) => {
     // playerIds for custom groups), so the union is a safe default.
     const personIdFilter =
       playerIdValues || positionPlayerIds
-        ? new Set([
-            ...(playerIdValues ?? []),
-            ...(positionPlayerIds ?? []),
-          ])
+        ? new Set([...(playerIdValues ?? []), ...(positionPlayerIds ?? [])])
         : null;
 
     const actionNumberParam =

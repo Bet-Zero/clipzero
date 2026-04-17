@@ -41,6 +41,23 @@ npm run start:api
 npm run start:web
 ```
 
+## Vercel web + local API
+
+If the frontend is deployed on Vercel and the API is running on your machine,
+configure:
+
+- `NEXT_PUBLIC_API_BASE_URL` in the Vercel project to your reachable API URL
+  (not `localhost`)
+- `CLIPZERO_ALLOWED_ORIGINS` in the API environment to include
+  `https://clipzero-web.vercel.app`
+
+Quick checks:
+
+1. Open `<api-url>/health` and confirm it returns `ok: true`.
+2. Confirm API env switches are not disabling traffic:
+   - `CLIPZERO_DISABLE_ACCESS=0`
+   - `CLIPZERO_API_DISABLED=0`
+
 ## Private-launch environment variables
 
 ### Web
@@ -67,35 +84,6 @@ npm run start:web
 - Disk-backed cache for games, player directory, player game logs, play-by-play, season actions, and video asset metadata
 - `/health` endpoint for health checks and uptime monitors
 - Kill switch via `CLIPZERO_DISABLE_ACCESS`
-
-## Deploy on Render
-
-`/home/runner/work/clipzero/clipzero/render.yaml` defines two services:
-
-- `clipzero-api`
-- `clipzero-web`
-
-Recommended flow:
-
-1. Create both services from the blueprint.
-2. Replace placeholder secrets before first deploy.
-3. Point `NEXT_PUBLIC_API_BASE_URL` at the API service URL.
-4. Keep `autoDeploy: false` until you want updates to go live.
-5. Use `/health` as the uptime check target.
-
-## Restart and rollback
-
-### Restart
-
-- API: restart the `clipzero-api` service from Render
-- Web: restart the `clipzero-web` service from Render
-- The API cache survives process restarts when `CLIPZERO_CACHE_DIR` points at persistent disk
-
-### Rollback
-
-1. Redeploy the previous successful Render release for the affected service.
-2. If needed, set `CLIPZERO_DISABLE_ACCESS=1` first to contain traffic.
-3. Confirm `/health` returns healthy before reopening access.
 
 ## Monitoring checklist
 
