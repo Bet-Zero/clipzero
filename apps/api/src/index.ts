@@ -27,12 +27,11 @@ import { matchesNormalizedGroup } from "./lib/subtypeGroups";
 // ---------------------------------------------------------------------------
 // NBA video CDN health check
 // ---------------------------------------------------------------------------
-// The NBA CDN (videos.nba.com) occasionally replaces all real video files with
-// a single placeholder "Video not available" MP4.  When this happens, every URL
-// - including completely fabricated ones - returns HTTP 200 with the exact same
-// ETag and Content-Length. We detect this by issuing a HEAD request to a
-// deliberately non-existent path. If the CDN returns 200, it is serving the
-// catch-all placeholder and the API should not hand video URLs to the frontend.
+// The NBA CDN (videos.nba.com) can return misleading metadata for HEAD requests.
+// Use a tiny ranged GET against a deliberately non-existent path instead. Real
+// video paths return 206 with clip-specific ETags; fake paths should not return
+// a partial MP4. If a fake path ever does return 200/206, treat that as a
+// catch-all placeholder condition and stop handing video URLs to the frontend.
 //
 // We re-check periodically so the app self-heals when the CDN comes back.
 // ---------------------------------------------------------------------------
@@ -46,11 +45,19 @@ let nbaVideoCdnCheckInFlight: Promise<boolean> | null = null;
 
 async function refreshNbaVideoCdnHealth(): Promise<boolean> {
   try {
-    const res = await axios.head(NBA_VIDEO_CDN_PROBE_URL, {
+    const res = await axios.get(NBA_VIDEO_CDN_PROBE_URL, {
+      headers: {
+        Range: "bytes=0-0",
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        Referer: "https://www.nba.com/",
+        Origin: "https://www.nba.com",
+      },
+      responseType: "arraybuffer",
       timeout: 8000,
       validateStatus: () => true,
     });
-    const available = res.status !== 200;
+    const available = res.status !== 200 && res.status !== 206;
     if (available !== nbaVideoCdnAvailable) {
       logger.info("nba_video_cdn_health_changed", {
         available,
