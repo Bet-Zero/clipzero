@@ -63,6 +63,9 @@ type ClipQueryParams = {
   shotValue?: string;
   subType?: string;
   distanceBucket?: string;
+  area?: string;
+  descriptor?: string;
+  qualifier?: string;
   actionNumber?: number | null;
   positionGroup?: string;
   playerIds?: string;
@@ -86,6 +89,9 @@ export function buildClipSearchParams(
   if (params.subType) search.set("subType", params.subType);
   if (params.distanceBucket)
     search.set("distanceBucket", params.distanceBucket);
+  if (params.area) search.set("area", params.area);
+  if (params.descriptor) search.set("descriptor", params.descriptor);
+  if (params.qualifier) search.set("qualifier", params.qualifier);
   if (params.actionNumber)
     search.set("actionNumber", String(params.actionNumber));
   if (params.positionGroup) search.set("positionGroup", params.positionGroup);
@@ -105,6 +111,9 @@ type PlayerClipQueryParams = {
   shotValue?: string;
   subType?: string;
   distanceBucket?: string;
+  area?: string;
+  descriptor?: string;
+  qualifier?: string;
   opponent?: string;
   excludeDates?: string[];
   excludeGameIds?: string[];
@@ -127,6 +136,9 @@ export function buildPlayerClipSearchParams(
   if (params.subType) search.set("subType", params.subType);
   if (params.distanceBucket)
     search.set("distanceBucket", params.distanceBucket);
+  if (params.area) search.set("area", params.area);
+  if (params.descriptor) search.set("descriptor", params.descriptor);
+  if (params.qualifier) search.set("qualifier", params.qualifier);
   if (params.opponent) search.set("opponent", params.opponent);
   if (params.excludeDates && params.excludeDates.length > 0)
     search.set("excludeDates", params.excludeDates.join(","));
@@ -150,6 +162,9 @@ type MatchupClipQueryParams = {
   shotValue?: string;
   subType?: string;
   distanceBucket?: string;
+  area?: string;
+  descriptor?: string;
+  qualifier?: string;
   excludeGameIds?: string[];
   actionNumber?: number | null;
 };
@@ -172,6 +187,9 @@ export function buildMatchupClipSearchParams(
   if (params.subType) search.set("subType", params.subType);
   if (params.distanceBucket)
     search.set("distanceBucket", params.distanceBucket);
+  if (params.area) search.set("area", params.area);
+  if (params.descriptor) search.set("descriptor", params.descriptor);
+  if (params.qualifier) search.set("qualifier", params.qualifier);
   if (params.excludeGameIds && params.excludeGameIds.length > 0)
     search.set("excludeGameIds", params.excludeGameIds.join(","));
   if (params.actionNumber)
@@ -207,6 +225,9 @@ export function parsePlayerModeParams(
     shotValue: params.get("shotValue") || "",
     subType: params.get("subType") || "",
     distanceBucket: params.get("distanceBucket") || "",
+    area: params.get("area") || "",
+    descriptor: params.get("descriptor") || "",
+    qualifier: params.get("qualifier") || "",
     opponent: params.get("opponent") || "",
     excludedGameIds: parseCommaSeparatedSet(params.get("excludeGameIds")),
     excludedDates: parseCommaSeparatedSet(params.get("excludeDates")),
@@ -229,6 +250,9 @@ export function parseMatchupModeParams(
     shotValue: params.get("shotValue") || "",
     subType: params.get("subType") || "",
     distanceBucket: params.get("distanceBucket") || "",
+    area: params.get("area") || "",
+    descriptor: params.get("descriptor") || "",
+    qualifier: params.get("qualifier") || "",
     excludedGameIds: parseCommaSeparatedSet(params.get("excludeGameIds")),
     actionNumber: actionNumberStr ? Number(actionNumberStr) : null,
   };
@@ -258,6 +282,11 @@ export function buildPlayerModeUrl(
   if (state.subType) search.set("subType", canonicalMultiValue(state.subType));
   if (state.distanceBucket)
     search.set("distanceBucket", canonicalMultiValue(state.distanceBucket));
+  if (state.area) search.set("area", canonicalMultiValue(state.area));
+  if (state.descriptor)
+    search.set("descriptor", canonicalMultiValue(state.descriptor));
+  if (state.qualifier)
+    search.set("qualifier", canonicalMultiValue(state.qualifier));
   if (state.opponent) search.set("opponent", state.opponent);
 
   const gameIds = [...state.excludedGameIds].filter(Boolean).sort();
@@ -291,6 +320,11 @@ export function buildMatchupModeUrl(
   if (state.subType) search.set("subType", canonicalMultiValue(state.subType));
   if (state.distanceBucket)
     search.set("distanceBucket", canonicalMultiValue(state.distanceBucket));
+  if (state.area) search.set("area", canonicalMultiValue(state.area));
+  if (state.descriptor)
+    search.set("descriptor", canonicalMultiValue(state.descriptor));
+  if (state.qualifier)
+    search.set("qualifier", canonicalMultiValue(state.qualifier));
 
   const gameIds = [...state.excludedGameIds].filter(Boolean).sort();
   if (gameIds.length > 0) search.set("excludeGameIds", gameIds.join(","));

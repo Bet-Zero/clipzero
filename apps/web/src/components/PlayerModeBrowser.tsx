@@ -209,6 +209,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   const shotValue = p("shotValue");
   const subType = p("subType");
   const distanceBucket = p("distanceBucket");
+  const area = p("area");
+  const descriptor = p("descriptor");
+  const qualifier = p("qualifier");
   const opponent = p("opponent");
 
   const limit = 12;
@@ -226,7 +229,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   // Reset when player/filter changes so new clip set triggers re-entry.
   const watchModeAutoEntered = useRef(false);
   const hasPlayerClips = clips.length > 0 && selectedPlayer !== null;
-  const filterKey = `${selectedPlayer?.personId}:${playType}:${result}:${quarter}:${shotValue}:${subType}:${distanceBucket}:${opponent}`;
+  const filterKey = `${selectedPlayer?.personId}:${playType}:${result}:${quarter}:${shotValue}:${subType}:${distanceBucket}:${area}:${descriptor}:${qualifier}:${opponent}`;
   const prevFilterKey = useRef(filterKey);
   useEffect(() => {
     if (prevFilterKey.current !== filterKey) {
@@ -393,6 +396,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
           shotValue,
           subType,
           distanceBucket,
+          area,
+          descriptor,
+          qualifier,
           opponent,
           excludeDates: [...excludedDates],
           excludeGameIds: [...excludedGameIds],
@@ -456,6 +462,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       shotValue,
       subType,
       distanceBucket,
+      area,
+      descriptor,
+      qualifier,
       opponent,
       params,
       excludedDates,
@@ -478,6 +487,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     shotValue,
     subType,
     distanceBucket,
+    area,
+    descriptor,
+    qualifier,
     opponent,
     // Serialize exclusion sets so effect re-fires on changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -593,6 +605,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       "shotValue" in overrides ||
       "subType" in overrides ||
       "distanceBucket" in overrides ||
+      "area" in overrides ||
+      "descriptor" in overrides ||
+      "qualifier" in overrides ||
       "opponent" in overrides;
 
     return {
@@ -604,6 +619,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       shotValue: overrides.shotValue ?? shotValue,
       subType: overrides.subType ?? subType,
       distanceBucket: overrides.distanceBucket ?? distanceBucket,
+      area: overrides.area ?? area,
+      descriptor: overrides.descriptor ?? descriptor,
+      qualifier: overrides.qualifier ?? qualifier,
       opponent: overrides.opponent ?? opponent,
       excludedGameIds: overrides.excludedGameIds ?? excludedGameIds,
       excludedDates: overrides.excludedDates ?? excludedDates,
@@ -625,6 +643,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       "shotValue",
       "subType",
       "distanceBucket",
+      "area",
+      "descriptor",
+      "qualifier",
       "opponent",
     ] as const;
     const updates: Record<string, string> = {};
@@ -786,6 +807,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       shotValue: "",
       subType: "",
       distanceBucket: "",
+      area: "",
+      descriptor: "",
+      qualifier: "",
       opponent: "",
       excludedGameIds: new Set(),
       excludedDates: new Set(),
@@ -799,6 +823,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     shotValue !== "" ||
     subType !== "" ||
     distanceBucket !== "" ||
+    area !== "" ||
+    descriptor !== "" ||
+    qualifier !== "" ||
     opponent !== "" ||
     excludedGameIds.size > 0 ||
     excludedDates.size > 0;
@@ -812,6 +839,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       shotValue: "",
       subType: "",
       distanceBucket: "",
+      area: "",
+      descriptor: "",
+      qualifier: "",
       quarter: "",
       ...preset.params,
     } as Partial<PlayerModeFilterState>);
@@ -824,6 +854,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       shotValue,
       subType,
       distanceBucket,
+      area,
+      descriptor,
+      qualifier,
       quarter,
     };
     return Object.entries(preset.params).every(
@@ -870,6 +903,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                       shotValue: "",
                       subType: "",
                       distanceBucket: "",
+                      area: "",
+                      descriptor: "",
+                      qualifier: "",
                     })
                   }
                   className="h-7 shrink-0 rounded bg-zinc-900 px-2 text-sm text-white"

@@ -24,6 +24,9 @@ type Props = {
   shotValue: string;
   subType: string;
   distanceBucket: string;
+  area: string;
+  descriptor: string;
+  qualifier: string;
   initialActionNumber: number | null;
   homeTeamTricode?: string;
   positionGroup?: string;
@@ -57,6 +60,9 @@ export default function ClipBrowser({
   shotValue,
   subType,
   distanceBucket,
+  area,
+  descriptor,
+  qualifier,
   initialActionNumber,
   homeTeamTricode,
   positionGroup,
@@ -166,6 +172,9 @@ export default function ClipBrowser({
         shotValue,
         subType,
         distanceBucket,
+        area,
+        descriptor,
+        qualifier,
         positionGroup,
         playerIds,
         season,
@@ -202,6 +211,9 @@ export default function ClipBrowser({
     shotValue,
     subType,
     distanceBucket,
+    area,
+    descriptor,
+    qualifier,
     initialLimit,
     positionGroup,
     playerIds,

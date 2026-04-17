@@ -345,9 +345,7 @@ describe("parsePlayerModeParams", () => {
     expect(state.distanceBucket).toBe("20-29");
     expect(state.opponent).toBe("GSW");
     expect(state.excludedGameIds).toEqual(new Set(["g1", "g2"]));
-    expect(state.excludedDates).toEqual(
-      new Set(["2024-01-01", "2024-01-02"]),
-    );
+    expect(state.excludedDates).toEqual(new Set(["2024-01-01", "2024-01-02"]));
     expect(state.actionNumber).toBe(42);
   });
 
@@ -427,6 +425,7 @@ describe("buildPlayerModeUrl", () => {
         personId: 2544,
         displayName: "LeBron James",
         teamTricode: "LAL",
+        position: "F",
       },
       playType: DEFAULT_PLAY_TYPE,
       result: DEFAULT_RESULT,
@@ -434,6 +433,9 @@ describe("buildPlayerModeUrl", () => {
       shotValue: "",
       subType: "",
       distanceBucket: "",
+      area: "",
+      descriptor: "",
+      qualifier: "",
       opponent: "",
       excludedGameIds: new Set(),
       excludedDates: new Set(),
@@ -455,6 +457,7 @@ describe("buildPlayerModeUrl", () => {
         personId: 1,
         displayName: "Player",
         teamTricode: "BOS",
+        position: "G",
       },
       playType: "shots",
       result: "Made",
@@ -462,6 +465,9 @@ describe("buildPlayerModeUrl", () => {
       shotValue: "3pt",
       subType: "dunk,layup",
       distanceBucket: "0-9,10-19",
+      area: "",
+      descriptor: "",
+      qualifier: "",
       opponent: "GSW",
       excludedGameIds: new Set(["g2", "g1"]),
       excludedDates: new Set(["2024-01-02", "2024-01-01"]),
@@ -489,6 +495,9 @@ describe("buildPlayerModeUrl", () => {
       shotValue: "",
       subType: "",
       distanceBucket: "",
+      area: "",
+      descriptor: "",
+      qualifier: "",
       opponent: "",
       excludedGameIds: new Set(),
       excludedDates: new Set(),
@@ -515,6 +524,9 @@ describe("buildMatchupModeUrl", () => {
       shotValue: "",
       subType: "",
       distanceBucket: "",
+      area: "",
+      descriptor: "",
+      qualifier: "",
       excludedGameIds: new Set(),
       actionNumber: null,
     });
@@ -536,6 +548,9 @@ describe("buildMatchupModeUrl", () => {
       shotValue: "3pt",
       subType: "dunk,layup",
       distanceBucket: "0-9,10-19",
+      area: "",
+      descriptor: "",
+      qualifier: "",
       excludedGameIds: new Set(["g2", "g1"]),
       actionNumber: 7,
     });

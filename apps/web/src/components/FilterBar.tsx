@@ -429,6 +429,9 @@ export default function FilterBar({
   const shotValue = p("shotValue");
   const subType = p("subType");
   const distanceBucket = p("distanceBucket");
+  const area = p("area");
+  const descriptor = p("descriptor");
+  const qualifier = p("qualifier");
 
   // Group filter
   const group = p("group");
@@ -518,6 +521,9 @@ export default function FilterBar({
       shotValue,
       subType,
       distanceBucket,
+      area,
+      descriptor,
+      qualifier,
       group,
       playerIds: p("playerIds"),
       ...overrides,
@@ -536,6 +542,11 @@ export default function FilterBar({
       search.set("subType", canonicalMultiValue(state.subType));
     if (state.distanceBucket)
       search.set("distanceBucket", canonicalMultiValue(state.distanceBucket));
+    if (state.area) search.set("area", canonicalMultiValue(state.area));
+    if (state.descriptor)
+      search.set("descriptor", canonicalMultiValue(state.descriptor));
+    if (state.qualifier)
+      search.set("qualifier", canonicalMultiValue(state.qualifier));
     if (state.group) search.set("group", state.group);
     if (state.playerIds) search.set("playerIds", state.playerIds);
 
@@ -559,6 +570,9 @@ export default function FilterBar({
     shotValue !== "" ||
     subType !== "" ||
     distanceBucket !== "" ||
+    area !== "" ||
+    descriptor !== "" ||
+    qualifier !== "" ||
     group !== "";
 
   const activeFilterCount =
@@ -570,6 +584,9 @@ export default function FilterBar({
     (shotValue !== "" ? 1 : 0) +
     (subType !== "" ? splitMultiValue(subType).length : 0) +
     (distanceBucket !== "" ? splitMultiValue(distanceBucket).length : 0) +
+    (area !== "" ? splitMultiValue(area).length : 0) +
+    (descriptor !== "" ? splitMultiValue(descriptor).length : 0) +
+    (qualifier !== "" ? splitMultiValue(qualifier).length : 0) +
     (group !== "" ? 1 : 0);
 
   function clearFilters() {
@@ -584,6 +601,9 @@ export default function FilterBar({
         shotValue: "",
         subType: "",
         distanceBucket: "",
+        area: "",
+        descriptor: "",
+        qualifier: "",
         group: "",
       },
     });

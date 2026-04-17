@@ -142,6 +142,10 @@ type PlayerActionWithGame = {
   description?: string | undefined;
   scoreHome?: string | undefined;
   scoreAway?: string | undefined;
+  area?: string | undefined;
+  areaDetail?: string | undefined;
+  descriptor?: string | undefined;
+  qualifiers?: string[] | undefined;
   videoActionNumber?: number | undefined;
 };
 
@@ -861,6 +865,37 @@ app.get("/clips/game", async (req, res) => {
           .filter(Boolean)
       : [];
 
+    const area =
+      typeof req.query.area === "string" ? req.query.area.trim() : "";
+    const areaValues = area
+      ? area
+          .split(",")
+          .map((a) => a.trim())
+          .filter(Boolean)
+      : [];
+
+    const descriptor =
+      typeof req.query.descriptor === "string"
+        ? req.query.descriptor.trim().toLowerCase()
+        : "";
+    const descriptorValues = descriptor
+      ? descriptor
+          .split(",")
+          .map((d) => d.trim())
+          .filter(Boolean)
+      : [];
+
+    const qualifier =
+      typeof req.query.qualifier === "string"
+        ? req.query.qualifier.trim().toLowerCase()
+        : "";
+    const qualifierValues = qualifier
+      ? qualifier
+          .split(",")
+          .map((q) => q.trim())
+          .filter(Boolean)
+      : [];
+
     // playerIds: explicit set of personIds to filter by (used by custom groups)
     const playerIdsParam =
       typeof req.query.playerIds === "string" ? req.query.playerIds.trim() : "";
@@ -919,7 +954,7 @@ app.get("/clips/game", async (req, res) => {
         ? actionNumberParam
         : null;
 
-    const cacheKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${playerIdsParam}:${positionGroup}:${season}:${limit}:${offset}`;
+    const cacheKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${area}:${descriptor}:${qualifier}:${playerIdsParam}:${positionGroup}:${season}:${limit}:${offset}`;
     const videoCdnAvailable = await checkNbaVideoCdnHealth();
     // Bypass response cache when an actionNumber lookup is requested,
     // since targetIndex is not part of the cached payload.
@@ -971,6 +1006,18 @@ app.get("/clips/game", async (req, res) => {
         distanceBucketValues.some((db) =>
           matchesDistanceBucket(shot.shotDistance, db),
         );
+      const matchesArea =
+        areaValues.length === 0 ||
+        !isShot ||
+        areaValues.includes(shot.area ?? "");
+      const matchesDescriptor =
+        descriptorValues.length === 0 ||
+        !isShot ||
+        descriptorValues.some((d) => (shot.descriptor ?? "").includes(d));
+      const matchesQualifier =
+        qualifierValues.length === 0 ||
+        !isShot ||
+        qualifierValues.some((q) => (shot.qualifiers ?? []).includes(q));
       return (
         matchesTeam &&
         matchesPersonIdFilter &&
@@ -978,7 +1025,10 @@ app.get("/clips/game", async (req, res) => {
         matchesQuarter &&
         matchesShotValue &&
         matchesSubType &&
-        matchesDistance
+        matchesDistance &&
+        matchesArea &&
+        matchesDescriptor &&
+        matchesQualifier
       );
     });
 
@@ -1189,6 +1239,37 @@ app.get("/clips/matchup", async (req, res) => {
           .filter(Boolean)
       : [];
 
+    const area =
+      typeof req.query.area === "string" ? req.query.area.trim() : "";
+    const areaValues = area
+      ? area
+          .split(",")
+          .map((a) => a.trim())
+          .filter(Boolean)
+      : [];
+
+    const descriptor =
+      typeof req.query.descriptor === "string"
+        ? req.query.descriptor.trim().toLowerCase()
+        : "";
+    const descriptorValues = descriptor
+      ? descriptor
+          .split(",")
+          .map((d) => d.trim())
+          .filter(Boolean)
+      : [];
+
+    const qualifier =
+      typeof req.query.qualifier === "string"
+        ? req.query.qualifier.trim().toLowerCase()
+        : "";
+    const qualifierValues = qualifier
+      ? qualifier
+          .split(",")
+          .map((q) => q.trim())
+          .filter(Boolean)
+      : [];
+
     const excludeGameIdsParam =
       typeof req.query.excludeGameIds === "string"
         ? req.query.excludeGameIds.trim()
@@ -1210,7 +1291,7 @@ app.get("/clips/matchup", async (req, res) => {
         : null;
 
     const normalizedExcludeKey = [...excludeGameIds].sort().join(",");
-    const cacheKey = `${season}:${teamA.tricode}:${teamB.tricode}:${normalizedExcludeKey}:${team}:${result}:${playType}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${limit}:${offset}`;
+    const cacheKey = `${season}:${teamA.tricode}:${teamB.tricode}:${normalizedExcludeKey}:${team}:${result}:${playType}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${area}:${descriptor}:${qualifier}:${limit}:${offset}`;
     const videoCdnAvailable = await checkNbaVideoCdnHealth();
     if (!targetActionNumber && videoCdnAvailable) {
       const cached = matchupClipCache.get(cacheKey);
@@ -1290,6 +1371,18 @@ app.get("/clips/matchup", async (req, res) => {
         distanceBucketValues.some((db) =>
           matchesDistanceBucket(action.shotDistance, db),
         );
+      const matchesArea =
+        areaValues.length === 0 ||
+        !isShot ||
+        areaValues.includes(action.area ?? "");
+      const matchesDescriptor =
+        descriptorValues.length === 0 ||
+        !isShot ||
+        descriptorValues.some((d) => (action.descriptor ?? "").includes(d));
+      const matchesQualifier =
+        qualifierValues.length === 0 ||
+        !isShot ||
+        qualifierValues.some((q) => (action.qualifiers ?? []).includes(q));
 
       return (
         matchesTeam &&
@@ -1297,7 +1390,10 @@ app.get("/clips/matchup", async (req, res) => {
         matchesQuarter &&
         matchesShotValue &&
         matchesSubType &&
-        matchesDistance
+        matchesDistance &&
+        matchesArea &&
+        matchesDescriptor &&
+        matchesQualifier
       );
     });
 
@@ -1576,6 +1672,37 @@ app.get("/clips/player", async (req, res) => {
           .filter(Boolean)
       : [];
 
+    const area =
+      typeof req.query.area === "string" ? req.query.area.trim() : "";
+    const areaValues = area
+      ? area
+          .split(",")
+          .map((a) => a.trim())
+          .filter(Boolean)
+      : [];
+
+    const descriptor =
+      typeof req.query.descriptor === "string"
+        ? req.query.descriptor.trim().toLowerCase()
+        : "";
+    const descriptorValues = descriptor
+      ? descriptor
+          .split(",")
+          .map((d) => d.trim())
+          .filter(Boolean)
+      : [];
+
+    const qualifier =
+      typeof req.query.qualifier === "string"
+        ? req.query.qualifier.trim().toLowerCase()
+        : "";
+    const qualifierValues = qualifier
+      ? qualifier
+          .split(",")
+          .map((q) => q.trim())
+          .filter(Boolean)
+      : [];
+
     const opponent =
       typeof req.query.opponent === "string"
         ? req.query.opponent.trim().toUpperCase()
@@ -1619,7 +1746,7 @@ app.get("/clips/player", async (req, res) => {
         : null;
 
     // Check response cache (bypass when actionNumber lookup is requested)
-    const cacheKey = `${personId}:${season}:${playType}:${result}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${opponent}:${limit}:${offset}:${[...excludeDates].sort().join(",")}:${[...excludeGameIds].sort().join(",")}`;
+    const cacheKey = `${personId}:${season}:${playType}:${result}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${area}:${descriptor}:${qualifier}:${opponent}:${limit}:${offset}:${[...excludeDates].sort().join(",")}:${[...excludeGameIds].sort().join(",")}`;
     const videoCdnAvailable = await checkNbaVideoCdnHealth();
     if (!targetActionNumber && videoCdnAvailable) {
       const cached = playerClipCache.get(cacheKey);
@@ -1773,12 +1900,27 @@ app.get("/clips/player", async (req, res) => {
         distanceBucketValues.some((db) =>
           matchesDistanceBucket(action.shotDistance, db),
         );
+      const matchesArea =
+        areaValues.length === 0 ||
+        !isShot ||
+        areaValues.includes(action.area ?? "");
+      const matchesDescriptor =
+        descriptorValues.length === 0 ||
+        !isShot ||
+        descriptorValues.some((d) => (action.descriptor ?? "").includes(d));
+      const matchesQualifier =
+        qualifierValues.length === 0 ||
+        !isShot ||
+        qualifierValues.some((q) => (action.qualifiers ?? []).includes(q));
       return (
         matchesResult &&
         matchesQuarter &&
         matchesShotValue &&
         matchesSubType &&
-        matchesDistance
+        matchesDistance &&
+        matchesArea &&
+        matchesDescriptor &&
+        matchesQualifier
       );
     });
 

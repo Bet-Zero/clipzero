@@ -20,6 +20,10 @@ export type Clip = {
   matchup?: string;
   scoreHome?: string;
   scoreAway?: string;
+  area?: string;
+  areaDetail?: string;
+  descriptor?: string;
+  qualifiers?: string[];
 };
 
 export type Game = {
@@ -134,6 +138,9 @@ export type PlayerModeFilterState = {
   shotValue: string;
   subType: string;
   distanceBucket: string;
+  area: string;
+  descriptor: string;
+  qualifier: string;
   opponent: string;
   excludedGameIds: Set<string>;
   excludedDates: Set<string>;
@@ -150,6 +157,9 @@ export type MatchupModeFilterState = {
   shotValue: string;
   subType: string;
   distanceBucket: string;
+  area: string;
+  descriptor: string;
+  qualifier: string;
   excludedGameIds: Set<string>;
   actionNumber: number | null;
 };

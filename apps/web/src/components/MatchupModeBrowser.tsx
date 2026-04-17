@@ -320,6 +320,9 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
   const shotValue = p("shotValue");
   const subType = p("subType");
   const distanceBucket = p("distanceBucket");
+  const area = p("area");
+  const descriptor = p("descriptor");
+  const qualifier = p("qualifier");
   const limit = 12;
 
   const portalTarget = useDomElementById("matchup-filter-portal");
@@ -438,6 +441,9 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
           shotValue,
           subType,
           distanceBucket,
+          area,
+          descriptor,
+          qualifier,
           excludeGameIds: [...excludedGameIds],
         });
 
@@ -498,6 +504,9 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
       shotValue,
       subType,
       distanceBucket,
+      area,
+      descriptor,
+      qualifier,
       excludedGameIds,
     ],
   );
@@ -521,6 +530,9 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
     shotValue,
     subType,
     distanceBucket,
+    area,
+    descriptor,
+    qualifier,
     excludedGameIdsKey,
   ]);
 
@@ -635,6 +647,9 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
       shotValue: overrides.shotValue ?? shotValue,
       subType: overrides.subType ?? subType,
       distanceBucket: overrides.distanceBucket ?? distanceBucket,
+      area: overrides.area ?? area,
+      descriptor: overrides.descriptor ?? descriptor,
+      qualifier: overrides.qualifier ?? qualifier,
       excludedGameIds: overrides.excludedGameIds ?? excludedGameIds,
       actionNumber:
         "actionNumber" in overrides
@@ -656,6 +671,9 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
       "shotValue",
       "subType",
       "distanceBucket",
+      "area",
+      "descriptor",
+      "qualifier",
     ] as const;
     const updates: Record<string, string> = {};
     for (const key of stringKeys) {
@@ -722,6 +740,9 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
       shotValue: "",
       subType: "",
       distanceBucket: "",
+      area: "",
+      descriptor: "",
+      qualifier: "",
       excludedGameIds: empty,
       actionNumber: null,
     });
@@ -743,6 +764,9 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
       shotValue,
       subType,
       distanceBucket,
+      area,
+      descriptor,
+      qualifier,
       quarter,
     };
     return Object.entries(preset.params).every(
@@ -760,6 +784,9 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
     (shotValue !== "" ? 1 : 0) +
     (subType !== "" ? splitMultiValue(subType).length : 0) +
     (distanceBucket !== "" ? splitMultiValue(distanceBucket).length : 0) +
+    (area !== "" ? splitMultiValue(area).length : 0) +
+    (descriptor !== "" ? splitMultiValue(descriptor).length : 0) +
+    (qualifier !== "" ? splitMultiValue(qualifier).length : 0) +
     exclusionCount;
 
   const isFiltered = activeFilterCount > 0;

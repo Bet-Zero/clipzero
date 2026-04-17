@@ -17,6 +17,12 @@ export type RawAction = {
   y?: number;
   scoreHome?: string;
   scoreAway?: string;
+  area?: string;
+  areaDetail?: string;
+  descriptor?: string;
+  qualifiers?: string[];
+  foulDrawnPersonId?: number;
+  foulDrawnPlayerName?: string;
 };
 
 export type ClipRecord = {
@@ -40,6 +46,10 @@ export type ClipRecord = {
   thumbnailUrl?: string | null;
   scoreHome?: string;
   scoreAway?: string;
+  area?: string;
+  areaDetail?: string;
+  descriptor?: string;
+  qualifiers?: string[];
 };
 
 export type ScoreboardGame = {
@@ -374,6 +384,10 @@ export function getFilteredActions(
       description: action.description,
       scoreHome: action.scoreHome,
       scoreAway: action.scoreAway,
+      area: action.area,
+      areaDetail: action.areaDetail,
+      descriptor: action.descriptor,
+      qualifiers: action.qualifiers,
     };
   }
 
@@ -482,6 +496,18 @@ export function getFilteredActions(
       return [];
     }
 
+    if (normalized === "fouls-drawn") {
+      if (actionType === "foul" && action.foulDrawnPersonId) {
+        return [
+          makeRecord(action, {
+            personId: action.foulDrawnPersonId,
+            playerName: action.foulDrawnPlayerName,
+          }),
+        ];
+      }
+      return [];
+    }
+
     return [];
   });
 }
@@ -509,6 +535,10 @@ function getShotActions(gameId: string, actions: RawAction[]) {
       description: action.description,
       scoreHome: action.scoreHome,
       scoreAway: action.scoreAway,
+      area: action.area,
+      areaDetail: action.areaDetail,
+      descriptor: action.descriptor,
+      qualifiers: action.qualifiers,
     }));
 }
 

@@ -111,6 +111,7 @@ const GROUP_DEFS: Record<string, SubTypeGroupDef[]> = {
   rebounds: REBOUND_GROUPS,
   turnovers: TURNOVER_GROUPS,
   fouls: FOUL_GROUPS,
+  "fouls-drawn": FOUL_GROUPS,
 };
 
 /**

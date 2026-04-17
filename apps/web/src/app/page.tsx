@@ -64,6 +64,9 @@ async function getClips(
   shotValue?: string,
   subType?: string,
   distanceBucket?: string,
+  area?: string,
+  descriptor?: string,
+  qualifier?: string,
   offset?: number,
   actionNumber?: number | null,
   positionGroup?: string,
@@ -82,6 +85,9 @@ async function getClips(
     shotValue,
     subType,
     distanceBucket,
+    area,
+    descriptor,
+    qualifier,
     actionNumber,
     positionGroup,
     playerIds,
@@ -161,6 +167,9 @@ async function ClipsSection({
   shotValue,
   subType,
   distanceBucket,
+  area,
+  descriptor,
+  qualifier,
   actionNumber,
   homeTeamTricode,
   matchup,
@@ -181,6 +190,9 @@ async function ClipsSection({
   shotValue: string;
   subType: string;
   distanceBucket: string;
+  area: string;
+  descriptor: string;
+  qualifier: string;
   actionNumber: number | null;
   homeTeamTricode?: string;
   matchup?: string;
@@ -232,6 +244,9 @@ async function ClipsSection({
     shotValue,
     subType,
     distanceBucket,
+    area,
+    descriptor,
+    qualifier,
     undefined,
     actionNumber,
     positionGroup,
@@ -259,7 +274,7 @@ async function ClipsSection({
     videoCdnAvailable: initialVideoCdnAvailable,
   } = clipsData;
 
-  const filterKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarter}:${shotValue}:${subType}:${distanceBucket}:${group}:${playerIds ?? ""}:${limit}`;
+  const filterKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarter}:${shotValue}:${subType}:${distanceBucket}:${area}:${descriptor}:${qualifier}:${group}:${playerIds ?? ""}:${limit}`;
 
   return (
     <>
@@ -282,6 +297,9 @@ async function ClipsSection({
         shotValue={shotValue}
         subType={subType}
         distanceBucket={distanceBucket}
+        area={area}
+        descriptor={descriptor}
+        qualifier={qualifier}
         initialActionNumber={actionNumber}
         homeTeamTricode={homeTeamTricode}
         positionGroup={positionGroup}
@@ -310,6 +328,9 @@ export default async function Home({
     shotValue?: string;
     subType?: string;
     distanceBucket?: string;
+    area?: string;
+    descriptor?: string;
+    qualifier?: string;
     personId?: string;
     playerName?: string;
     teamTricode?: string;
@@ -397,6 +418,11 @@ export default async function Home({
         "distanceBucket",
         canonicalMultiValue(params.distanceBucket),
       );
+    if (params.area) canonical.set("area", canonicalMultiValue(params.area));
+    if (params.descriptor)
+      canonical.set("descriptor", canonicalMultiValue(params.descriptor));
+    if (params.qualifier)
+      canonical.set("qualifier", canonicalMultiValue(params.qualifier));
     // Keep gameId only if it resolves to a real game; drop player/team/actionNumber when gameId is dropped
     if (gameIdIsValid && params.gameId) {
       canonical.set("gameId", params.gameId);
@@ -423,6 +449,9 @@ export default async function Home({
   const shotValue = params.shotValue || "";
   const subType = params.subType || "";
   const distanceBucket = params.distanceBucket || "";
+  const area = params.area || "";
+  const descriptor = params.descriptor || "";
+  const qualifier = params.qualifier || "";
   const group = params.group || "";
   const playerIdsParam = params.playerIds || "";
 
@@ -467,6 +496,9 @@ export default async function Home({
           shotValue={shotValue}
           subType={subType}
           distanceBucket={distanceBucket}
+          area={area}
+          descriptor={descriptor}
+          qualifier={qualifier}
           actionNumber={actionNumber}
           homeTeamTricode={selectedGame?.homeTeam?.teamTricode}
           matchup={selectedGame?.matchup ?? ""}
