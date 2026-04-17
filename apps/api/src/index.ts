@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import helmet from "helmet";
 import { apiConfig } from "./lib/config";
 import { getCachedGames, setCachedGames } from "./lib/gamesCache";
 import { logger, serializeError } from "./lib/logger";
@@ -23,7 +24,10 @@ import { createRateLimiter } from "./lib/rateLimit";
 import { matchesNormalizedGroup } from "./lib/subtypeGroups";
 
 const app = express();
-app.set("trust proxy", true);
+// Only trust proxy when explicitly configured (e.g. behind Cloudflare/nginx).
+// When self-hosting directly, trusting proxy headers lets attackers spoof IPs
+// to bypass rate limiting via X-Forwarded-For.
+app.set("trust proxy", process.env.CLIPZERO_TRUST_PROXY === "1");
 const port = apiConfig.port;
 const clipCache = new Map<string, unknown>();
 const gamesCache = new Map<string, unknown>();
@@ -280,6 +284,18 @@ function logRouteError(
 }
 
 app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    },
+    crossOriginResourcePolicy: { policy: "same-origin" },
+    referrerPolicy: { policy: "no-referrer" },
+  }),
+);
+app.use(
   cors({
     origin(origin, callback) {
       if (!origin || apiConfig.allowedOrigins.length === 0) {
@@ -296,7 +312,7 @@ app.use(
     },
   }),
 );
-app.use(express.json());
+app.use(express.json({ limit: "100kb" }));
 app.use((req, res, next) => {
   const startedAt = Date.now();
   res.on("finish", () => {
@@ -381,7 +397,6 @@ app.get("/health", (_req, res) => {
   res.json({
     ok: true,
     disabled: apiConfig.disabled,
-    cacheDir: apiConfig.cacheDir,
     timestamp: new Date().toISOString(),
   });
 });
@@ -436,7 +451,6 @@ app.get("/games", async (req, res) => {
     });
     res.status(500).json({
       error: "Failed to fetch games",
-      details: error?.response?.status ?? error?.message ?? "unknown error",
     });
   }
 });
@@ -460,7 +474,6 @@ app.get("/clips/test", async (_req, res) => {
     logRouteError("clips_test", error, {});
     res.status(500).json({
       error: "Failed to fetch test clip",
-      details: error?.response?.status ?? error?.message ?? "unknown error",
     });
   }
 });
@@ -507,7 +520,9 @@ app.get("/clips/game", async (req, res) => {
       typeof req.query.limit === "string" ? Number(req.query.limit) : 12;
 
     const limit =
-      Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 12;
+      Number.isFinite(limitParam) && limitParam > 0
+        ? Math.min(limitParam, 100)
+        : 12;
 
     const offsetParam =
       typeof req.query.offset === "string" ? Number(req.query.offset) : 0;
@@ -778,7 +793,6 @@ app.get("/clips/game", async (req, res) => {
     });
     res.status(500).json({
       error: "Failed to fetch game clips",
-      details: error?.response?.status ?? error?.message ?? "unknown error",
     });
   }
 });
@@ -835,7 +849,6 @@ app.get("/players", async (req, res) => {
     });
     res.status(500).json({
       error: "Failed to fetch players",
-      details: error?.response?.status ?? error?.message ?? "unknown error",
     });
   }
 });
@@ -872,7 +885,6 @@ app.get("/players/:personId/games", async (req, res) => {
     });
     res.status(500).json({
       error: "Failed to fetch player game log",
-      details: error?.response?.status ?? error?.message ?? "unknown error",
     });
   }
 });
@@ -968,7 +980,9 @@ app.get("/clips/player", async (req, res) => {
     const limitParam =
       typeof req.query.limit === "string" ? Number(req.query.limit) : 12;
     const limit =
-      Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 12;
+      Number.isFinite(limitParam) && limitParam > 0
+        ? Math.min(limitParam, 100)
+        : 12;
 
     const offsetParam =
       typeof req.query.offset === "string" ? Number(req.query.offset) : 0;
@@ -1236,7 +1250,6 @@ app.get("/clips/player", async (req, res) => {
     });
     res.status(500).json({
       error: "Failed to fetch player clips",
-      details: error?.response?.status ?? error?.message ?? "unknown error",
     });
   }
 });

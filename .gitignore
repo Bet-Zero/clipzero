@@ -20,3 +20,4 @@ coverage
 # misc
 .DS_Store
 *.log
+launch.sh
