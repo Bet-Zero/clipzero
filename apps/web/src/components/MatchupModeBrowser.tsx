@@ -20,11 +20,7 @@ import {
   toggleMultiValue,
 } from "@/lib/filters";
 import { NBA_TEAMS, isKnownTeam } from "@/lib/teams";
-import type {
-  Clip,
-  MatchupGame,
-  MatchupModeFilterState,
-} from "@/lib/types";
+import type { Clip, MatchupGame, MatchupModeFilterState } from "@/lib/types";
 import {
   FILTER_PRESETS,
   PLAY_TYPES,
@@ -343,21 +339,8 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (!isOverflowOpen) return;
-    function handleOutside(e: MouseEvent) {
-      const target = e.target as Node;
-      if (
-        triggerRef.current?.contains(target) ||
-        panelRef.current?.contains(target)
-      ) {
-        return;
-      }
-      setIsOverflowOpen(false);
-    }
-    document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
-  }, [isOverflowOpen]);
+  // Filter panel stays open until the Filters button is clicked again —
+  // no outside-click close, so users can make multiple selections freely.
 
   useEffect(() => {
     if (!isGamesOpen) return;
@@ -825,7 +808,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
 
             {validMatchup && (
               <>
-                <div className="flex h-7 items-center rounded bg-zinc-950 p-0.5">
+                <div className="flex h-7 shrink-0 items-center rounded bg-zinc-950 p-0.5">
                   {["", teamA, teamB].map((value) => {
                     const active = team === value;
                     const label = value || "All";
@@ -846,18 +829,6 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
                     );
                   })}
                 </div>
-
-                <select
-                  value={playType}
-                  onChange={(e) => changePlayType(e.target.value)}
-                  className="h-7 shrink-0 rounded bg-zinc-900 px-2 text-sm text-white"
-                >
-                  {PLAY_TYPES.map((pt) => (
-                    <option key={pt} value={pt}>
-                      {PLAY_TYPE_LABELS[pt]}
-                    </option>
-                  ))}
-                </select>
 
                 {games.length > 0 && (
                   <div ref={gamesTriggerRef} className="relative shrink-0">
@@ -939,7 +910,21 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
             ref={panelRef}
             className="absolute left-0 right-0 top-0 z-50 border-b border-zinc-700 bg-zinc-800 shadow-lg"
           >
-            <div className="flex flex-wrap items-start gap-x-4 gap-y-2 px-4 py-2.5">
+            <div className="flex items-center gap-4 overflow-x-auto px-4 py-2.5">
+              <label className="flex shrink-0 items-center gap-2 text-xs text-zinc-500">
+                Play Type
+                <select
+                  value={playType}
+                  onChange={(e) => changePlayType(e.target.value)}
+                  className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
+                >
+                  {PLAY_TYPES.map((pt) => (
+                    <option key={pt} value={pt}>
+                      {PLAY_TYPE_LABELS[pt]}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <MatchupMultiSelectDropdown
                 label="Quarter"
                 summaryLabel={quarterSummary(quarter)}
@@ -1140,8 +1125,8 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
       <div className="flex flex-1 min-h-0 flex-col gap-2 px-4 py-2">
         {!validMatchup ? (
           <div className="mx-auto max-w-2xl px-4 py-8 text-sm text-zinc-400">
-            Select two teams above to load their head-to-head games for{" "}
-            {season}.
+            Select two teams above to load their head-to-head games for {season}
+            .
           </div>
         ) : gamesLoading ? (
           <div className="mx-auto max-w-2xl px-4 py-8 text-sm text-zinc-500">
@@ -1159,8 +1144,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
           <>
             <div className="flex shrink-0 items-center justify-between text-xs text-zinc-600">
               <span>
-                {teamA} vs {teamB} · {includedGameCount} of {games.length}{" "}
-                games
+                {teamA} vs {teamB} · {includedGameCount} of {games.length} games
               </span>
               {initialLoading && <span>Loading clips...</span>}
             </div>
@@ -1178,9 +1162,9 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
             <div className="mx-auto w-full max-w-4xl">
               {!videoCdnAvailable && (
                 <div className="mb-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-                  NBA video CDN is currently returning placeholder videos.
-                  Clips are listed, but playback is disabled until NBA video
-                  files recover.
+                  NBA video CDN is currently returning placeholder videos. Clips
+                  are listed, but playback is disabled until NBA video files
+                  recover.
                 </div>
               )}
               <ClipPlayer
