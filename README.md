@@ -43,36 +43,36 @@ npm run start:web
 
 ## Vercel web + local API
 
-If the frontend is deployed on Vercel and the API is running on your machine,
-configure:
+Frontend is on Vercel: https://clipzero-web.vercel.app
+API runs locally and is exposed via Cloudflare Tunnel at: https://clipzeroapi.xyz
 
-### Running the tunnel (do this every session)
+### Every session — run both of these
 
-Start the API in Terminal 1:
-
-```bash
-cd /Users/brenthibbitts/clipzero && npm run dev:api
-```
-
-Start the public tunnel in Terminal 2:
+Terminal 1 (API):
 
 ```bash
-cloudflared tunnel --url http://localhost:4000
+cd /Users/brenthibbitts/clipzero && npm run build:api && node apps/api/dist/index.js
 ```
 
-The tunnel prints a URL like `https://something.trycloudflare.com`. Copy that URL
-and set it as `NEXT_PUBLIC_API_BASE_URL` in Vercel, then redeploy.
-The URL changes each time you restart the tunnel.
-
-### Once clipzeroapi.xyz activates in Cloudflare
-
-Run the named tunnel instead (fixed URL, no Vercel redeploy needed each time):
+Terminal 2 (tunnel):
 
 ```bash
 cloudflared tunnel run clipzero-api
 ```
 
-The stable API URL will be: `https://api.clipzeroapi.xyz`
+Verify both are working:
+
+```bash
+curl -sS https://clipzeroapi.xyz/health
+```
+
+Should return `{"ok":true,...}`.
+
+### Vercel env var (already set, do not change)
+
+```
+NEXT_PUBLIC_API_BASE_URL=https://clipzeroapi.xyz
+```
 
 ### Vercel env var to set
 
