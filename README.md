@@ -46,21 +46,96 @@ npm run start:web
 Frontend is on Vercel: https://clipzero-web.vercel.app
 API runs locally and is exposed via Cloudflare Tunnel at: https://clipzeroapi.xyz
 
-### Every session — run both of these (if not using pm2)
+### Daily operations
 
-Terminal 1 (keep open):
+Most days, you do not need to run anything. PM2 keeps both the API and tunnel
+running in the background.
 
-```bash
-cd /Users/brenthibbitts/clipzero && npm run build:api && npm run start:api
-```
-
-Terminal 2 (keep open):
+Quick health check:
 
 ```bash
-cloudflared tunnel run clipzero-api
+cd /Users/brenthibbitts/clipzero
+pm2 status
+curl -sS https://clipzeroapi.xyz/health
 ```
 
-### Permanent setup with pm2 (run once — survives reboots)
+Expected PM2 processes:
+
+```text
+clipzero-api      online
+clipzero-tunnel   online
+```
+
+Expected health response includes:
+
+```json
+{"ok":true,"disabled":false}
+```
+
+Open the app:
+
+```text
+https://clipzero-web.vercel.app
+```
+
+### Restart commands
+
+```bash
+# Restart API only, usually after API code changes
+pm2 restart clipzero-api --update-env
+
+# Restart tunnel only, if public URL is down but local API works
+pm2 restart clipzero-tunnel --update-env
+
+# Restart both, if unsure
+pm2 restart clipzero-api --update-env
+pm2 restart clipzero-tunnel --update-env
+```
+
+### After API code changes
+
+```bash
+cd /Users/brenthibbitts/clipzero
+npm install
+npm run build:api
+npm run test:api
+pm2 restart clipzero-api --update-env
+curl -sS https://clipzeroapi.xyz/health
+```
+
+### After frontend code changes
+
+```bash
+cd /Users/brenthibbitts/clipzero
+npm run test:web
+npm run build:web
+git add .
+git commit -m "Describe the frontend change"
+git push
+```
+
+Vercel deploys the frontend after `git push`.
+
+### Logs
+
+```bash
+pm2 logs clipzero-api --lines 100
+pm2 logs clipzero-tunnel --lines 100
+```
+
+### If the Mac rebooted
+
+```bash
+cd /Users/brenthibbitts/clipzero
+pm2 resurrect
+pm2 status
+curl -sS https://clipzeroapi.xyz/health
+```
+
+### Permanent PM2 setup
+
+Only run this when setting PM2 up from scratch or changing the process list.
+You do not need `pm2 save` after normal restarts.
 
 ```bash
 cd /Users/brenthibbitts/clipzero
@@ -73,24 +148,6 @@ pm2 startup
 ```
 
 Run the `sudo ...` command that `pm2 startup` prints. After that, no terminals needed.
-
-Useful pm2 commands:
-
-```bash
-pm2 status                  # see if both are running
-pm2 logs clipzero-api       # API logs
-pm2 logs clipzero-tunnel    # tunnel logs
-pm2 restart clipzero-api    # restart API after code changes
-pm2 stop all                # stop everything
-```
-
-Verify both are working:
-
-```bash
-curl -sS https://clipzeroapi.xyz/health
-```
-
-Should return `{"ok":true,...}`.
 
 ### Vercel env var (already set, do not change)
 
