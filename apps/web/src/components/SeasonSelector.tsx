@@ -35,12 +35,23 @@ export default function SeasonSelector({
 
         search.set("season", newSeason);
 
-        // Keep date only if it still falls within the new season
-        const currentDate = params.get("date");
-        if (currentDate && dateInSeason(currentDate, newSeason)) {
-          search.set("date", currentDate);
+        const mode = params.get("mode");
+        if (mode === "player" || mode === "matchup") {
+          search.set("mode", mode);
+          if (mode === "matchup") {
+            const teamA = params.get("teamA");
+            const teamB = params.get("teamB");
+            if (teamA) search.set("teamA", teamA);
+            if (teamB) search.set("teamB", teamB);
+          }
         } else {
-          search.set("date", defaultDateForSeason(newSeason));
+          // Keep date only if it still falls within the new season.
+          const currentDate = params.get("date");
+          if (currentDate && dateInSeason(currentDate, newSeason)) {
+            search.set("date", currentDate);
+          } else {
+            search.set("date", defaultDateForSeason(newSeason));
+          }
         }
 
         // Preserve limit if set

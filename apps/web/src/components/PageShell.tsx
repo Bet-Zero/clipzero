@@ -4,6 +4,7 @@ import { useState, useCallback, createContext, useContext } from "react";
 import { useRouter } from "next/navigation";
 import DatePicker from "@/components/DatePicker";
 import GameSelector from "@/components/GameSelector";
+import MatchupModeBrowser from "@/components/MatchupModeBrowser";
 import ModeToggle from "@/components/ModeToggle";
 import PlayerModeBrowser from "@/components/PlayerModeBrowser";
 import SeasonSelector from "@/components/SeasonSelector";
@@ -28,7 +29,7 @@ export function useWatchMode() {
 }
 
 type Props = {
-  initialMode: "game" | "player";
+  initialMode: "game" | "player" | "matchup";
   season: Season;
   selectedDate: string;
   games?: Game[];
@@ -50,7 +51,9 @@ export default function PageShell({
   gameDate,
   children,
 }: Props) {
-  const [mode, setMode] = useState<"game" | "player">(initialMode);
+  const [mode, setMode] = useState<"game" | "player" | "matchup">(
+    initialMode,
+  );
   const [isWatchMode, setIsWatchMode] = useState(false);
   // Remember whether the server already rendered game content for us.
   // Once true it stays true for the lifetime of this client component instance.
@@ -58,7 +61,7 @@ export default function PageShell({
   const router = useRouter();
 
   const switchMode = useCallback(
-    (newMode: "game" | "player") => {
+    (newMode: "game" | "player" | "matchup") => {
       if (newMode === mode) return;
       setIsWatchMode(false);
 
@@ -78,6 +81,8 @@ export default function PageShell({
       const url = new URL(window.location.href);
       if (newMode === "player") {
         url.searchParams.set("mode", "player");
+      } else if (newMode === "matchup") {
+        url.searchParams.set("mode", "matchup");
       } else {
         url.searchParams.delete("mode");
       }
@@ -144,6 +149,20 @@ export default function PageShell({
               />
             </>
           )}
+          {mode === "matchup" && (
+            <>
+              {!isWatchMode && (
+                <div
+                  className="h-5 w-px bg-zinc-700 shrink-0"
+                  aria-hidden="true"
+                />
+              )}
+              <div
+                id="matchup-filter-portal"
+                className={isWatchMode ? "hidden" : "contents"}
+              />
+            </>
+          )}
         </div>
 
         {/* Overlay anchor for filter panels — sits between the top bar and content.
@@ -157,9 +176,13 @@ export default function PageShell({
         <div className="flex flex-1 min-h-0 flex-col">
           {mode === "game" ? (
             children
-          ) : (
+          ) : mode === "player" ? (
             <div className="flex-1 min-h-0 overflow-y-auto">
               <PlayerModeBrowser season={season} />
+            </div>
+          ) : (
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <MatchupModeBrowser season={season} />
             </div>
           )}
         </div>

@@ -14,11 +14,15 @@ import {
   getVideoEventAsset,
   getAllPlayers,
   getPlayerGameLog,
+  getTeamByTricode,
+  getTeamGameLog,
 } from "./lib/nba";
 import type {
   PlayerDirectoryEntry,
   PlayerGameLogEntry,
   RawAction,
+  TeamDirectoryEntry,
+  TeamGameLogEntry,
 } from "./lib/nba";
 import { getPersistentValue, setPersistentValue } from "./lib/persistentCache";
 import { createRateLimiter } from "./lib/rateLimit";
@@ -106,7 +110,10 @@ const videoAssetCache = new Map<
 >();
 const playerDirectoryCache = new Map<string, PlayerDirectoryEntry[]>();
 const playerGameLogCache = new Map<string, PlayerGameLogEntry[]>();
+const teamGameLogCache = new Map<string, TeamGameLogEntry[]>();
+const matchupGamesCache = new Map<string, MatchupGame[]>();
 const playerClipCache = new Map<string, unknown>();
+const matchupClipCache = new Map<string, unknown>();
 const playByPlayCache = new Map<string, RawAction[]>();
 const boxScoreCache = new Map<string, Map<number, string>>();
 
@@ -136,6 +143,15 @@ type PlayerActionWithGame = {
   scoreHome?: string | undefined;
   scoreAway?: string | undefined;
   videoActionNumber?: number | undefined;
+};
+
+type MatchupGame = {
+  gameId: string;
+  gameDate: string;
+  matchup: string;
+  wl: string;
+  homeTeam: Pick<TeamDirectoryEntry, "teamId" | "tricode" | "fullName">;
+  awayTeam: Pick<TeamDirectoryEntry, "teamId" | "tricode" | "fullName">;
 };
 
 const playerSeasonActionsCache = new Map<string, PlayerActionWithGame[]>();
@@ -340,6 +356,88 @@ async function getCachedPlayerGameLogForSeason(
   return gameLog;
 }
 
+async function getCachedTeamGameLogForSeason(
+  team: TeamDirectoryEntry,
+  season: string,
+): Promise<TeamGameLogEntry[]> {
+  const cacheKey = `${team.tricode}:${season}`;
+  const cached = teamGameLogCache.get(cacheKey);
+  if (cached) return cached;
+
+  const persisted = await getPersistentValue<TeamGameLogEntry[]>(
+    "team-game-logs",
+    cacheKey,
+  );
+  if (persisted) {
+    teamGameLogCache.set(cacheKey, persisted);
+    return persisted;
+  }
+
+  const gameLog = await getTeamGameLog(team.teamId, season);
+  teamGameLogCache.set(cacheKey, gameLog);
+  persistValueBestEffort("team-game-logs", cacheKey, gameLog);
+  return gameLog;
+}
+
+function teamLite(team: TeamDirectoryEntry): MatchupGame["homeTeam"] {
+  return {
+    teamId: team.teamId,
+    tricode: team.tricode,
+    fullName: team.fullName,
+  };
+}
+
+function buildMatchupGame(
+  entry: TeamGameLogEntry,
+  perspectiveTeam: TeamDirectoryEntry,
+  opponentTeam: TeamDirectoryEntry,
+): MatchupGame | null {
+  const matchup = entry.matchup.toUpperCase();
+  const isAway = /\s@\s/.test(matchup);
+  const isHome = /\sVS\.?\s/.test(matchup);
+
+  if (!matchup.includes(opponentTeam.tricode)) return null;
+  if (!isAway && !isHome) return null;
+
+  const awayTeam = isAway ? perspectiveTeam : opponentTeam;
+  const homeTeam = isHome ? perspectiveTeam : opponentTeam;
+
+  return {
+    gameId: entry.gameId,
+    gameDate: normalizeDate(entry.gameDate),
+    matchup: `${awayTeam.tricode} @ ${homeTeam.tricode}`,
+    wl: entry.wl,
+    awayTeam: teamLite(awayTeam),
+    homeTeam: teamLite(homeTeam),
+  };
+}
+
+async function getCachedMatchupGamesForSeason(
+  teamA: TeamDirectoryEntry,
+  teamB: TeamDirectoryEntry,
+  season: string,
+): Promise<MatchupGame[]> {
+  const cacheKey = `${season}:${teamA.tricode}:${teamB.tricode}`;
+  const cached = matchupGamesCache.get(cacheKey);
+  if (cached) return cached;
+
+  const log = await getCachedTeamGameLogForSeason(teamA, season);
+  const byGameId = new Map<string, MatchupGame>();
+
+  for (const entry of log) {
+    const game = buildMatchupGame(entry, teamA, teamB);
+    if (game) byGameId.set(game.gameId, game);
+  }
+
+  const games = [...byGameId.values()].sort((a, b) => {
+    const dateCompare = a.gameDate.localeCompare(b.gameDate);
+    return dateCompare !== 0 ? dateCompare : a.gameId.localeCompare(b.gameId);
+  });
+
+  matchupGamesCache.set(cacheKey, games);
+  return games;
+}
+
 async function getCachedSeasonActions(
   cacheKey: string,
 ): Promise<PlayerActionWithGame[] | null> {
@@ -464,6 +562,14 @@ app.use(
   }),
 );
 app.use(
+  "/clips/matchup",
+  createRateLimiter({
+    name: "clips-matchup",
+    windowMs: apiConfig.rateLimit.heavyWindowMs,
+    max: apiConfig.rateLimit.heavyMax,
+  }),
+);
+app.use(
   "/players",
   createRateLimiter({
     name: "players",
@@ -551,6 +657,48 @@ app.get("/games", async (req, res) => {
     });
     res.status(500).json({
       error: "Failed to fetch games",
+    });
+  }
+});
+
+app.get("/matchups", async (req, res) => {
+  try {
+    const season =
+      typeof req.query.season === "string" && req.query.season.trim() !== ""
+        ? req.query.season.trim()
+        : "2025-26";
+    const teamA = getTeamByTricode(
+      typeof req.query.teamA === "string" ? req.query.teamA : "",
+    );
+    const teamB = getTeamByTricode(
+      typeof req.query.teamB === "string" ? req.query.teamB : "",
+    );
+
+    if (!teamA || !teamB) {
+      return res.status(400).json({ error: "Valid teamA and teamB required" });
+    }
+
+    if (teamA.tricode === teamB.tricode) {
+      return res.status(400).json({ error: "Teams must be different" });
+    }
+
+    const games = await getCachedMatchupGamesForSeason(teamA, teamB, season);
+
+    res.json({
+      season,
+      teamA: teamLite(teamA),
+      teamB: teamLite(teamB),
+      count: games.length,
+      games,
+    });
+  } catch (error: any) {
+    logRouteError("matchups", error, {
+      season: typeof req.query.season === "string" ? req.query.season : "",
+      teamA: typeof req.query.teamA === "string" ? req.query.teamA : "",
+      teamB: typeof req.query.teamB === "string" ? req.query.teamB : "",
+    });
+    res.status(500).json({
+      error: "Failed to fetch matchup games",
     });
   }
 });
@@ -906,6 +1054,313 @@ app.get("/clips/game", async (req, res) => {
     });
     res.status(500).json({
       error: "Failed to fetch game clips",
+    });
+  }
+});
+
+app.get("/clips/matchup", async (req, res) => {
+  try {
+    const startedAt = Date.now();
+    let assetUrlsResolved = 0;
+    let assetUrlsUnresolved = 0;
+
+    const season =
+      typeof req.query.season === "string" && req.query.season.trim() !== ""
+        ? req.query.season.trim()
+        : "2025-26";
+    const teamA = getTeamByTricode(
+      typeof req.query.teamA === "string" ? req.query.teamA : "",
+    );
+    const teamB = getTeamByTricode(
+      typeof req.query.teamB === "string" ? req.query.teamB : "",
+    );
+
+    if (!teamA || !teamB) {
+      return res.status(400).json({ error: "Valid teamA and teamB required" });
+    }
+
+    if (teamA.tricode === teamB.tricode) {
+      return res.status(400).json({ error: "Teams must be different" });
+    }
+
+    const team =
+      typeof req.query.team === "string"
+        ? req.query.team.trim().toUpperCase()
+        : "";
+    const teamValues = team
+      ? team
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : [];
+
+    const result =
+      typeof req.query.result === "string" && req.query.result.trim() !== ""
+        ? req.query.result
+        : "all";
+
+    const limitParam =
+      typeof req.query.limit === "string" ? Number(req.query.limit) : 12;
+    const limit =
+      Number.isFinite(limitParam) && limitParam > 0
+        ? Math.min(limitParam, 100)
+        : 12;
+
+    const offsetParam =
+      typeof req.query.offset === "string" ? Number(req.query.offset) : 0;
+    const offset =
+      Number.isFinite(offsetParam) && offsetParam >= 0
+        ? Math.floor(offsetParam)
+        : 0;
+
+    const playType =
+      typeof req.query.playType === "string" && req.query.playType.trim() !== ""
+        ? req.query.playType
+        : "all";
+
+    const quarterParam =
+      typeof req.query.quarter === "string" ? req.query.quarter.trim() : "";
+    const quarterValues = quarterParam
+      ? quarterParam
+          .split(",")
+          .map((q) => Number(q.trim()))
+          .filter((n) => Number.isFinite(n) && n > 0)
+      : [];
+
+    const shotValue =
+      typeof req.query.shotValue === "string"
+        ? req.query.shotValue.trim().toLowerCase()
+        : "";
+
+    const subType =
+      typeof req.query.subType === "string"
+        ? req.query.subType.trim().toLowerCase()
+        : "";
+    const subTypeValues = subType
+      ? subType
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
+
+    const distanceBucket =
+      typeof req.query.distanceBucket === "string"
+        ? req.query.distanceBucket.trim()
+        : "";
+    const distanceBucketValues = distanceBucket
+      ? distanceBucket
+          .split(",")
+          .map((d) => d.trim())
+          .filter(Boolean)
+      : [];
+
+    const excludeGameIdsParam =
+      typeof req.query.excludeGameIds === "string"
+        ? req.query.excludeGameIds.trim()
+        : "";
+    const excludeGameIds = new Set(
+      excludeGameIdsParam
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean),
+    );
+
+    const actionNumberParam =
+      typeof req.query.actionNumber === "string"
+        ? Number(req.query.actionNumber)
+        : NaN;
+    const targetActionNumber =
+      Number.isFinite(actionNumberParam) && actionNumberParam > 0
+        ? actionNumberParam
+        : null;
+
+    const normalizedExcludeKey = [...excludeGameIds].sort().join(",");
+    const cacheKey = `${season}:${teamA.tricode}:${teamB.tricode}:${normalizedExcludeKey}:${team}:${result}:${playType}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${limit}:${offset}`;
+    const videoCdnAvailable = await checkNbaVideoCdnHealth();
+    if (!targetActionNumber && videoCdnAvailable) {
+      const cached = matchupClipCache.get(cacheKey);
+      if (cached) {
+        return res.json(cached);
+      }
+    }
+
+    const matchupGames = await getCachedMatchupGamesForSeason(
+      teamA,
+      teamB,
+      season,
+    );
+    const includedGames = matchupGames.filter(
+      (game) => !excludeGameIds.has(game.gameId),
+    );
+
+    const gameActionGroups = await mapWithConcurrency(
+      includedGames,
+      3,
+      async (game) => {
+        try {
+          const [actions, playerNameMap] = await Promise.all([
+            getCachedPlayByPlay(game.gameId),
+            getCachedPlayerNameMap(game.gameId),
+          ]);
+
+          return getFilteredActions(game.gameId, actions, playType).map(
+            (action) => ({
+              ...action,
+              gameDate: game.gameDate,
+              matchup: game.matchup,
+              playerName:
+                (action.personId
+                  ? playerNameMap.get(action.personId)
+                  : undefined) ?? action.playerName,
+            }),
+          );
+        } catch (error) {
+          logger.warn("clips_matchup_game_fetch_failed", {
+            gameId: game.gameId,
+            matchup: game.matchup,
+            ...serializeError(error),
+          });
+          return [] as PlayerActionWithGame[];
+        }
+      },
+    );
+
+    const allActions: PlayerActionWithGame[] = gameActionGroups.flat();
+    const filteredActions = allActions.filter((action) => {
+      const matchesTeam =
+        teamValues.length === 0 || teamValues.includes(action.teamTricode ?? "");
+      const isShot =
+        action.actionType?.toLowerCase() === "2pt" ||
+        action.actionType?.toLowerCase() === "3pt";
+      const matchesResult =
+        result === "all" || !isShot || action.shotResult === result;
+      const matchesQuarter =
+        quarterValues.length === 0 ||
+        quarterValues.includes(action.period ?? 0);
+      const matchesShotValue =
+        !shotValue || action.actionType?.toLowerCase() === shotValue;
+      const matchesSubType =
+        subTypeValues.length === 0 ||
+        subTypeValues.some((st) =>
+          matchesNormalizedGroup(
+            playType,
+            st,
+            action.subType,
+            action.description,
+          ),
+        );
+      const matchesDistance =
+        distanceBucketValues.length === 0 ||
+        distanceBucketValues.some((db) =>
+          matchesDistanceBucket(action.shotDistance, db),
+        );
+
+      return (
+        matchesTeam &&
+        matchesResult &&
+        matchesQuarter &&
+        matchesShotValue &&
+        matchesSubType &&
+        matchesDistance
+      );
+    });
+
+    const pageActions = filteredActions.slice(offset, offset + limit);
+    const clips = await mapWithConcurrency(pageActions, 3, async (action) => {
+      if (!action.actionNumber) {
+        return {
+          ...action,
+          videoUrl: null,
+          thumbnailUrl: null,
+        };
+      }
+
+      const videoEventId =
+        (action as { videoActionNumber?: number }).videoActionNumber ??
+        action.actionNumber;
+      const cachedAsset = videoCdnAvailable
+        ? await getCachedVideoAsset(action.gameId, videoEventId)
+        : emptyVideoAsset;
+
+      if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
+        assetUrlsResolved += 1;
+        return {
+          ...action,
+          videoUrl: cachedAsset.videoUrl,
+          thumbnailUrl: cachedAsset.thumbnailUrl,
+        };
+      }
+
+      assetUrlsUnresolved += 1;
+      return {
+        ...action,
+        ...cachedAsset,
+      };
+    });
+
+    const hasMore = offset + clips.length < filteredActions.length;
+    const nextOffset = hasMore ? offset + clips.length : null;
+
+    let targetIndex: number | null | undefined;
+    if (targetActionNumber !== null) {
+      const idx = filteredActions.findIndex(
+        (action) => action.actionNumber === targetActionNumber,
+      );
+      targetIndex = idx >= 0 ? idx : null;
+    }
+
+    const payload = {
+      season,
+      teamA: teamLite(teamA),
+      teamB: teamLite(teamB),
+      count: clips.length,
+      total: filteredActions.length,
+      offset,
+      limit,
+      hasMore,
+      nextOffset,
+      gamesIncluded: includedGames.length,
+      gamesExcluded: excludeGameIds.size,
+      games: includedGames,
+      videoCdnAvailable,
+      clips,
+      ...(targetIndex !== undefined ? { targetIndex } : {}),
+    };
+
+    if (!targetActionNumber && videoCdnAvailable && assetUrlsUnresolved === 0) {
+      matchupClipCache.set(cacheKey, payload);
+    }
+
+    logger.info("clips_matchup_ready", {
+      season,
+      teamA: teamA.tricode,
+      teamB: teamB.tricode,
+      playType,
+      quarter: quarterParam || "all",
+      team: team || "all",
+      result,
+      offset,
+      clipCount: clips.length,
+      totalCount: filteredActions.length,
+      gamesIncluded: includedGames.length,
+      gamesExcluded: excludeGameIds.size,
+      hasMore,
+      nextOffset,
+      assetUrlsResolved,
+      assetUrlsUnresolved,
+      videoCdnAvailable,
+      time: msSince(startedAt),
+    });
+
+    res.json(payload);
+  } catch (error: any) {
+    logRouteError("clips_matchup", error, {
+      season: typeof req.query.season === "string" ? req.query.season : "",
+      teamA: typeof req.query.teamA === "string" ? req.query.teamA : "",
+      teamB: typeof req.query.teamB === "string" ? req.query.teamB : "",
+    });
+    res.status(500).json({
+      error: "Failed to fetch matchup clips",
     });
   }
 });

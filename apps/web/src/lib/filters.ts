@@ -1,4 +1,4 @@
-import type { PlayerModeFilterState } from "./types";
+import type { MatchupModeFilterState, PlayerModeFilterState } from "./types";
 
 export const DEFAULT_PLAY_TYPE = "all";
 export const DEFAULT_RESULT = "all";
@@ -137,6 +137,48 @@ export function buildPlayerClipSearchParams(
   return search;
 }
 
+type MatchupClipQueryParams = {
+  teamA: string;
+  teamB: string;
+  season: string;
+  limit: number;
+  offset: number;
+  team?: string;
+  playType?: string;
+  result?: string;
+  quarter?: string;
+  shotValue?: string;
+  subType?: string;
+  distanceBucket?: string;
+  excludeGameIds?: string[];
+  actionNumber?: number | null;
+};
+
+export function buildMatchupClipSearchParams(
+  params: MatchupClipQueryParams,
+): URLSearchParams {
+  const search = new URLSearchParams();
+  search.set("teamA", params.teamA);
+  search.set("teamB", params.teamB);
+  search.set("season", params.season);
+  search.set("limit", String(params.limit));
+  search.set("offset", String(params.offset));
+  if (params.team) search.set("team", params.team);
+  if (params.playType) search.set("playType", params.playType);
+  if (params.result && params.result !== DEFAULT_RESULT)
+    search.set("result", params.result);
+  if (params.quarter) search.set("quarter", params.quarter);
+  if (params.shotValue) search.set("shotValue", params.shotValue);
+  if (params.subType) search.set("subType", params.subType);
+  if (params.distanceBucket)
+    search.set("distanceBucket", params.distanceBucket);
+  if (params.excludeGameIds && params.excludeGameIds.length > 0)
+    search.set("excludeGameIds", params.excludeGameIds.join(","));
+  if (params.actionNumber)
+    search.set("actionNumber", String(params.actionNumber));
+  return search;
+}
+
 function parseCommaSeparatedSet(value: string | null): Set<string> {
   if (!value) return new Set();
   return new Set(value.split(",").filter(Boolean));
@@ -172,6 +214,26 @@ export function parsePlayerModeParams(
   };
 }
 
+export function parseMatchupModeParams(
+  params: URLSearchParams,
+): MatchupModeFilterState {
+  const actionNumberStr = params.get("actionNumber");
+
+  return {
+    teamA: params.get("teamA") || "",
+    teamB: params.get("teamB") || "",
+    team: params.get("team") || "",
+    playType: params.get("playType") || DEFAULT_PLAY_TYPE,
+    result: params.get("result") || DEFAULT_RESULT,
+    quarter: params.get("quarter") || "",
+    shotValue: params.get("shotValue") || "",
+    subType: params.get("subType") || "",
+    distanceBucket: params.get("distanceBucket") || "",
+    excludedGameIds: parseCommaSeparatedSet(params.get("excludeGameIds")),
+    actionNumber: actionNumberStr ? Number(actionNumberStr) : null,
+  };
+}
+
 export function buildPlayerModeUrl(
   season: string,
   state: PlayerModeFilterState,
@@ -202,6 +264,36 @@ export function buildPlayerModeUrl(
   if (gameIds.length > 0) search.set("excludeGameIds", gameIds.join(","));
   const dates = [...state.excludedDates].filter(Boolean).sort();
   if (dates.length > 0) search.set("excludeDates", dates.join(","));
+
+  if (state.actionNumber !== null)
+    search.set("actionNumber", String(state.actionNumber));
+
+  return `/?${cleanSearchString(search)}`;
+}
+
+export function buildMatchupModeUrl(
+  season: string,
+  state: MatchupModeFilterState,
+): string {
+  const search = new URLSearchParams();
+  search.set("mode", "matchup");
+  search.set("season", season);
+
+  if (state.teamA) search.set("teamA", state.teamA);
+  if (state.teamB) search.set("teamB", state.teamB);
+  if (state.team) search.set("team", canonicalMultiValue(state.team));
+  if (state.playType && state.playType !== DEFAULT_PLAY_TYPE)
+    search.set("playType", state.playType);
+  if (state.result && state.result !== DEFAULT_RESULT)
+    search.set("result", state.result);
+  if (state.quarter) search.set("quarter", canonicalMultiValue(state.quarter));
+  if (state.shotValue) search.set("shotValue", state.shotValue);
+  if (state.subType) search.set("subType", canonicalMultiValue(state.subType));
+  if (state.distanceBucket)
+    search.set("distanceBucket", canonicalMultiValue(state.distanceBucket));
+
+  const gameIds = [...state.excludedGameIds].filter(Boolean).sort();
+  if (gameIds.length > 0) search.set("excludeGameIds", gameIds.join(","));
 
   if (state.actionNumber !== null)
     search.set("actionNumber", String(state.actionNumber));

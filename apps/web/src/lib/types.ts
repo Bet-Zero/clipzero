@@ -33,6 +33,21 @@ export type Game = {
   };
 };
 
+export type TeamSummary = {
+  teamId: number;
+  tricode: string;
+  fullName: string;
+};
+
+export type MatchupGame = {
+  gameId: string;
+  gameDate: string;
+  matchup: string;
+  wl?: string;
+  homeTeam: TeamSummary;
+  awayTeam: TeamSummary;
+};
+
 export type Player = {
   name: string;
   teamTricode?: string;
@@ -90,6 +105,24 @@ export type PlayerClipsResponse = {
   targetIndex?: number | null;
 };
 
+export type MatchupClipsResponse = {
+  season: string;
+  teamA: TeamSummary;
+  teamB: TeamSummary;
+  count: number;
+  total: number;
+  offset: number;
+  limit: number;
+  hasMore: boolean;
+  nextOffset: number | null;
+  gamesIncluded: number;
+  gamesExcluded: number;
+  games: MatchupGame[];
+  videoCdnAvailable?: boolean;
+  clips: Clip[];
+  targetIndex?: number | null;
+};
+
 export type PlayerModeFilterState = {
   player: PlayerSearchResult | null;
   playType: string;
@@ -101,6 +134,20 @@ export type PlayerModeFilterState = {
   opponent: string;
   excludedGameIds: Set<string>;
   excludedDates: Set<string>;
+  actionNumber: number | null;
+};
+
+export type MatchupModeFilterState = {
+  teamA: string;
+  teamB: string;
+  team: string;
+  playType: string;
+  result: string;
+  quarter: string;
+  shotValue: string;
+  subType: string;
+  distanceBucket: string;
+  excludedGameIds: Set<string>;
   actionNumber: number | null;
 };
 

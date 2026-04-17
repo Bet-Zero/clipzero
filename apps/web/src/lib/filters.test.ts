@@ -8,8 +8,11 @@ import {
   cleanSearchString,
   buildClipSearchParams,
   buildPlayerClipSearchParams,
+  buildMatchupClipSearchParams,
   parsePlayerModeParams,
+  parseMatchupModeParams,
   buildPlayerModeUrl,
+  buildMatchupModeUrl,
   DEFAULT_PLAY_TYPE,
   DEFAULT_RESULT,
 } from "./filters";
@@ -260,6 +263,53 @@ describe("buildPlayerClipSearchParams", () => {
   });
 });
 
+// ── buildMatchupClipSearchParams ───────────────────────────────────
+
+describe("buildMatchupClipSearchParams", () => {
+  it("sets required matchup params", () => {
+    const params = buildMatchupClipSearchParams({
+      teamA: "BOS",
+      teamB: "LAL",
+      season: "2025-26",
+      limit: 12,
+      offset: 0,
+    });
+    expect(params.get("teamA")).toBe("BOS");
+    expect(params.get("teamB")).toBe("LAL");
+    expect(params.get("season")).toBe("2025-26");
+    expect(params.get("limit")).toBe("12");
+    expect(params.get("offset")).toBe("0");
+  });
+
+  it("sets matchup filters when provided", () => {
+    const params = buildMatchupClipSearchParams({
+      teamA: "BOS",
+      teamB: "LAL",
+      season: "2025-26",
+      limit: 12,
+      offset: 24,
+      team: "BOS",
+      playType: "shots",
+      result: "Made",
+      quarter: "4",
+      shotValue: "3pt",
+      subType: "jump-shot",
+      distanceBucket: "20-29",
+      excludeGameIds: ["g1", "g2"],
+      actionNumber: 9,
+    });
+    expect(params.get("team")).toBe("BOS");
+    expect(params.get("playType")).toBe("shots");
+    expect(params.get("result")).toBe("Made");
+    expect(params.get("quarter")).toBe("4");
+    expect(params.get("shotValue")).toBe("3pt");
+    expect(params.get("subType")).toBe("jump-shot");
+    expect(params.get("distanceBucket")).toBe("20-29");
+    expect(params.get("excludeGameIds")).toBe("g1,g2");
+    expect(params.get("actionNumber")).toBe("9");
+  });
+});
+
 // ── parsePlayerModeParams ───────────────────────────────────────────
 
 describe("parsePlayerModeParams", () => {
@@ -321,6 +371,50 @@ describe("parsePlayerModeParams", () => {
     const params = new URLSearchParams({ personId: "2544" });
     const state = parsePlayerModeParams(params);
     expect(state.player).toBeNull();
+  });
+});
+
+// ── parseMatchupModeParams ──────────────────────────────────────────
+
+describe("parseMatchupModeParams", () => {
+  it("parses full matchup mode params", () => {
+    const params = new URLSearchParams({
+      teamA: "BOS",
+      teamB: "LAL",
+      team: "BOS",
+      playType: "shots",
+      result: "Made",
+      quarter: "4",
+      shotValue: "3pt",
+      subType: "jump-shot",
+      distanceBucket: "20-29",
+      excludeGameIds: "g1,g2",
+      actionNumber: "42",
+    });
+
+    const state = parseMatchupModeParams(params);
+    expect(state.teamA).toBe("BOS");
+    expect(state.teamB).toBe("LAL");
+    expect(state.team).toBe("BOS");
+    expect(state.playType).toBe("shots");
+    expect(state.result).toBe("Made");
+    expect(state.quarter).toBe("4");
+    expect(state.shotValue).toBe("3pt");
+    expect(state.subType).toBe("jump-shot");
+    expect(state.distanceBucket).toBe("20-29");
+    expect(state.excludedGameIds).toEqual(new Set(["g1", "g2"]));
+    expect(state.actionNumber).toBe(42);
+  });
+
+  it("returns defaults for empty matchup params", () => {
+    const state = parseMatchupModeParams(new URLSearchParams());
+    expect(state.teamA).toBe("");
+    expect(state.teamB).toBe("");
+    expect(state.team).toBe("");
+    expect(state.playType).toBe(DEFAULT_PLAY_TYPE);
+    expect(state.result).toBe(DEFAULT_RESULT);
+    expect(state.excludedGameIds).toEqual(new Set());
+    expect(state.actionNumber).toBeNull();
   });
 });
 
@@ -404,5 +498,53 @@ describe("buildPlayerModeUrl", () => {
     expect(url).toContain("season=2024-25");
     expect(url).not.toContain("personId=");
     expect(url).not.toContain("playerName=");
+  });
+});
+
+// ── buildMatchupModeUrl ─────────────────────────────────────────────
+
+describe("buildMatchupModeUrl", () => {
+  it("builds URL with matchup teams", () => {
+    const url = buildMatchupModeUrl("2025-26", {
+      teamA: "BOS",
+      teamB: "LAL",
+      team: "",
+      playType: DEFAULT_PLAY_TYPE,
+      result: DEFAULT_RESULT,
+      quarter: "",
+      shotValue: "",
+      subType: "",
+      distanceBucket: "",
+      excludedGameIds: new Set(),
+      actionNumber: null,
+    });
+    expect(url).toContain("mode=matchup");
+    expect(url).toContain("season=2025-26");
+    expect(url).toContain("teamA=BOS");
+    expect(url).toContain("teamB=LAL");
+    expect(url).not.toContain("playType=");
+  });
+
+  it("builds URL with matchup filters", () => {
+    const url = buildMatchupModeUrl("2025-26", {
+      teamA: "BOS",
+      teamB: "LAL",
+      team: "BOS",
+      playType: "shots",
+      result: "Made",
+      quarter: "1,4",
+      shotValue: "3pt",
+      subType: "dunk,layup",
+      distanceBucket: "0-9,10-19",
+      excludedGameIds: new Set(["g2", "g1"]),
+      actionNumber: 7,
+    });
+    expect(url).toContain("team=BOS");
+    expect(url).toContain("playType=shots");
+    expect(url).toContain("result=Made");
+    expect(url).toContain("quarter=1,4");
+    expect(url).toContain("subType=dunk,layup");
+    expect(url).toContain("excludeGameIds=g1,g2");
+    expect(url).toContain("actionNumber=7");
   });
 });

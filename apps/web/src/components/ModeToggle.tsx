@@ -5,32 +5,30 @@ export default function ModeToggle({
   onSwitch,
 }: {
   mode: string;
-  onSwitch: (mode: "game" | "player") => void;
+  onSwitch: (mode: "game" | "player" | "matchup") => void;
 }) {
+  const modes = [
+    { value: "game", label: "Game", testId: "mode-game" },
+    { value: "player", label: "Player", testId: "mode-player" },
+    { value: "matchup", label: "Matchup", testId: "mode-matchup" },
+  ] as const;
+
   return (
     <div className="flex rounded bg-zinc-900">
-      <button
-        data-testid="mode-game"
-        onClick={() => onSwitch("game")}
-        className={`h-7 rounded px-3 text-xs font-medium transition-colors ${
-          mode !== "player"
-            ? "bg-zinc-700 text-white"
-            : "text-zinc-400 hover:text-zinc-200"
-        }`}
-      >
-        Game
-      </button>
-      <button
-        data-testid="mode-player"
-        onClick={() => onSwitch("player")}
-        className={`h-7 rounded px-3 text-xs font-medium transition-colors ${
-          mode === "player"
-            ? "bg-zinc-700 text-white"
-            : "text-zinc-400 hover:text-zinc-200"
-        }`}
-      >
-        Player
-      </button>
+      {modes.map((item) => (
+        <button
+          key={item.value}
+          data-testid={item.testId}
+          onClick={() => onSwitch(item.value)}
+          className={`h-7 rounded px-3 text-xs font-medium transition-colors ${
+            mode === item.value
+              ? "bg-zinc-700 text-white"
+              : "text-zinc-400 hover:text-zinc-200"
+          }`}
+        >
+          {item.label}
+        </button>
+      ))}
     </div>
   );
 }

@@ -313,6 +313,8 @@ export default async function Home({
     personId?: string;
     playerName?: string;
     teamTricode?: string;
+    teamA?: string;
+    teamB?: string;
     excludeGameIds?: string;
     excludeDates?: string;
     group?: string;
@@ -320,7 +322,12 @@ export default async function Home({
   }>;
 }) {
   const params = await searchParams;
-  const mode = params.mode === "player" ? "player" : "game";
+  const mode =
+    params.mode === "player"
+      ? "player"
+      : params.mode === "matchup"
+        ? "matchup"
+        : "game";
 
   // Derive season: prefer explicit param, then infer from date, then today
   const today = getTodayString();
@@ -328,14 +335,14 @@ export default async function Home({
     ? parseSeason(params.season)
     : seasonForDate(params.date || today);
 
-  // ── Player mode: skip game-scoped data fetching entirely ──
-  if (mode === "player") {
+  // ── Season-scoped modes: skip game-scoped data fetching entirely ──
+  if (mode === "player" || mode === "matchup") {
     const fallbackGameDate = dateInSeason(today, selectedSeason)
       ? today
       : defaultDateForSeason(selectedSeason);
     return (
       <PageShell
-        initialMode="player"
+        initialMode={mode}
         season={selectedSeason}
         selectedDate={fallbackGameDate}
         gameDate={fallbackGameDate}
