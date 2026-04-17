@@ -260,6 +260,128 @@ function PlayerGroupedDropdown({
   );
 }
 
+// Compact dropdown combining group selection + manage action.
+function GroupDropdown({
+  group,
+  customGroups,
+  onSelect,
+  onManage,
+}: {
+  group: string;
+  customGroups: PlayerGroup[];
+  onSelect: (value: string) => void;
+  onManage: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  const label = (() => {
+    if (!group) return "Group";
+    const posGroup = POSITION_GROUPS.find((g) => g.id === group);
+    if (posGroup) return posGroup.name;
+    const customGroup = customGroups.find((g) => g.id === group);
+    if (customGroup) return customGroup.name;
+    return "Group";
+  })();
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={`h-7 rounded px-2 text-sm transition-colors ${
+          group
+            ? "bg-zinc-800 text-white"
+            : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+        }`}
+      >
+        {label}
+        <span className="ml-1 text-zinc-500">▾</span>
+      </button>
+      {open && (
+        <div className="absolute z-30 mt-1 min-w-[160px] overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg">
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              onSelect("");
+              setOpen(false);
+            }}
+            className={`flex w-full items-center px-3 py-1.5 text-left text-sm ${
+              !group
+                ? "bg-zinc-800 text-white"
+                : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+            }`}
+          >
+            All Players
+          </button>
+          <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
+            Position
+          </div>
+          {POSITION_GROUPS.map((g) => (
+            <button
+              key={g.id}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                onSelect(g.id);
+                setOpen(false);
+              }}
+              className={`flex w-full items-center px-3 py-1.5 text-left text-sm ${
+                group === g.id
+                  ? "bg-zinc-800 text-white"
+                  : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+              }`}
+            >
+              {g.name}
+            </button>
+          ))}
+          {customGroups.length > 0 && (
+            <>
+              <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
+                Custom
+              </div>
+              {customGroups.map((g) => (
+                <button
+                  key={g.id}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    onSelect(g.id);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center px-3 py-1.5 text-left text-sm ${
+                    group === g.id
+                      ? "bg-zinc-800 text-white"
+                      : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+                  }`}
+                >
+                  {g.name}
+                </button>
+              ))}
+            </>
+          )}
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              setOpen(false);
+              onManage();
+            }}
+            className="flex w-full items-center border-t border-zinc-800 px-3 py-1.5 text-left text-xs text-zinc-500 hover:text-zinc-300"
+          >
+            Manage Groups…
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function FilterBar({
   players,
   teams,
@@ -566,6 +688,24 @@ export default function FilterBar({
               </div>
             )}
 
+            {/* Group filter + Manage Groups — compact dropdown in main bar */}
+            {!!gameId && (
+              <GroupDropdown
+                group={group}
+                customGroups={customGroups}
+                onSelect={(val) => {
+                  if (val.startsWith("custom:")) {
+                    const resolved = getPlayerGroup(val);
+                    const ids = resolved?.playerIds?.join(",") ?? "";
+                    navigate({ group: val, playerIds: ids });
+                  } else {
+                    navigate({ group: val, playerIds: "" });
+                  }
+                }}
+                onManage={() => setGroupManagerOpen(true)}
+              />
+            )}
+
             <button
               onClick={() => setIsOverflowOpen((o) => !o)}
               className={`relative h-7 rounded px-2 text-sm transition-colors ${
@@ -656,53 +796,6 @@ export default function FilterBar({
                 }
                 onClear={quarter ? () => navigate({ quarter: "" }) : undefined}
               />
-
-              {/* Player Group — unified dropdown for positions + custom groups */}
-              <label className="flex items-center gap-2 text-xs text-zinc-500">
-                Group
-                <select
-                  value={group}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val.startsWith("custom:")) {
-                      // Resolve custom group to playerIds
-                      const resolved = getPlayerGroup(val);
-                      const ids = resolved?.playerIds?.join(",") ?? "";
-                      navigate({ group: val, playerIds: ids });
-                    } else {
-                      // Position groups or "All" — clear playerIds
-                      navigate({ group: val, playerIds: "" });
-                    }
-                  }}
-                  className="h-7 rounded bg-zinc-900 px-2 text-sm text-white"
-                >
-                  <option value="">All Players</option>
-                  <optgroup label="Position">
-                    {POSITION_GROUPS.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                  {customGroups.length > 0 && (
-                    <optgroup label="Custom">
-                      {customGroups.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-              </label>
-
-              <button
-                type="button"
-                onClick={() => setGroupManagerOpen(true)}
-                className="h-7 rounded bg-zinc-900 px-2 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-              >
-                Manage Groups
-              </button>
 
               {/* Play-type-specific filters from filterConfig */}
               {playTypeFilters.map((filter) => {
