@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   useRouter,
@@ -30,8 +30,6 @@ import {
 } from "@/lib/filterConfig";
 import ClipPlayer from "@/components/ClipPlayer";
 import ClipRail from "@/components/ClipRail";
-import WatchBar from "@/components/WatchBar";
-import { useWatchMode } from "@/components/PageShell";
 
 function MatchupMultiSelectDropdown({
   label,
@@ -229,30 +227,6 @@ function getCurrentActionNumber(
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function buildMatchupSummary({
-  teamA,
-  teamB,
-  team,
-  playType,
-}: {
-  teamA: string;
-  teamB: string;
-  team: string;
-  playType: string;
-}): string {
-  const parts: string[] = [];
-  parts.push(teamA && teamB ? `${teamA} vs ${teamB}` : "Select Matchup");
-  if (team) parts.push(team);
-  if (playType && playType !== DEFAULT_PLAY_TYPE) {
-    parts.push(
-      PLAY_TYPE_LABELS[playType as keyof typeof PLAY_TYPE_LABELS] ?? playType,
-    );
-  } else {
-    parts.push("All");
-  }
-  return parts.join(" · ");
-}
-
 function quarterSummary(quarter: string): string {
   const selected = splitMultiValue(quarter);
   if (selected.length === 0) return "All";
@@ -267,7 +241,6 @@ function quarterSummary(quarter: string): string {
 export default function MatchupModeBrowser({ season }: { season: string }) {
   const router = useRouter();
   const params = useSearchParams();
-  const { isWatchMode, enterWatchMode, exitWatchMode } = useWatchMode();
 
   const [games, setGames] = useState<MatchupGame[]>([]);
   const [gamesLoading, setGamesLoading] = useState(false);
@@ -311,7 +284,6 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
 
   const portalTarget = useDomElementById("matchup-filter-portal");
   const overlayTarget = useDomElementById("filter-overlay-anchor");
-  const watchBarPortal = useDomElementById("watch-bar-portal");
   const triggerRef = useRef<HTMLDivElement>(null);
   const gamesTriggerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -397,15 +369,6 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
       cancelled = true;
     };
   }, [validMatchup, season, teamA, teamB]);
-
-  const includedGameCount = useMemo(
-    () =>
-      games.reduce(
-        (count, game) => count + (excludedGameIds.has(game.gameId) ? 0 : 1),
-        0,
-      ),
-    [games, excludedGameIds],
-  );
 
   const fetchClips = useCallback(
     async (offset: number, append: boolean) => {
@@ -520,21 +483,6 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
     distanceBucket,
     excludedGameIdsKey,
   ]);
-
-  const hasMatchupClips = clips.length > 0 && validMatchup;
-  const filterKey = `${teamA}:${teamB}:${team}:${playType}:${result}:${quarter}:${shotValue}:${subType}:${distanceBucket}:${excludedGameIdsKey}`;
-  const prevFilterKey = useRef(filterKey);
-  const watchModeAutoEntered = useRef(false);
-  useEffect(() => {
-    if (prevFilterKey.current !== filterKey) {
-      prevFilterKey.current = filterKey;
-      watchModeAutoEntered.current = false;
-    }
-    if (hasMatchupClips && !watchModeAutoEntered.current) {
-      watchModeAutoEntered.current = true;
-      enterWatchMode();
-    }
-  }, [hasMatchupClips, filterKey, enterWatchMode]);
 
   const loadMore = useCallback(async () => {
     if (loadingRef.current || !hasMore || nextOffset === null) return;
@@ -775,19 +723,10 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
     exclusionCount;
 
   const isFiltered = activeFilterCount > 0;
-  const watchSummary = buildMatchupSummary({ teamA, teamB, team, playType });
 
   return (
     <div>
-      {isWatchMode &&
-        watchBarPortal &&
-        createPortal(
-          <WatchBar summary={watchSummary} onEdit={exitWatchMode} />,
-          watchBarPortal,
-        )}
-
-      {!isWatchMode &&
-        portalTarget &&
+      {portalTarget &&
         createPortal(
           <div ref={triggerRef} className="contents">
             <TeamSelect
@@ -901,8 +840,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
           portalTarget,
         )}
 
-      {!isWatchMode &&
-        isOverflowOpen &&
+      {isOverflowOpen &&
         overlayTarget &&
         validMatchup &&
         createPortal(
@@ -1142,13 +1080,6 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
           </div>
         ) : (
           <>
-            <div className="flex shrink-0 items-center justify-between text-xs text-zinc-600">
-              <span>
-                {teamA} vs {teamB} · {includedGameCount} of {games.length} games
-              </span>
-              {initialLoading && <span>Loading clips...</span>}
-            </div>
-
             <ClipRail
               clips={clips}
               activeIndex={activeIndex}
