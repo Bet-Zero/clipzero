@@ -61,6 +61,7 @@ type PlayerActionWithGame = {
   description?: string | undefined;
   scoreHome?: string | undefined;
   scoreAway?: string | undefined;
+  videoActionNumber?: number | undefined;
 };
 
 const playerSeasonActionsCache = new Map<string, PlayerActionWithGame[]>();
@@ -722,7 +723,10 @@ app.get("/clips/game", async (req, res) => {
         };
       }
 
-      const cachedAsset = await getCachedVideoAsset(gameId, shot.actionNumber);
+      const videoEventId =
+        (shot as { videoActionNumber?: number }).videoActionNumber ??
+        shot.actionNumber;
+      const cachedAsset = await getCachedVideoAsset(gameId, videoEventId);
       if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
         assetUrlsResolved += 1;
         return {
@@ -1173,9 +1177,10 @@ app.get("/clips/player", async (req, res) => {
         return { ...action, videoUrl: null, thumbnailUrl: null };
       }
 
+      const videoEventId = action.videoActionNumber ?? action.actionNumber;
       const cachedAsset = await getCachedVideoAsset(
         action.gameId,
-        action.actionNumber,
+        videoEventId,
       );
       if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
         assetUrlsResolved += 1;
