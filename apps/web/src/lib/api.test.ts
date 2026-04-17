@@ -13,9 +13,9 @@ describe("getApiBase", () => {
     process.env = { ...originalEnv };
   });
 
-  it("returns default localhost when env var is not set", () => {
+  it("returns default API rewrite path when env var is not set", () => {
     delete process.env.NEXT_PUBLIC_API_BASE_URL;
-    expect(getApiBase()).toBe("http://localhost:4000");
+    expect(getApiBase()).toBe("/api");
   });
 
   it("returns env var value when set", () => {

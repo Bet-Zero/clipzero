@@ -96,6 +96,7 @@ async function getClips(
     limit,
     hasMore: false,
     nextOffset: null,
+    videoCdnAvailable: true,
     apiError: false,
   };
 
@@ -113,6 +114,7 @@ async function getClips(
       limit: data.limit ?? limit,
       hasMore: data.hasMore ?? false,
       nextOffset: data.nextOffset ?? null,
+      videoCdnAvailable: data.videoCdnAvailable ?? true,
       targetIndex: data.targetIndex ?? undefined,
       apiError: false,
     };
@@ -254,6 +256,7 @@ async function ClipsSection({
     players,
     hasMore: initialHasMore,
     nextOffset: initialNextOffset,
+    videoCdnAvailable: initialVideoCdnAvailable,
   } = clipsData;
 
   const filterKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarter}:${shotValue}:${subType}:${distanceBucket}:${group}:${playerIds ?? ""}:${limit}`;
@@ -269,6 +272,7 @@ async function ClipsSection({
         initialLimit={limit}
         initialHasMore={initialHasMore}
         initialNextOffset={initialNextOffset}
+        initialVideoCdnAvailable={initialVideoCdnAvailable ?? true}
         gameId={gameId}
         player={player}
         result={result}

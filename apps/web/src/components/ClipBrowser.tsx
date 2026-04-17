@@ -14,6 +14,7 @@ type Props = {
   initialLimit: number;
   initialHasMore: boolean;
   initialNextOffset: number | null;
+  initialVideoCdnAvailable: boolean;
   gameId: string;
   player: string;
   result: string;
@@ -46,6 +47,7 @@ export default function ClipBrowser({
   initialLimit,
   initialHasMore,
   initialNextOffset,
+  initialVideoCdnAvailable,
   gameId,
   player,
   result,
@@ -66,6 +68,9 @@ export default function ClipBrowser({
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [nextOffset, setNextOffset] = useState<number | null>(
     initialNextOffset,
+  );
+  const [videoCdnAvailable, setVideoCdnAvailable] = useState(
+    initialVideoCdnAvailable,
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -174,6 +179,9 @@ export default function ClipBrowser({
       setTotal((prev) => data.total ?? prev);
       setHasMore(data.hasMore ?? false);
       setNextOffset(data.nextOffset ?? null);
+      if (typeof data.videoCdnAvailable === "boolean") {
+        setVideoCdnAvailable(data.videoCdnAvailable);
+      }
     } catch (err) {
       setError(
         err instanceof TypeError
@@ -280,6 +288,12 @@ export default function ClipBrowser({
       />
 
       <div className="mx-auto w-full max-w-4xl">
+        {!videoCdnAvailable && (
+          <div className="mb-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+            NBA video CDN is currently returning placeholder videos. Clips are
+            listed, but playback is disabled until NBA video files recover.
+          </div>
+        )}
         <ClipPlayer
           clip={clips[activeIndex] ?? null}
           onEnded={handleClipEnded}

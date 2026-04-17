@@ -179,6 +179,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
+  const [videoCdnAvailable, setVideoCdnAvailable] = useState(true);
   const [clipsLoading, setClipsLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -398,6 +399,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
         const res = await fetch(buildApiUrl("/clips/player", search));
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
+        if (typeof data.videoCdnAvailable === "boolean") {
+          setVideoCdnAvailable(data.videoCdnAvailable);
+        }
 
         if (append) {
           setClips((prev) => [...prev, ...(data.clips ?? [])]);
@@ -1259,6 +1263,13 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
           />
 
           <div className="mx-auto w-full max-w-4xl">
+            {!videoCdnAvailable && (
+              <div className="mb-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                NBA video CDN is currently returning placeholder videos. Clips
+                are listed, but playback is disabled until NBA video files
+                recover.
+              </div>
+            )}
             <ClipPlayer
               clip={clips[activeIndex] ?? null}
               onEnded={handleClipEnded}

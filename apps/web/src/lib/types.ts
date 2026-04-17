@@ -46,6 +46,7 @@ export type ClipsResponse = {
   limit: number;
   hasMore: boolean;
   nextOffset: number | null;
+  videoCdnAvailable?: boolean;
   targetIndex?: number | null;
 };
 
@@ -84,6 +85,7 @@ export type PlayerClipsResponse = {
   gamesIncluded: number;
   gamesExcluded: number;
   exclusions: { gameId: string; gameDate: string; reason: string }[];
+  videoCdnAvailable?: boolean;
   clips: Clip[];
   targetIndex?: number | null;
 };
