@@ -46,18 +46,42 @@ npm run start:web
 Frontend is on Vercel: https://clipzero-web.vercel.app
 API runs locally and is exposed via Cloudflare Tunnel at: https://clipzeroapi.xyz
 
-### Every session — run both of these
+### Every session — run both of these (if not using pm2)
 
-Terminal 1 (API):
+Terminal 1 (keep open):
 
 ```bash
-cd /Users/brenthibbitts/clipzero && npm run build:api && node apps/api/dist/index.js
+cd /Users/brenthibbitts/clipzero && npm run build:api && npm run start:api
 ```
 
-Terminal 2 (tunnel):
+Terminal 2 (keep open):
 
 ```bash
 cloudflared tunnel run clipzero-api
+```
+
+### Permanent setup with pm2 (run once — survives reboots)
+
+```bash
+cd /Users/brenthibbitts/clipzero
+npm run build:api
+pm2 delete clipzero-api clipzero-tunnel 2>/dev/null || true
+pm2 start "npm run start:api" --name clipzero-api --cwd /Users/brenthibbitts/clipzero
+pm2 start "cloudflared tunnel run clipzero-api" --name clipzero-tunnel
+pm2 save
+pm2 startup
+```
+
+Run the `sudo ...` command that `pm2 startup` prints. After that, no terminals needed.
+
+Useful pm2 commands:
+
+```bash
+pm2 status                  # see if both are running
+pm2 logs clipzero-api       # API logs
+pm2 logs clipzero-tunnel    # tunnel logs
+pm2 restart clipzero-api    # restart API after code changes
+pm2 stop all                # stop everything
 ```
 
 Verify both are working:
@@ -73,20 +97,6 @@ Should return `{"ok":true,...}`.
 ```
 NEXT_PUBLIC_API_BASE_URL=https://clipzeroapi.xyz
 ```
-
-### Vercel env var to set
-
-- `NEXT_PUBLIC_API_BASE_URL` in the Vercel project to your reachable API URL
-  (not `localhost`)
-- `CLIPZERO_ALLOWED_ORIGINS` in the API environment to include
-  `https://clipzero-web.vercel.app`
-
-Quick checks:
-
-1. Open `<api-url>/health` and confirm it returns `ok: true`.
-2. Confirm API env switches are not disabling traffic:
-   - `CLIPZERO_DISABLE_ACCESS=0`
-   - `CLIPZERO_API_DISABLED=0`
 
 ## Private-launch environment variables
 
