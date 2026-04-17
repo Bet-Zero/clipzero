@@ -83,21 +83,10 @@ async function refreshNbaVideoCdnHealth(): Promise<boolean> {
 }
 
 async function checkNbaVideoCdnHealth(): Promise<boolean> {
-  const now = Date.now();
-  if (
-    !nbaVideoCdnCheckInFlight &&
-    now - lastNbaVideoCdnCheck < NBA_VIDEO_CDN_CHECK_INTERVAL_MS
-  ) {
-    return nbaVideoCdnAvailable;
-  }
-
-  if (!nbaVideoCdnCheckInFlight) {
-    nbaVideoCdnCheckInFlight = refreshNbaVideoCdnHealth().finally(() => {
-      nbaVideoCdnCheckInFlight = null;
-    });
-  }
-
-  return nbaVideoCdnCheckInFlight;
+  // Do not block NBA URLs based on synthetic CDN probes. The CDN returns
+  // misleading responses for fake paths, while real clip URLs can still play.
+  // The source of truth is whether videoeventsasset returns a clip URL.
+  return true;
 }
 
 // Fire-and-forget initial check so we know the state early.
@@ -264,9 +253,23 @@ async function getCachedPlayerNameMap(
 ): Promise<Map<number, string>> {
   const cached = boxScoreCache.get(gameId);
   if (cached) return cached;
-  const nameMap = await getPlayerNameMapForGame(gameId);
-  boxScoreCache.set(gameId, nameMap);
-  return nameMap;
+
+  try {
+    const nameMap = await Promise.race([
+      getPlayerNameMapForGame(gameId),
+      new Promise<Map<number, string>>((_, reject) => {
+        setTimeout(() => reject(new Error("boxscore name map timeout")), 5000);
+      }),
+    ]);
+    boxScoreCache.set(gameId, nameMap);
+    return nameMap;
+  } catch (error) {
+    logger.warn("boxscore_name_map_unavailable", {
+      gameId,
+      ...serializeError(error),
+    });
+    return new Map();
+  }
 }
 
 async function mapWithConcurrency<T, R>(
