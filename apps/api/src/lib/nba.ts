@@ -669,6 +669,8 @@ export type TeamGameLogEntry = {
   gameDate: string;
   matchup: string;
   wl: string;
+  pts: number | null;
+  plusMinus: number | null;
 };
 
 /**
@@ -808,13 +810,22 @@ export async function getTeamGameLog(
   const iGameDate = idx("GAME_DATE", "Game_Date");
   const iMatchup = idx("MATCHUP", "Matchup");
   const iWL = idx("WL", "W/L");
+  const iPts = idx("PTS");
+  const iPlusMinus = idx("PLUS_MINUS");
 
   if (iGameId === -1 || iGameDate === -1 || iMatchup === -1) return [];
 
-  return rows.map((row) => ({
-    gameId: row[iGameId] as string,
-    gameDate: (row[iGameDate] as string) ?? "",
-    matchup: (row[iMatchup] as string) ?? "",
-    wl: iWL !== -1 ? ((row[iWL] as string) ?? "") : "",
-  }));
+  return rows.map((row) => {
+    const pts = iPts !== -1 ? (row[iPts] as number | null) : null;
+    const plusMinus =
+      iPlusMinus !== -1 ? (row[iPlusMinus] as number | null) : null;
+    return {
+      gameId: row[iGameId] as string,
+      gameDate: (row[iGameDate] as string) ?? "",
+      matchup: (row[iMatchup] as string) ?? "",
+      wl: iWL !== -1 ? ((row[iWL] as string) ?? "") : "",
+      pts: typeof pts === "number" ? pts : null,
+      plusMinus: typeof plusMinus === "number" ? plusMinus : null,
+    };
+  });
 }

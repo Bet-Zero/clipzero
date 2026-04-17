@@ -69,7 +69,7 @@ clipzero-tunnel   online
 Expected health response includes:
 
 ```json
-{"ok":true,"disabled":false}
+{ "ok": true, "disabled": false }
 ```
 
 Open the app:
@@ -187,3 +187,11 @@ NEXT_PUBLIC_API_BASE_URL=https://clipzeroapi.xyz
 - Watch API logs for `clips_game_ready`, `clips_player_ready`, and `*_failed` events
 - Add an external uptime monitor against the deployed `/health` URL
 - Treat repeated `429` responses as a sign to tune the rate limits or reduce invite scope
+
+## Planned filters (not yet implemented)
+
+- **Playoffs / Regular Season** — filter clips by game type
+- **Home vs Away** — filter by whether the team was home or away
+- **Date Range** — filter clips to a specific date window
+- **Clutch time** — 5 minutes or less remaining in 4th quarter or OT with the score within 5 points
+- **Vs specific player** — filter matchup clips involving a particular opponent (feasibility TBD)

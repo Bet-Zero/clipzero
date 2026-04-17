@@ -152,6 +152,8 @@ type MatchupGame = {
   wl: string;
   homeTeam: Pick<TeamDirectoryEntry, "teamId" | "tricode" | "fullName">;
   awayTeam: Pick<TeamDirectoryEntry, "teamId" | "tricode" | "fullName">;
+  homeScore: number | null;
+  awayScore: number | null;
 };
 
 const playerSeasonActionsCache = new Map<string, PlayerActionWithGame[]>();
@@ -402,6 +404,17 @@ function buildMatchupGame(
   const awayTeam = isAway ? perspectiveTeam : opponentTeam;
   const homeTeam = isHome ? perspectiveTeam : opponentTeam;
 
+  // Compute scores: the game log gives us the perspective team's pts and
+  // plusMinus, so opponentScore = pts - plusMinus.
+  let perspectiveScore: number | null = null;
+  let opponentScore: number | null = null;
+  if (entry.pts !== null && entry.plusMinus !== null) {
+    perspectiveScore = entry.pts;
+    opponentScore = entry.pts - entry.plusMinus;
+  }
+  const awayScore = isAway ? perspectiveScore : opponentScore;
+  const homeScore = isHome ? perspectiveScore : opponentScore;
+
   return {
     gameId: entry.gameId,
     gameDate: normalizeDate(entry.gameDate),
@@ -409,6 +422,8 @@ function buildMatchupGame(
     wl: entry.wl,
     awayTeam: teamLite(awayTeam),
     homeTeam: teamLite(homeTeam),
+    awayScore,
+    homeScore,
   };
 }
 
@@ -1228,7 +1243,8 @@ app.get("/clips/matchup", async (req, res) => {
     const allActions: PlayerActionWithGame[] = gameActionGroups.flat();
     const filteredActions = allActions.filter((action) => {
       const matchesTeam =
-        teamValues.length === 0 || teamValues.includes(action.teamTricode ?? "");
+        teamValues.length === 0 ||
+        teamValues.includes(action.teamTricode ?? "");
       const isShot =
         action.actionType?.toLowerCase() === "2pt" ||
         action.actionType?.toLowerCase() === "3pt";

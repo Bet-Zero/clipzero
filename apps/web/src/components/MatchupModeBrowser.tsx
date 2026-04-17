@@ -169,35 +169,75 @@ function MatchupGameList({
     return <p className="text-sm text-zinc-500">No games found.</p>;
   }
 
+  const includedCount = games.length - excludedGameIds.size;
+
   return (
     <div className="space-y-1">
       <div className="mb-2 flex items-center justify-between text-xs text-zinc-500">
-        <span>{games.length} head-to-head games</span>
-        <span>Click to include/exclude</span>
+        <span>
+          {includedCount} of {games.length} games included
+        </span>
+        <span className="text-zinc-600">click to toggle</span>
       </div>
       {games.map((game) => {
         const isExcluded = excludedGameIds.has(game.gameId);
+        const hasScore =
+          game.awayScore !== null &&
+          game.awayScore !== undefined &&
+          game.homeScore !== null &&
+          game.homeScore !== undefined;
+        const margin = hasScore
+          ? Math.abs(game.awayScore! - game.homeScore!)
+          : null;
+
         return (
           <button
             key={game.gameId}
             onClick={() => onToggleGameId(game.gameId)}
             className={`flex w-full items-center justify-between rounded px-2.5 py-2 text-left text-sm transition-colors ${
               isExcluded
-                ? "bg-zinc-950 text-zinc-600 line-through"
+                ? "bg-zinc-950 opacity-40"
                 : "bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
             }`}
           >
-            <span>
-              {formatGameDate(game.gameDate)} · {game.matchup}
+            <span className={isExcluded ? "text-zinc-500" : ""}>
+              {formatGameDate(game.gameDate)}
+              <span className="mx-1.5 text-zinc-600">·</span>
+              {game.awayTeam.tricode}{" "}
+              {hasScore && (
+                <span
+                  className={
+                    game.awayScore! > game.homeScore!
+                      ? "font-semibold"
+                      : "text-zinc-500"
+                  }
+                >
+                  {game.awayScore}
+                </span>
+              )}
+              <span className="mx-1 text-zinc-600">@</span>
+              {game.homeTeam.tricode}{" "}
+              {hasScore && (
+                <span
+                  className={
+                    game.homeScore! > game.awayScore!
+                      ? "font-semibold"
+                      : "text-zinc-500"
+                  }
+                >
+                  {game.homeScore}
+                </span>
+              )}
             </span>
-            <span
-              className={`rounded px-1.5 py-0.5 text-[10px] ${
-                isExcluded
-                  ? "bg-zinc-900 text-zinc-600"
-                  : "bg-zinc-800 text-zinc-400"
-              }`}
-            >
-              {isExcluded ? "off" : "on"}
+            <span className="flex items-center gap-2">
+              {hasScore && margin !== null && (
+                <span className="text-[10px] text-zinc-600">
+                  {margin === 0 ? "OT?" : `${margin > 15 ? "↑" : ""}+${margin}`}
+                </span>
+              )}
+              <span
+                className={`h-2 w-2 rounded-full ${isExcluded ? "bg-zinc-700" : "bg-emerald-500"}`}
+              />
             </span>
           </button>
         );

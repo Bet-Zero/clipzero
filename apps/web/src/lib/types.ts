@@ -46,6 +46,8 @@ export type MatchupGame = {
   wl?: string;
   homeTeam: TeamSummary;
   awayTeam: TeamSummary;
+  homeScore?: number | null;
+  awayScore?: number | null;
 };
 
 export type Player = {
