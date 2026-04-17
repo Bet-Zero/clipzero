@@ -180,6 +180,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   const [hasMore, setHasMore] = useState(false);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [videoCdnAvailable, setVideoCdnAvailable] = useState(true);
+  const [seasonFullyScanned, setSeasonFullyScanned] = useState(true);
   const [clipsLoading, setClipsLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -292,6 +293,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       setGameLogError(null);
       setClips([]);
       setTotal(0);
+      setSeasonFullyScanned(true);
       return;
     }
 
@@ -401,6 +403,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
         const data = await res.json();
         if (typeof data.videoCdnAvailable === "boolean") {
           setVideoCdnAvailable(data.videoCdnAvailable);
+        }
+        if (typeof data.seasonFullyScanned === "boolean") {
+          setSeasonFullyScanned(data.seasonFullyScanned);
         }
 
         if (append) {
@@ -1282,6 +1287,11 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
               ? ` · ${result}`
               : ""}
             {quarter ? ` · Q${quarter}` : ""}
+            {!seasonFullyScanned && (
+              <span className="ml-2 text-zinc-500">
+                (scanning season history…)
+              </span>
+            )}
           </div>
         </div>
       )}

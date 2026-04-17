@@ -102,6 +102,7 @@ export type PlayerClipsResponse = {
   gamesIncluded: number;
   gamesExcluded: number;
   exclusions: { gameId: string; gameDate: string; reason: string }[];
+  seasonFullyScanned?: boolean;
   videoCdnAvailable?: boolean;
   clips: Clip[];
   targetIndex?: number | null;

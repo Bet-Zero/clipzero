@@ -156,7 +156,18 @@ type MatchupGame = {
   awayScore: number | null;
 };
 
-const playerSeasonActionsCache = new Map<string, PlayerActionWithGame[]>();
+type SeasonActionsBundle = {
+  actions: PlayerActionWithGame[];
+  scannedGameIds: string[];
+};
+
+const playerSeasonActionsCache = new Map<string, SeasonActionsBundle>();
+
+// How many games to scan per request when the season actions cache is cold or
+// partially built.  Keeping this small prevents a burst of 60–80 simultaneous
+// PBP requests to cdn.nba.com on the first player selection, which can trip
+// rate-limiting and cause the endpoint to fail or time out.
+const SEASON_SCAN_BATCH_SIZE = 15;
 
 function msSince(start: number) {
   return `${Date.now() - start}ms`;
@@ -453,30 +464,39 @@ async function getCachedMatchupGamesForSeason(
   return games;
 }
 
-async function getCachedSeasonActions(
+async function getCachedSeasonActionsBundle(
   cacheKey: string,
-): Promise<PlayerActionWithGame[] | null> {
+): Promise<SeasonActionsBundle | null> {
   const cached = playerSeasonActionsCache.get(cacheKey);
   if (cached) return cached;
 
-  const persisted = await getPersistentValue<PlayerActionWithGame[]>(
+  const persisted = await getPersistentValue<unknown>(
     "player-season-actions",
     cacheKey,
   );
-  if (persisted) {
-    playerSeasonActionsCache.set(cacheKey, persisted);
-    return persisted;
+  // Accept only the new bundle format; silently ignore legacy plain arrays
+  // written by older versions of the server.
+  if (
+    persisted !== null &&
+    typeof persisted === "object" &&
+    !Array.isArray(persisted) &&
+    Array.isArray((persisted as SeasonActionsBundle).actions) &&
+    Array.isArray((persisted as SeasonActionsBundle).scannedGameIds)
+  ) {
+    const bundle = persisted as SeasonActionsBundle;
+    playerSeasonActionsCache.set(cacheKey, bundle);
+    return bundle;
   }
 
   return null;
 }
 
-async function setCachedSeasonActions(
+async function setCachedSeasonActionsBundle(
   cacheKey: string,
-  actions: PlayerActionWithGame[],
+  bundle: SeasonActionsBundle,
 ): Promise<void> {
-  playerSeasonActionsCache.set(cacheKey, actions);
-  persistValueBestEffort("player-season-actions", cacheKey, actions);
+  playerSeasonActionsCache.set(cacheKey, bundle);
+  persistValueBestEffort("player-season-actions", cacheKey, bundle);
 }
 
 function getRequestIp(req: express.Request): string {
@@ -1611,17 +1631,31 @@ app.get("/clips/player", async (req, res) => {
     // 1. Get the player's game log
     const gameLog = await getCachedPlayerGameLogForSeason(personId, season);
 
-    // 2. Get or build season-level actions cache
-    //    Keyed by personId:season:playType — reused across result/quarter/exclusion/page changes
+    // 2. Get or build season-level actions cache (incremental — one batch per
+    //    request).  Keyed by personId:season:playType so result/quarter/
+    //    exclusion/page changes all share the same scanned data.
     const seasonCacheKey = `${personId}:${season}:${playType}`;
-    let seasonActions = await getCachedSeasonActions(seasonCacheKey);
-    const seasonCacheHit = seasonActions !== null;
+    let bundle = await getCachedSeasonActionsBundle(seasonCacheKey);
+    const seasonCacheHit = bundle !== null;
 
-    if (!seasonActions) {
-      const collected: PlayerActionWithGame[] = [];
+    // Determine which games haven't been scanned yet.
+    const scannedSet = new Set(bundle?.scannedGameIds ?? []);
+    const unscannedGames = gameLog.filter((g) => !scannedSet.has(g.gameId));
 
-      // Process ALL games (concurrency 5, parallel PBP+boxscore per game)
-      await mapWithConcurrency(gameLog, 5, async (game) => {
+    // Scan the next batch of unscanned games (SEASON_SCAN_BATCH_SIZE at most).
+    // Processing the full game log in one shot can send 60–80 simultaneous
+    // requests to cdn.nba.com and trigger rate-limiting or request timeouts.
+    // Instead we scan incrementally: each request extends coverage by one batch
+    // until every game in the log has been processed.
+    if (unscannedGames.length > 0) {
+      const batchToScan = unscannedGames.slice(0, SEASON_SCAN_BATCH_SIZE);
+      const newActions: PlayerActionWithGame[] = [];
+
+      await mapWithConcurrency(batchToScan, 5, async (game) => {
+        // Mark as scanned regardless of outcome so a persistently failing game
+        // (e.g. cdn.nba.com 404 for historical liveData paths) is not retried
+        // on every subsequent request.
+        scannedSet.add(game.gameId);
         try {
           const gameDateNorm = normalizeDate(game.gameDate);
 
@@ -1654,7 +1688,7 @@ app.get("/clips/player", async (req, res) => {
               matchup: game.matchup,
             }));
 
-          collected.push(...playerActions);
+          newActions.push(...playerActions);
         } catch (err) {
           logger.warn("clips_player_game_fetch_failed", {
             gameId: game.gameId,
@@ -1665,7 +1699,8 @@ app.get("/clips/player", async (req, res) => {
         }
       });
 
-      collected.sort((a, b) => {
+      const mergedActions = [...(bundle?.actions ?? []), ...newActions];
+      mergedActions.sort((a, b) => {
         const dateCompare = (b.gameDate ?? "").localeCompare(a.gameDate ?? "");
         if (dateCompare !== 0) return dateCompare;
         const periodCompare = (a.period ?? 0) - (b.period ?? 0);
@@ -1673,9 +1708,12 @@ app.get("/clips/player", async (req, res) => {
         return (b.clock ?? "").localeCompare(a.clock ?? "");
       });
 
-      seasonActions = collected;
-      await setCachedSeasonActions(seasonCacheKey, seasonActions);
+      bundle = { actions: mergedActions, scannedGameIds: [...scannedSet] };
+      await setCachedSeasonActionsBundle(seasonCacheKey, bundle);
     }
+
+    const seasonActions = bundle?.actions ?? [];
+    const seasonFullyScanned = scannedSet.size >= gameLog.length;
 
     // 3. Apply exclusions + result/quarter filters from cached season data
     const excludedGames: {
@@ -1798,14 +1836,21 @@ app.get("/clips/player", async (req, res) => {
       gamesIncluded: gameLog.length - excludedGames.length,
       gamesExcluded: excludedGames.length,
       exclusions: excludedGames,
+      seasonFullyScanned,
       videoCdnAvailable,
       clips,
       ...(targetIndex !== undefined ? { targetIndex } : {}),
     };
 
-    // Only cache when no actionNumber lookup and all video assets resolved —
-    // don't lock in a response with missing clips that could be retried.
-    if (!targetActionNumber && videoCdnAvailable && assetUrlsUnresolved === 0) {
+    // Only cache when no actionNumber lookup, all video assets resolved, and
+    // the full season has been scanned — don't lock in a partial response that
+    // would prevent future requests from extending the scan window.
+    if (
+      !targetActionNumber &&
+      videoCdnAvailable &&
+      assetUrlsUnresolved === 0 &&
+      seasonFullyScanned
+    ) {
       playerClipCache.set(cacheKey, payload);
     }
 
@@ -1818,6 +1863,8 @@ app.get("/clips/player", async (req, res) => {
       opponent: opponent || "all",
       gamesIncluded: gameLog.length - excludedGames.length,
       gamesTotal: gameLog.length,
+      gamesScanned: scannedSet.size,
+      seasonFullyScanned,
       offset,
       clipCount: clips.length,
       totalCount: total,
