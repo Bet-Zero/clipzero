@@ -174,7 +174,7 @@ function PlayerGroupedDropdown({
               teamPlayers.length > 0 ? (
                 <div
                   key={t}
-                  className="scrollbar-overlay max-h-80 w-[160px] overflow-y-auto border-r border-zinc-800 last:border-r-0"
+                  className="scrollbar-overlay max-h-80 w-52 overflow-x-hidden overflow-y-auto border-r border-zinc-800 last:border-r-0"
                 >
                   <div className="sticky top-0 bg-zinc-950 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
                     {t}
@@ -201,7 +201,7 @@ function PlayerGroupedDropdown({
                         >
                           {checked ? "✓" : ""}
                         </span>
-                        <span className="whitespace-nowrap">{p.name}</span>
+                        <span className="min-w-0 truncate">{p.name}</span>
                       </button>
                     );
                   })}
