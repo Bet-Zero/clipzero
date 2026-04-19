@@ -4,7 +4,10 @@ import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import { apiConfig } from "./lib/config";
-import { logFailureEvent } from "./lib/failureLogger";
+import {
+  logFailureEvent,
+  getRecentClassifiedEvents,
+} from "./lib/failureLogger";
 import type {
   FailureEvidence,
   RawEventKind,
@@ -35,6 +38,7 @@ import type {
 import { getPersistentValue, setPersistentValue } from "./lib/persistentCache";
 import { createRateLimiter } from "./lib/rateLimit";
 import { SingleFlight } from "./lib/singleFlight";
+import { getWindowContext } from "./lib/failureWindows";
 import { matchesNormalizedGroup } from "./lib/subtypeGroups";
 
 // ---------------------------------------------------------------------------
@@ -354,13 +358,10 @@ async function getCachedVideoAsset(
         freshUpstreamFetch: true,
         timedOut: isTimeout,
         httpStatus,
-        networkErrorCode: axios.isAxiosError(error)
-          ? error.code
-          : undefined,
+        networkErrorCode: axios.isAxiosError(error) ? error.code : undefined,
         networkErrorName: error instanceof Error ? error.name : undefined,
         errorName: error instanceof Error ? error.name : undefined,
-        errorMessage:
-          error instanceof Error ? error.message : String(error),
+        errorMessage: error instanceof Error ? error.message : String(error),
       } as FailureEvidence);
 
       return { videoUrl: null, thumbnailUrl: null };
@@ -431,12 +432,9 @@ async function getCachedPlayByPlay(
         durationMs: Date.now() - upstreamStart,
         timedOut: isTimeout,
         httpStatus,
-        networkErrorCode: axios.isAxiosError(error)
-          ? error.code
-          : undefined,
+        networkErrorCode: axios.isAxiosError(error) ? error.code : undefined,
         errorName: error instanceof Error ? error.name : undefined,
-        errorMessage:
-          error instanceof Error ? error.message : String(error),
+        errorMessage: error instanceof Error ? error.message : String(error),
         freshUpstreamFetch: true,
       } as FailureEvidence);
       throw error;
@@ -1270,7 +1268,11 @@ app.get("/clips/game", async (req, res) => {
           (shot as { videoActionNumber?: number }).videoActionNumber ??
           shot.actionNumber;
         const cachedAsset = videoCdnAvailable
-          ? await getCachedVideoAsset(gameId, videoEventId, (req as any).requestId)
+          ? await getCachedVideoAsset(
+              gameId,
+              videoEventId,
+              (req as any).requestId,
+            )
           : emptyVideoAsset;
         if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
           assetUrlsResolved += 1;
@@ -1620,7 +1622,11 @@ app.get("/clips/matchup", async (req, res) => {
           (action as { videoActionNumber?: number }).videoActionNumber ??
           action.actionNumber;
         const cachedAsset = videoCdnAvailable
-          ? await getCachedVideoAsset(action.gameId, videoEventId, (req as any).requestId)
+          ? await getCachedVideoAsset(
+              action.gameId,
+              videoEventId,
+              (req as any).requestId,
+            )
           : emptyVideoAsset;
 
         if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
@@ -2153,7 +2159,11 @@ app.get("/clips/player", async (req, res) => {
 
         const videoEventId = action.videoActionNumber ?? action.actionNumber;
         const cachedAsset = videoCdnAvailable
-          ? await getCachedVideoAsset(action.gameId, videoEventId, (req as any).requestId)
+          ? await getCachedVideoAsset(
+              action.gameId,
+              videoEventId,
+              (req as any).requestId,
+            )
           : emptyVideoAsset;
         if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
           assetUrlsResolved += 1;
@@ -2242,6 +2252,82 @@ app.get("/clips/player", async (req, res) => {
       error: "Failed to fetch player clips",
     });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Debug endpoint — recent failure classifications and window state
+// ---------------------------------------------------------------------------
+// Protected by CLIPZERO_DEBUG env flag. Returns structured data for
+// debugging failure classification. Not exposed in production.
+// ---------------------------------------------------------------------------
+app.get("/debug/failures/recent", (req, res) => {
+  if (!apiConfig.debugEnabled) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  const recent = getRecentClassifiedEvents();
+
+  // Same-key hotspots: clip keys that appear multiple times in recent failures
+  const keyCount = new Map<string, number>();
+  for (const event of recent) {
+    if (
+      event.classified.diagnosis !== "stale_request_canceled" &&
+      event.classified.diagnosis !== "frontend_request_discarded"
+    ) {
+      const key = event.evidence.gameId
+        ? `${event.evidence.gameId}:${event.evidence.actionNumber ?? "?"}`
+        : undefined;
+      if (key) {
+        keyCount.set(key, (keyCount.get(key) ?? 0) + 1);
+      }
+    }
+  }
+  const sameKeyHotspots = [...keyCount.entries()]
+    .filter(([, count]) => count >= 2)
+    .map(([key, count]) => ({ clipKey: key, failureCount: count }))
+    .sort((a, b) => b.failureCount - a.failureCount);
+
+  // Window summaries for each configured duration
+  const windowSummaries = [10, 30, 120].map((seconds) =>
+    getWindowContext(seconds),
+  );
+
+  // Global video health assessment based on 30s window
+  const w30 = getWindowContext(30);
+  const failureRate =
+    w30.totalLookups > 0
+      ? (w30.totalLookups - w30.successes) / w30.totalLookups
+      : 0;
+  const globalVideoHealth = {
+    totalLookups: w30.totalLookups,
+    successRate: w30.totalLookups > 0 ? w30.successes / w30.totalLookups : 1,
+    failureRate,
+    status:
+      failureRate > 0.5
+        ? "degraded"
+        : failureRate > 0.2
+          ? "unstable"
+          : "healthy",
+  };
+
+  res.json({
+    recentEvents: recent.map((e) => ({
+      recordedAt: e.recordedAt,
+      eventKind: e.eventKind,
+      diagnosis: e.classified.diagnosis,
+      confidence: e.classified.confidence,
+      evidenceSummary: e.classified.evidenceSummary,
+      clipKey: e.evidence.gameId
+        ? `${e.evidence.gameId}:${e.evidence.actionNumber ?? "?"}`
+        : null,
+      route: e.evidence.route,
+      requestId: e.evidence.requestId,
+    })),
+    sameKeyHotspots,
+    windowSummaries,
+    globalVideoHealth,
+  });
 });
 
 app.listen(port, () => {

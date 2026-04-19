@@ -36,6 +36,7 @@ export const apiConfig = {
   disabled:
     readBoolEnv("CLIPZERO_DISABLE_ACCESS") ||
     readBoolEnv("CLIPZERO_API_DISABLED"),
+  debugEnabled: readBoolEnv("CLIPZERO_DEBUG"),
   allowedOrigins: readOrigins(process.env.CLIPZERO_ALLOWED_ORIGINS),
   rateLimit: {
     windowMs: readIntEnv("CLIPZERO_RATE_LIMIT_WINDOW_MS", 60_000),

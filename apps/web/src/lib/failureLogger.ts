@@ -6,7 +6,7 @@
 // events to an API debug endpoint.
 // ---------------------------------------------------------------------------
 
-import type { FailureDiagnosis, UserIntentType } from "./failureTypes";
+import { FailureDiagnosis, type UserIntentType } from "./failureTypes";
 
 /** Evidence captured on the frontend for a failure event. */
 export interface FrontendFailureEvidence {
@@ -44,4 +44,50 @@ export function logFrontendFailureEvent(
 ): void {
   // eslint-disable-next-line no-console
   console.debug("[clipzero:failure]", evidence.diagnosis, evidence);
+}
+
+// ---------------------------------------------------------------------------
+// User-facing failure messages
+// ---------------------------------------------------------------------------
+// Maps diagnosis types to simple, non-technical messages for end users.
+// Silent diagnoses (e.g. stale cancellations) return null — the UI should
+// not show any message for those.
+// ---------------------------------------------------------------------------
+
+const userMessages: Partial<Record<FailureDiagnosis, string>> = {
+  [FailureDiagnosis.frontend_network_failure]:
+    "Could not reach the server. Check your connection and try again.",
+  [FailureDiagnosis.api_internal_failure]:
+    "Something went wrong on our end. Please try again.",
+  [FailureDiagnosis.upstream_timeout_or_transport_failure]:
+    "The clip source is not responding. Please try again shortly.",
+  [FailureDiagnosis.upstream_http_failure]:
+    "The clip source returned an error. Please try again shortly.",
+  [FailureDiagnosis.video_asset_not_found]: "This clip is unavailable.",
+  [FailureDiagnosis.video_asset_placeholder_suspected]:
+    "This clip may not be available yet.",
+  [FailureDiagnosis.video_asset_empty_response]: "This clip is unavailable.",
+  [FailureDiagnosis.upstream_pressure_suspected]:
+    "Clip loading is temporarily unstable. Please wait a moment.",
+  [FailureDiagnosis.widespread_upstream_video_degradation]:
+    "Clip loading is experiencing widespread issues. Please try again later.",
+  [FailureDiagnosis.isolated_clip_gap]: "This clip is unavailable.",
+  [FailureDiagnosis.unknown_failure]: "Something went wrong. Please try again.",
+};
+
+/** Silent diagnoses — the UI should not display any message for these. */
+const silentDiagnoses = new Set<FailureDiagnosis>([
+  FailureDiagnosis.stale_request_canceled,
+  FailureDiagnosis.frontend_request_discarded,
+]);
+
+/**
+ * Get a user-facing message for a failure diagnosis.
+ * Returns `null` for silent diagnoses (aborts/discards) that should not be shown.
+ */
+export function getUserFailureMessage(
+  diagnosis: FailureDiagnosis,
+): string | null {
+  if (silentDiagnoses.has(diagnosis)) return null;
+  return userMessages[diagnosis] ?? "Something went wrong. Please try again.";
 }
