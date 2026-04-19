@@ -2,6 +2,20 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildApiUrl, getApiUnavailableMessage } from "@/lib/api";
+import {
+  CLIP_PAGE_TTL_MS,
+  fetchJsonWithCache,
+} from "@/lib/requestCache";
+import {
+  recordClipNavigation,
+  useInteractionPressure,
+} from "@/lib/interactionPressure";
+import {
+  checkClipBatchForStress,
+  loadMoreCooldownMs,
+  recordFetchFailure,
+  useStressMode,
+} from "@/lib/stressMode";
 import { DEFAULT_RESULT, buildClipSearchParams } from "@/lib/filters";
 import { PLAY_TYPE_LABELS } from "@/lib/filterConfig";
 import type { Clip } from "@/lib/types";
@@ -90,6 +104,9 @@ export default function ClipBrowser({
     return idx >= 0 ? idx : 0;
   });
 
+  const isHighPressure = useInteractionPressure();
+  const isStressed = useStressMode();
+
   const loadingRef = useRef(false);
   // Request generation counter — incremented on every new clip-set fetch.
   // Only results matching the current generation are applied.
@@ -134,6 +151,9 @@ export default function ClipBrowser({
   // When the clip context changes (new server-rendered props arrive),
   // abort any in-flight fetch, invalidate pending results, and reset state.
   useEffect(() => {
+    // Signal interaction pressure so prefetch backs off while the new
+    // context settles. Weight 2 = counts as two jump-equivalents.
+    recordClipNavigation(2);
     // Abort previous in-flight request.
     abortRef.current?.abort();
     abortRef.current = null;
@@ -179,6 +199,7 @@ export default function ClipBrowser({
 
   // When user clicks a rail item, update both selection state and the URL.
   const handleSelect = useCallback((index: number) => {
+    recordClipNavigation();
     setActiveIndex(index);
     const clip = clipsRef.current[index];
     setActionNumberInUrl(clip?.actionNumber ?? null);
@@ -218,9 +239,10 @@ export default function ClipBrowser({
     const offset = nextOffsetRef.current;
     // Single-flight: skip if this offset was already fetched or is in-flight.
     if (fetchedOffsetsRef.current.has(offset)) return;
-    // Minimum cooldown: enforce a 300ms gap between load-more starts.
+    // Minimum cooldown: enforce a gap between load-more starts.
+    // In stress mode the gap is 2× normal to reduce upstream pressure.
     const now = Date.now();
-    if (now - lastLoadMoreTimeRef.current < 300) return;
+    if (now - lastLoadMoreTimeRef.current < loadMoreCooldownMs()) return;
     fetchedOffsetsRef.current.add(offset);
     lastLoadMoreTimeRef.current = now;
     loadingRef.current = true;
@@ -256,15 +278,22 @@ export default function ClipBrowser({
         season,
       });
 
-      const res = await fetch(buildApiUrl("/clips/game", search), {
-        signal: controller.signal,
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const url = buildApiUrl("/clips/game", search);
+      const data = await fetchJsonWithCache(
+        url,
+        async () => {
+          const res = await fetch(url, { signal: controller.signal });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        },
+        CLIP_PAGE_TTL_MS,
+      );
 
       // Only apply results if this is still the latest request.
       if (gen !== generationRef.current) return;
 
+      // Check for partial video-URL failures as a stress signal.
+      checkClipBatchForStress(data.clips ?? [], data.videoCdnAvailable !== false);
       setClips((prev) => [...prev, ...(data.clips ?? [])]);
       setTotal((prev) => data.total ?? prev);
       setHasMore(data.hasMore ?? false);
@@ -277,6 +306,7 @@ export default function ClipBrowser({
       if (err instanceof DOMException && err.name === "AbortError") return;
       // Stale generation — discard silently.
       if (gen !== generationRef.current) return;
+      recordFetchFailure();
       setError(
         err instanceof TypeError
           ? getApiUnavailableMessage()
@@ -335,12 +365,17 @@ export default function ClipBrowser({
     }
   }, [clips.length, goToNext]);
 
-  // Auto-load more clips when within 3 of the end.
+  // Auto-load the next page when approaching the end of the loaded clip set.
+  // Prefetch horizon: at most one page ahead (≤3 clips remaining triggers the
+  // load; the returned page adds ~12 clips, keeping the horizon bounded).
+  // Suppressed under interaction pressure or stress mode — aggressive skipping,
+  // rapid context changes, and upstream failures are all signs that prefetch
+  // will create more load than benefit.
   useEffect(() => {
-    if (hasMore && clips.length - activeIndex <= 3) {
+    if (!isHighPressure && !isStressed && hasMore && clips.length - activeIndex <= 3) {
       loadMore();
     }
-  }, [activeIndex, clips.length, hasMore, loadMore]);
+  }, [activeIndex, clips.length, hasMore, isHighPressure, isStressed, loadMore]);
 
   // Keyboard navigation: ArrowLeft / ArrowRight.
   useEffect(() => {
@@ -352,9 +387,11 @@ export default function ClipBrowser({
 
       if (e.key === "ArrowLeft") {
         e.preventDefault();
+        recordClipNavigation();
         goToPrev();
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
+        recordClipNavigation();
         goToNext();
       }
     }

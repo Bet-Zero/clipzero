@@ -8,6 +8,21 @@ import {
   type ReadonlyURLSearchParams,
 } from "next/navigation";
 import { buildApiUrl, getApiUnavailableMessage } from "@/lib/api";
+import {
+  CLIP_PAGE_TTL_MS,
+  METADATA_TTL_MS,
+  fetchJsonWithCache,
+} from "@/lib/requestCache";
+import {
+  recordClipNavigation,
+  useInteractionPressure,
+} from "@/lib/interactionPressure";
+import {
+  checkClipBatchForStress,
+  loadMoreCooldownMs,
+  recordFetchFailure,
+  useStressMode,
+} from "@/lib/stressMode";
 import { useDomElementById } from "@/lib/dom";
 import {
   DEFAULT_PLAY_TYPE,
@@ -336,6 +351,9 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const [isGamesOpen, setIsGamesOpen] = useState(false);
 
+  const isHighPressure = useInteractionPressure();
+  const isStressed = useStressMode();
+
   const loadingRef = useRef(false);
   // Request generation counter — incremented on every new clip-set fetch.
   const generationRef = useRef(0);
@@ -401,9 +419,16 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
     (async () => {
       try {
         const search = new URLSearchParams({ season, teamA, teamB });
-        const res = await fetch(buildApiUrl("/matchups", search));
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
+        const url = buildApiUrl("/matchups", search);
+        const data = await fetchJsonWithCache(
+          url,
+          async () => {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+          },
+          METADATA_TTL_MS,
+        );
         if (!cancelled) setGames(data.games ?? []);
       } catch (err) {
         if (!cancelled) {
@@ -472,11 +497,16 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
           excludeGameIds: [...excludedGameIds],
         });
 
-        const res = await fetch(buildApiUrl("/clips/matchup", search), {
-          signal: controller.signal,
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
+        const url = buildApiUrl("/clips/matchup", search);
+        const data = await fetchJsonWithCache(
+          url,
+          async () => {
+            const res = await fetch(url, { signal: controller.signal });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+          },
+          CLIP_PAGE_TTL_MS,
+        );
 
         // Stale generation — discard silently.
         if (gen !== generationRef.current) return;
@@ -484,6 +514,8 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
         if (typeof data.videoCdnAvailable === "boolean") {
           setVideoCdnAvailable(data.videoCdnAvailable);
         }
+        // Check for partial video-URL failures as a stress signal.
+        checkClipBatchForStress(data.clips ?? [], data.videoCdnAvailable !== false);
 
         if (append) {
           setClips((prev) => [...prev, ...(data.clips ?? [])]);
@@ -513,6 +545,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
         // Intentional aborts are silent.
         if (err instanceof DOMException && err.name === "AbortError") return;
         if (gen !== generationRef.current) return;
+        recordFetchFailure();
         setError(
           err instanceof TypeError
             ? getApiUnavailableMessage()
@@ -578,15 +611,17 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
     if (loadingRef.current || !hasMore || nextOffset === null) return;
     // Single-flight: skip if this offset was already fetched or is in-flight.
     if (fetchedOffsetsRef.current.has(nextOffset)) return;
-    // Minimum cooldown: enforce a 300ms gap between load-more starts.
+    // Minimum cooldown: enforce a gap between load-more starts.
+    // In stress mode the gap is 2× normal to reduce upstream pressure.
     const now = Date.now();
-    if (now - lastLoadMoreTimeRef.current < 300) return;
+    if (now - lastLoadMoreTimeRef.current < loadMoreCooldownMs()) return;
     fetchedOffsetsRef.current.add(nextOffset);
     lastLoadMoreTimeRef.current = now;
     await fetchClips(nextOffset, true);
   }, [hasMore, nextOffset, fetchClips]);
 
   const handleSelect = useCallback((index: number) => {
+    recordClipNavigation();
     setActiveIndex(index);
     const clip = clipsRef.current[index];
     setActionNumberInUrl(clip?.actionNumber ?? null);
@@ -636,10 +671,10 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
   }, [clips.length, goToNext]);
 
   useEffect(() => {
-    if (hasMore && clips.length - activeIndex <= 3) {
+    if (!isHighPressure && !isStressed && hasMore && clips.length - activeIndex <= 3) {
       loadMore();
     }
-  }, [activeIndex, clips.length, hasMore, loadMore]);
+  }, [activeIndex, clips.length, hasMore, isHighPressure, isStressed, loadMore]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -648,9 +683,11 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
       if ((e.target as HTMLElement)?.isContentEditable) return;
       if (e.key === "ArrowLeft") {
         e.preventDefault();
+        recordClipNavigation();
         goToPrev();
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
+        recordClipNavigation();
         goToNext();
       }
     }
@@ -706,6 +743,8 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
   }
 
   function navigateTo(overrides: Partial<MatchupModeFilterState> = {}) {
+    // Record interaction pressure — rapid filter/context changes back off prefetch.
+    recordClipNavigation(2);
     const stringKeys = [
       "teamA",
       "teamB",

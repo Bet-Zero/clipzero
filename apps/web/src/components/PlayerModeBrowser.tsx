@@ -8,6 +8,21 @@ import {
   type ReadonlyURLSearchParams,
 } from "next/navigation";
 import { buildApiUrl, getApiUnavailableMessage } from "@/lib/api";
+import {
+  CLIP_PAGE_TTL_MS,
+  METADATA_TTL_MS,
+  fetchJsonWithCache,
+} from "@/lib/requestCache";
+import {
+  recordClipNavigation,
+  useInteractionPressure,
+} from "@/lib/interactionPressure";
+import {
+  checkClipBatchForStress,
+  loadMoreCooldownMs,
+  recordFetchFailure,
+  useStressMode,
+} from "@/lib/stressMode";
 import { useDomElementById } from "@/lib/dom";
 import {
   DEFAULT_PLAY_TYPE,
@@ -271,6 +286,9 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [isGamesOpen]);
 
+  const isHighPressure = useInteractionPressure();
+  const isStressed = useStressMode();
+
   const loadingRef = useRef(false);
   // Request generation counter — incremented on every new clip-set fetch.
   const generationRef = useRef(0);
@@ -321,9 +339,15 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
           `/players/${selectedPlayer.personId}/games`,
           new URLSearchParams({ season }),
         );
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
+        const data = await fetchJsonWithCache(
+          url,
+          async () => {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+          },
+          METADATA_TTL_MS,
+        );
         if (!cancelled) {
           setGameLog(data.games ?? []);
         }
@@ -429,11 +453,16 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
           excludeGameIds: [...excludedGameIds],
         });
 
-        const res = await fetch(buildApiUrl("/clips/player", search), {
-          signal: controller.signal,
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
+        const url = buildApiUrl("/clips/player", search);
+        const data = await fetchJsonWithCache(
+          url,
+          async () => {
+            const res = await fetch(url, { signal: controller.signal });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+          },
+          CLIP_PAGE_TTL_MS,
+        );
 
         // Stale generation — discard silently.
         if (gen !== generationRef.current) return;
@@ -444,6 +473,8 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
         if (typeof data.seasonFullyScanned === "boolean") {
           setSeasonFullyScanned(data.seasonFullyScanned);
         }
+        // Check for partial video-URL failures as a stress signal.
+        checkClipBatchForStress(data.clips ?? [], data.videoCdnAvailable !== false);
 
         if (append) {
           setClips((prev) => [...prev, ...(data.clips ?? [])]);
@@ -476,6 +507,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
         // Intentional aborts are silent.
         if (err instanceof DOMException && err.name === "AbortError") return;
         if (gen !== generationRef.current) return;
+        recordFetchFailure();
         setError(
           err instanceof TypeError
             ? getApiUnavailableMessage()
@@ -541,9 +573,10 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     if (loadingRef.current || !hasMore || nextOffset === null) return;
     // Single-flight: skip if this offset was already fetched or is in-flight.
     if (fetchedOffsetsRef.current.has(nextOffset)) return;
-    // Minimum cooldown: enforce a 300ms gap between load-more starts.
+    // Minimum cooldown: enforce a gap between load-more starts.
+    // In stress mode the gap is 2× normal to reduce upstream pressure.
     const now = Date.now();
-    if (now - lastLoadMoreTimeRef.current < 300) return;
+    if (now - lastLoadMoreTimeRef.current < loadMoreCooldownMs()) return;
     fetchedOffsetsRef.current.add(nextOffset);
     lastLoadMoreTimeRef.current = now;
     await fetchClips(nextOffset, true);
@@ -551,6 +584,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
 
   // Navigation
   const handleSelect = useCallback((index: number) => {
+    recordClipNavigation();
     setActiveIndex(index);
     const clip = clipsRef.current[index];
     setActionNumberInUrl(clip?.actionNumber ?? null);
@@ -600,10 +634,10 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   }, [clips.length, goToNext]);
 
   useEffect(() => {
-    if (hasMore && clips.length - activeIndex <= 3) {
+    if (!isHighPressure && !isStressed && hasMore && clips.length - activeIndex <= 3) {
       loadMore();
     }
-  }, [activeIndex, clips.length, hasMore, loadMore]);
+  }, [activeIndex, clips.length, hasMore, isHighPressure, isStressed, loadMore]);
 
   // Keyboard nav
   useEffect(() => {
@@ -613,9 +647,11 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       if ((e.target as HTMLElement)?.isContentEditable) return;
       if (e.key === "ArrowLeft") {
         e.preventDefault();
+        recordClipNavigation();
         goToPrev();
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
+        recordClipNavigation();
         goToNext();
       }
     }
@@ -680,6 +716,8 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   }
 
   function navigateTo(overrides: Partial<PlayerModeFilterState> = {}) {
+    // Record interaction pressure — rapid filter/context changes back off prefetch.
+    recordClipNavigation(2);
     // Apply optimistic updates for string filter params
     const filterKeys = [
       "playType",

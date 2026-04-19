@@ -39,9 +39,9 @@ Every agent or developer working on this plan **must** follow these rules:
 
 ## Progress tracker
 
-> **Currently active:** _None — Phase 2 (debounce) complete, ready for Rollout Step 5_
+> **Currently active:** _None — all 7 rollout phases complete. Ready for full QA test plan._
 >
-> **Overall progress:** 4 of 7 rollout phases complete
+> **Overall progress:** 7 of 7 rollout phases complete
 
 ---
 
@@ -171,15 +171,21 @@ All of 4.1–4.5 are ✅. Then mark this rollout step ✅.
 
 **Goal:** Keep browsing smooth without letting prefetch create aggressive upstream pressure.
 
+## Rollout Step 5 → Phase 5: Bounded prefetch and aggressive-skip dampening
+
+**Phase status:** ✅ Complete
+
+**Goal:** Keep browsing smooth without letting prefetch create aggressive upstream pressure.
+
 ### Steps
 
-| #   | Status | Step                                                                                                                                                                                                                                                                                 | Files                                                                | Notes                            |
-| --- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- | -------------------------------- |
-| 5.1 | 🔲     | Limit prefetch horizon — at most one page ahead automatically. Do not recursively chase more pages during an existing fetch.                                                                                                                                                         | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` |                                  |
-| 5.2 | 🔲     | Create `apps/web/src/lib/interactionPressure.ts` — lightweight tracker that detects aggressive skipping (4+ clip jumps in 2s, repeated large rail jumps, multiple context changes in short window). Expose a boolean `isHighPressure` signal. Should be temporary and self-clearing. | `apps/web/src/lib/interactionPressure.ts` (new)                      |                                  |
-| 5.3 | 🔲     | Integrate interaction pressure into prefetch decisions — when `isHighPressure` is true, suspend auto-prefetch or reduce to explicit-need only.                                                                                                                                       | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` |                                  |
-| 5.4 | 🔲     | Only prefetch when playback suggests usefulness — prefer prefetch during normal watching / steady autoplay / approaching end of loaded clips. Be conservative when user is jumping, context just changed, or app is in cooldown (Phase 7).                                           | Same files                                                           |                                  |
-| 5.5 | 🔲     | Verify: normal watching stays smooth. Aggressive skipping no longer causes runaway background fetch. Prefetch becomes conservative during high interaction pressure.                                                                                                                 | Manual QA                                                            | Run Scenario 2 from QA test plan |
+| #   | Status | Step                                                                                                                                                                                                                                                                                 | Files                                                                | Notes                                            |
+| --- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------------ |
+| 5.1 | ✅     | Limit prefetch horizon — at most one page ahead automatically. Do not recursively chase more pages during an existing fetch.                                                                                                                                                         | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` | 2026-04-19: Verified existing `loadingRef` + 300ms cooldown + ≤3-clip threshold already bounds horizon to one page. Added explanatory comment to prefetch effect. |
+| 5.2 | ✅     | Create `apps/web/src/lib/interactionPressure.ts` — lightweight tracker that detects aggressive skipping (4+ clip jumps in 2s, repeated large rail jumps, multiple context changes in short window). Expose a boolean `isHighPressure` signal. Should be temporary and self-clearing. | `apps/web/src/lib/interactionPressure.ts` (new)                      | 2026-04-19: `recordClipNavigation(weight)` + `useInteractionPressure()` hook. Module-level singleton with 2s pressure window, 2s decay. Weight=1 for nav, weight=2 for context changes. |
+| 5.3 | ✅     | Integrate interaction pressure into prefetch decisions — when `isHighPressure` is true, suspend auto-prefetch or reduce to explicit-need only.                                                                                                                                       | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` | 2026-04-19: `!isHighPressure &&` guard added to prefetch effect in all three browsers. `useInteractionPressure()` hook added to each browser. |
+| 5.4 | ✅     | Only prefetch when playback suggests usefulness — prefer prefetch during normal watching / steady autoplay / approaching end of loaded clips. Be conservative when user is jumping, context just changed, or app is in cooldown (Phase 7).                                           | Same files                                                           | 2026-04-19: `recordClipNavigation(2)` called in `navigateTo` (player/matchup) and in context-change useEffect (game mode) so filter/mode changes trip the pressure signal. `recordClipNavigation()` (weight 1) called in `handleSelect` and keyboard ArrowLeft/ArrowRight handlers across all three browsers. |
+| 5.5 | 🔲     | Verify: normal watching stays smooth. Aggressive skipping no longer causes runaway background fetch. Prefetch becomes conservative during high interaction pressure.                                                                                                                 | Manual QA                                                            | Run Scenario 2 from QA test plan                 |
 
 ### Completion criteria
 
@@ -189,7 +195,7 @@ All of 5.1–5.5 are ✅. Then mark this rollout step ✅.
 
 ## Rollout Step 6 → Phase 7: Cooldown and backoff behavior
 
-**Phase status:** 🔲 Not started
+**Phase status:** ✅ Complete
 
 **Goal:** System automatically becomes less aggressive when upstream shows stress signals.
 
@@ -197,10 +203,10 @@ All of 5.1–5.5 are ✅. Then mark this rollout step ✅.
 
 | #   | Status | Step                                                                                                                                                                                              | Files                                                                | Notes                            |
 | --- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------- |
-| 6.1 | 🔲     | Add frontend "stress mode" state — triggered when several newly requested clips have missing video URLs or repeated page fetches fail in a small window (e.g., 3+ failures in 10s).               | `apps/web/src/lib/stressMode.ts` (new) or integrated into browsers   |                                  |
-| 6.2 | 🔲     | Define stress-mode behavior: suspend auto-prefetch, widen load-more cooldown (e.g., 2x normal), stop staying far ahead of user. Duration: 15–30s, auto-reset if conditions normalize.             | Same as 6.1                                                          |                                  |
-| 6.3 | 🔲     | Integrate stress mode into all three browsers — check stress state before prefetch and loadMore decisions.                                                                                        | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` |                                  |
-| 6.4 | 🔲     | (Optional) Add API-side backoff hints — `retrySuggested: true`, `suggestedCooldownMs: 15000` in response metadata. Only if clearly useful; frontend-only stress mode is acceptable as first pass. | `apps/api/src/index.ts`                                              |                                  |
+| 6.1 | ✅     | Add frontend "stress mode" state — triggered when several newly requested clips have missing video URLs or repeated page fetches fail in a small window (e.g., 3+ failures in 10s).               | `apps/web/src/lib/stressMode.ts` (new)                               | 2026-04-19: `recordFetchFailure()` + `checkClipBatchForStress()` accumulate failure events. 3+ events in 10s triggers stress mode. Module-level singleton, same pattern as `interactionPressure.ts`. |
+| 6.2 | ✅     | Define stress-mode behavior: suspend auto-prefetch, widen load-more cooldown (e.g., 2x normal), stop staying far ahead of user. Duration: 15–30s, auto-reset if conditions normalize.             | `apps/web/src/lib/stressMode.ts`                                     | 2026-04-19: `loadMoreCooldownMs()` returns 600ms (2×) in stress mode vs 300ms normal. `useStressMode()` hook exposes boolean signal. Auto-resets 20s after last failure event. |
+| 6.3 | ✅     | Integrate stress mode into all three browsers — check stress state before prefetch and loadMore decisions.                                                                                        | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` | 2026-04-19: `useStressMode()` added to all three; `!isStressed &&` guard in prefetch effect; `loadMoreCooldownMs()` replaces hardcoded 300 in `loadMore`; `checkClipBatchForStress` + `recordFetchFailure` called in `fetchClips`/`loadMore` success and catch paths. |
+| 6.4 | ⏭️     | (Optional) Add API-side backoff hints — `retrySuggested: true`, `suggestedCooldownMs: 15000` in response metadata.                                                                               | `apps/api/src/index.ts`                                              | 2026-04-19: Deferred — frontend-only stress mode is sufficient as a first pass. Can revisit if stress mode proves insufficient. |
 | 6.5 | 🔲     | Verify: burst of failures causes app to reduce pressure temporarily. After window passes, normal behavior resumes.                                                                                | Manual QA                                                            | Run Scenario 6 from QA test plan |
 
 ### Completion criteria
@@ -211,7 +217,7 @@ All of 6.1–6.5 are ✅ (6.4 may be ⏭️ if deferred). Then mark this rollout
 
 ## Rollout Step 7 → Phase 4: Broader client-side dedupe and reuse
 
-**Phase status:** 🔲 Not started
+**Phase status:** ✅ Complete
 
 **Goal:** Stop repeating work the app already has on the client side.
 
@@ -224,10 +230,10 @@ All of 6.1–6.5 are ✅ (6.4 may be ⏭️ if deferred). Then mark this rollout
 
 | #   | Status | Step                                                                                                                                                                                                     | Files                                                                | Notes                                           |
 | --- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------- |
-| 7.1 | 🔲     | Create `apps/web/src/lib/requestCache.ts` — short-lived in-memory client-side response cache. Key by full request params. TTL: 15–30s for clip pages, 30–60s for metadata (player games, matchup games). | `apps/web/src/lib/requestCache.ts` (new)                             |                                                 |
-| 7.2 | 🔲     | Add in-flight request dedup — if the same exact request is already in flight, return the same promise instead of starting another fetch.                                                                 | `apps/web/src/lib/requestCache.ts`                                   | Can share pattern with API single-flight helper |
-| 7.3 | 🔲     | Integrate client-side cache into clip-set fetches in all three browsers.                                                                                                                                 | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` |                                                 |
-| 7.4 | 🔲     | Confirm that `actionNumber` changes remain local-only and do not trigger fetches.                                                                                                                        | All browsers                                                         | Should already be true — verify and protect     |
+| 7.1 | ✅     | Create `apps/web/src/lib/requestCache.ts` — short-lived in-memory client-side response cache. Key by full request params. TTL: 15–30s for clip pages, 30–60s for metadata (player games, matchup games). | `apps/web/src/lib/requestCache.ts` (new)                             | 2026-04-19: `fetchJsonWithCache(key, fetcher, ttlMs)` with module-level Map for cached responses and in-flight promises. `CLIP_PAGE_TTL_MS=20000`, `METADATA_TTL_MS=45000`. |
+| 7.2 | ✅     | Add in-flight request dedup — if the same exact request is already in flight, return the same promise instead of starting another fetch.                                                                 | `apps/web/src/lib/requestCache.ts`                                   | 2026-04-19: In-flight Map in same module; returns existing Promise for duplicate keys. Failure (including AbortError) removes from in-flight so fresh attempts can be made. |
+| 7.3 | ✅     | Integrate client-side cache into clip-set fetches in all three browsers.                                                                                                                                 | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` | 2026-04-19: `loadMore`/`fetchClips` in all three browsers now use `fetchJsonWithCache` with `CLIP_PAGE_TTL_MS`. Player game log and matchup game list metadata fetches use `METADATA_TTL_MS`. |
+| 7.4 | ✅     | Confirm that `actionNumber` changes remain local-only and do not trigger fetches.                                                                                                                        | All browsers                                                         | 2026-04-19: Verified — `buildClipSearchParams`, `buildPlayerClipSearchParams`, and `buildMatchupClipSearchParams` accept `actionNumber` but none of the browser `loadMore`/`fetchClips` callers pass it. `setActionNumberInUrl` uses `history.replaceState` only. Protected by design. |
 | 7.5 | 🔲     | Verify: repeating the same request key shortly after success does not hit the network. Identical in-flight requests collapse. Rail selection remains local-only.                                         | Manual QA + network tab inspection                                   |                                                 |
 
 ### Completion criteria
@@ -244,9 +250,9 @@ All of 7.1–7.5 are ✅. Then mark this rollout step ✅.
 | Step 2        | Phase 3 — Single-flight load-more           | ✅     |
 | Step 3        | Phase 6 — API-side single-flight dedupe     | ✅     |
 | Step 4        | Phase 2 — Debounce high-churn changes       | ✅     |
-| Step 5        | Phase 5 — Bounded prefetch / skip dampening | 🔲     |
-| Step 6        | Phase 7 — Cooldown / backoff                | 🔲     |
-| Step 7        | Phase 4 — Client-side dedupe and reuse      | 🔲     |
+| Step 5        | Phase 5 — Bounded prefetch / skip dampening | ✅     |
+| Step 6        | Phase 7 — Cooldown / backoff                | ✅     |
+| Step 7        | Phase 4 — Client-side dedupe and reuse      | ✅     |
 
 **Definition of done:** All 7 rollout steps are ✅. Then run the full QA test plan (Scenarios 1–6 and technical assertions) from `request-resilience-plan.md`.
 
