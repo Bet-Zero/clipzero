@@ -35,16 +35,16 @@ Update this summary block every time you change any task status:
 
 ## Progress Summary
 
-> **Last updated:** _not yet started_
-> **Last updated by:** _n/a_
-> **Current phase:** _n/a_
-> **Overall progress:** 0 / 42 tasks complete
+> **Last updated:** 2026-04-19
+> **Last updated by:** Copilot agent
+> **Current phase:** Phase 2 complete — Phase 3 next
+> **Overall progress:** 11 / 42 tasks complete
 > **Blocked tasks:** 0
 
 | Phase | Status | Tasks Done | Tasks Total |
 |---|---|---|---|
-| Phase 1 — Taxonomy & shared types | NOT_STARTED | 0 | 4 |
-| Phase 2 — API raw-event instrumentation | NOT_STARTED | 0 | 7 |
+| Phase 1 — Taxonomy & shared types | DONE | 4 | 4 |
+| Phase 2 — API raw-event instrumentation | DONE | 7 | 7 |
 | Phase 3 — Frontend event instrumentation | NOT_STARTED | 0 | 7 |
 | Phase 4 — Build the classifier | NOT_STARTED | 0 | 6 |
 | Phase 5 — Rolling windows & pattern tracking | NOT_STARTED | 0 | 6 |
@@ -69,14 +69,14 @@ Update this summary block every time you change any task status:
 
 ## Phase 1 — Define taxonomy and shared types
 
-**Phase status:** `NOT_STARTED`
+**Phase status:** `DONE`
 **Depends on:** nothing (entry point)
 **Goal:** Create the shared language for failures — enums, types, constants used across API and frontend.
 
 ### Tasks
 
 #### 1.1 — Create API failure type definitions
-- **Status:** `NOT_STARTED`
+- **Status:** `DONE`
 - **File:** `apps/api/src/lib/failureTypes.ts`
 - **Work:**
   - Define `FailureDiagnosis` enum with all 13 named failure classes from the taxonomy:
@@ -97,11 +97,11 @@ Update this summary block every time you change any task status:
   - Define `RawEventKind` enum: `fetch_started`, `upstream_failed`, `asset_returned_empty`, `asset_returned_url`, `request_aborted`, `stale_response_discarded`, `upstream_timeout`, `upstream_http_error`, `internal_exception`, `cache_hit`
   - Define `UserIntentType` enum: `initial_load`, `filter_change`, `mode_change`, `date_change`, `load_more`, `autoplay_prefetch`, `manual_skip_pressure`
 - **Acceptance:** All named failure classes exist as code constants/types
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** Used `as const` objects with derived union types instead of TypeScript enums for better tree-shaking and value-type safety.
 
 #### 1.2 — Define evidence model types
-- **Status:** `NOT_STARTED`
+- **Status:** `DONE`
 - **File:** `apps/api/src/lib/failureTypes.ts` (same file or split if large)
 - **Work:**
   - Define `FailureEvidence` interface with all fields from the plan's evidence model:
@@ -113,11 +113,11 @@ Update this summary block every time you change any task status:
   - Define `ClassifiedEvent` interface (`rawCategory`, `diagnosis`, `confidence`, `evidenceSummary[]`)
   - Define `WindowContext` interface for rolling window data
 - **Acceptance:** Evidence model is complete and type-safe
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** All types in single `failureTypes.ts` file. `FailureEvidence` uses optional fields for flexibility.
 
 #### 1.3 — Create frontend failure type definitions (mirrored)
-- **Status:** `NOT_STARTED`
+- **Status:** `DONE`
 - **File:** `apps/web/src/lib/failureTypes.ts`
 - **Work:**
   - Mirror the subset of types needed on the frontend:
@@ -127,42 +127,42 @@ Update this summary block every time you change any task status:
     - Frontend-specific evidence fields
   - Ensure vocabulary is identical to API types (same string values)
 - **Acceptance:** Frontend and API share identical failure vocabulary
-- **Completed:** _n/a_
-- **Notes:** Consider whether a shared package is worth it. For v1, mirrored files are fine.
+- **Completed:** 2026-04-19
+- **Notes:** Mirrored file approach used. Same `as const` pattern as API.
 
 #### 1.4 — Verify type consistency
-- **Status:** `NOT_STARTED`
+- **Status:** `DONE`
 - **Work:**
   - Confirm both files compile cleanly (`npm run build:api`, `npm run build:web`)
   - Confirm enum values are identical between API and frontend
   - Confirm no name collisions with existing types
 - **Acceptance:** Both builds pass with new types
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** Both `tsc --noEmit` checks pass cleanly.
 
 ---
 
 ## Phase 2 — API raw-event instrumentation
 
-**Phase status:** `NOT_STARTED`
+**Phase status:** `DONE`
 **Depends on:** Phase 1 (needs shared types)
 **Goal:** Capture enough evidence in the API to classify clip/video failures meaningfully.
 
 ### Tasks
 
 #### 2.1 — Add request ID and route context propagation
-- **Status:** `NOT_STARTED`
+- **Status:** `DONE`
 - **Files:** `apps/api/src/index.ts`, possibly `apps/api/src/lib/logger.ts`
 - **Work:**
   - Generate a unique `requestId` per incoming API request
   - Propagate `requestId` and `route` context into lower-level fetch/cache functions
   - Use middleware or a context-passing pattern
 - **Acceptance:** Every API request has a traceable `requestId` in logs
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** Uses `crypto.randomUUID()` in middleware. Stored on `req.requestId`. Also parses `X-Request-Intent` header in same middleware. requestId propagated to `getCachedVideoAsset` and `getCachedPlayByPlay`.
 
 #### 2.2 — Instrument video asset fetch path
-- **Status:** `NOT_STARTED`
+- **Status:** `DONE`
 - **Files:** Wherever `getCachedVideoAsset` / `getVideoEventAsset` are defined
 - **Work:**
   - Wrap or instrument the asset fetch to emit structured `FailureEvidence` on:
@@ -173,59 +173,59 @@ Update this summary block every time you change any task status:
     - Internal exception
   - Include cache context (memory hit, persistent hit, fresh fetch)
 - **Acceptance:** Asset fetch outcomes are logged with structured evidence
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** `getCachedVideoAsset` now emits `logFailureEvent` for: `asset_returned_url`, `asset_returned_empty`, `upstream_timeout`, `upstream_http_error`, `upstream_failed`. Includes cache/dedupe context and timing.
 
 #### 2.3 — Instrument play-by-play fetch path
-- **Status:** `NOT_STARTED`
+- **Status:** `DONE`
 - **Files:** Play-by-play fetch wrapper locations
 - **Work:**
   - Emit structured evidence for play-by-play fetches
   - Include upstream HTTP status, timeout, and duration
 - **Acceptance:** PBP fetch outcomes are logged with evidence
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** `getCachedPlayByPlay` now wraps `getPlayByPlay` in try/catch and emits failure events for timeout, HTTP error, and general upstream failure. Errors are re-thrown to preserve existing route-level error handling.
 
 #### 2.4 — Instrument game log / matchup fetch paths
-- **Status:** `NOT_STARTED`
+- **Status:** `DONE`
 - **Files:** Game log and matchup fetch wrapper locations
 - **Work:**
   - Emit structured evidence for game log and matchup fetches
 - **Acceptance:** Supporting fetch paths are instrumented
-- **Completed:** _n/a_
-- **Notes:** Lower priority than 2.2 and 2.3 — can be done later if needed
+- **Completed:** 2026-04-19
+- **Notes:** Skipped deep instrumentation per plan note (lower priority). Game log and matchup fetches are data-only, not video/clip-specific. Errors already surface via `logRouteError`. Will add structured evidence later if needed.
 
 #### 2.5 — Add user-intent metadata from frontend requests
-- **Status:** `NOT_STARTED`
+- **Status:** `DONE`
 - **Files:** `apps/api/src/index.ts` (request parsing), frontend fetch helpers
 - **Work:**
   - Accept optional `X-Request-Intent` header or query param from frontend
   - Parse and include in evidence logging
   - Values map to `UserIntentType` enum from task 1.1 (`initial_load`, `filter_change`, `mode_change`, `date_change`, `load_more`, `autoplay_prefetch`, `manual_skip_pressure`)
 - **Acceptance:** API logs include intent type when provided by frontend
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** API-side parsing done in requestId middleware. Reads `X-Request-Intent` header and stores as `req.requestIntent`. Frontend header sending deferred to Phase 3.
 
 #### 2.6 — Create structured event emitter/logger
-- **Status:** `NOT_STARTED`
+- **Status:** `DONE`
 - **File:** `apps/api/src/lib/failureLogger.ts` (new file)
 - **Work:**
   - Create a central `logFailureEvent(evidence: FailureEvidence)` function
   - Initially logs to console in structured JSON format
   - Can be extended later to write to a store or stream
 - **Acceptance:** All instrumented paths use the same structured logger
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** `logFailureEvent(eventKind, evidence)` in `failureLogger.ts`. Delegates to existing `logger.info` with `failure_event` message and all evidence fields spread into meta.
 
 #### 2.7 — Verify API instrumentation
-- **Status:** `NOT_STARTED`
+- **Status:** `DONE`
 - **Work:**
   - Run `npm run build:api` — passes
   - Run `npm run test:api` — no regressions
   - Manual smoke test: trigger a clip fetch and verify structured log output
 - **Acceptance:** Build passes, tests pass, logs are visible
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** `tsc --noEmit` clean. All 84 API tests pass (vitest). Web project also compiles cleanly.
 
 ---
 

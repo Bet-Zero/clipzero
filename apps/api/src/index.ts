@@ -1,8 +1,16 @@
+import crypto from "node:crypto";
 import axios from "axios";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import { apiConfig } from "./lib/config";
+import { logFailureEvent } from "./lib/failureLogger";
+import type {
+  FailureEvidence,
+  RawEventKind,
+  UserIntentType,
+} from "./lib/failureTypes";
+import { RawEventKind as RawEventKindEnum } from "./lib/failureTypes";
 import { getCachedGames, setCachedGames } from "./lib/gamesCache";
 import { logger, serializeError } from "./lib/logger";
 import {
@@ -197,14 +205,33 @@ function normalizeDate(dateStr: string): string {
 async function getCachedVideoAsset(
   gameId: string,
   actionNumber: number,
+  requestId?: string,
 ): Promise<{ videoUrl: string | null; thumbnailUrl: string | null }> {
   const cacheKey = `${gameId}:${actionNumber}`;
+  const fetchStart = Date.now();
+
+  function baseEvidence(): Partial<FailureEvidence> {
+    return {
+      timestamp: new Date().toISOString(),
+      route: "video_asset",
+      requestId: requestId ?? "unknown",
+      gameId,
+      actionNumber,
+      upstreamEndpoint: "stats.nba.com/stats/videoeventsasset",
+    };
+  }
 
   // When the CDN is down (serving placeholder for all paths), don't use cached
   // URLs because they will play the placeholder.  Also don't fetch new ones —
   // they would be equally useless and we'd risk persisting them to disk.
   const videoCdnAvailable = await checkNbaVideoCdnHealth();
   if (!videoCdnAvailable) {
+    logFailureEvent(RawEventKindEnum.asset_returned_empty, {
+      eventId: crypto.randomUUID(),
+      ...baseEvidence(),
+      memoryCacheHit: false,
+      freshUpstreamFetch: false,
+    } as FailureEvidence);
     return emptyVideoAsset;
   }
 
@@ -220,7 +247,8 @@ async function getCachedVideoAsset(
 
   // Single-flight: if the same asset is already being fetched, join that
   // promise instead of starting a duplicate upstream request.
-  if (sf.has(`video:${cacheKey}`)) {
+  const inFlightDeduped = sf.has(`video:${cacheKey}`);
+  if (inFlightDeduped) {
     logger.info("video_asset_inflight_deduped", { gameId, actionNumber });
   }
   return sf.call(`video:${cacheKey}`, async () => {
@@ -257,7 +285,9 @@ async function getCachedVideoAsset(
     }
 
     try {
+      const upstreamStart = Date.now();
       const asset = await getVideoEventAsset(gameId, actionNumber);
+      const upstreamDuration = Date.now() - upstreamStart;
       const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
       const cachedValue = {
         videoUrl: firstVideo?.murl ?? null,
@@ -269,15 +299,70 @@ async function getCachedVideoAsset(
       if (cachedValue.videoUrl || cachedValue.thumbnailUrl) {
         persistCachedValue(cachedValue);
         videoAssetNullTtl.delete(cacheKey);
+        logFailureEvent(RawEventKindEnum.asset_returned_url, {
+          eventId: crypto.randomUUID(),
+          ...baseEvidence(),
+          durationMs: upstreamDuration,
+          memoryCacheHit: false,
+          persistentCacheHit: false,
+          inFlightDedupeHit: inFlightDeduped,
+          freshUpstreamFetch: true,
+          urlFieldPresent: true,
+          thumbnailFieldPresent: !!cachedValue.thumbnailUrl,
+          responseBodyValid: true,
+        } as FailureEvidence);
       } else {
         // Record the null result timestamp for short-window suppression.
         videoAssetNullTtl.set(cacheKey, Date.now());
+        logFailureEvent(RawEventKindEnum.asset_returned_empty, {
+          eventId: crypto.randomUUID(),
+          ...baseEvidence(),
+          durationMs: upstreamDuration,
+          memoryCacheHit: false,
+          persistentCacheHit: false,
+          inFlightDedupeHit: inFlightDeduped,
+          freshUpstreamFetch: true,
+          urlFieldPresent: false,
+          thumbnailFieldPresent: false,
+          responseBodyValid: true,
+        } as FailureEvidence);
       }
       return cachedValue;
-    } catch {
+    } catch (error: unknown) {
       // Don't cache failures at all — allow retry on every subsequent request.
       // Do apply the short-window null TTL to avoid burst hammering on errors.
       videoAssetNullTtl.set(cacheKey, Date.now());
+
+      const isTimeout =
+        axios.isAxiosError(error) && error.code === "ECONNABORTED";
+      const httpStatus = axios.isAxiosError(error)
+        ? error.response?.status
+        : undefined;
+      const eventKind: RawEventKind = isTimeout
+        ? RawEventKindEnum.upstream_timeout
+        : httpStatus
+          ? RawEventKindEnum.upstream_http_error
+          : RawEventKindEnum.upstream_failed;
+
+      logFailureEvent(eventKind, {
+        eventId: crypto.randomUUID(),
+        ...baseEvidence(),
+        durationMs: Date.now() - fetchStart,
+        memoryCacheHit: false,
+        persistentCacheHit: false,
+        inFlightDedupeHit: inFlightDeduped,
+        freshUpstreamFetch: true,
+        timedOut: isTimeout,
+        httpStatus,
+        networkErrorCode: axios.isAxiosError(error)
+          ? error.code
+          : undefined,
+        networkErrorName: error instanceof Error ? error.name : undefined,
+        errorName: error instanceof Error ? error.name : undefined,
+        errorMessage:
+          error instanceof Error ? error.message : String(error),
+      } as FailureEvidence);
+
       return { videoUrl: null, thumbnailUrl: null };
     }
   });
@@ -297,7 +382,10 @@ function persistValueBestEffort<T>(
   });
 }
 
-async function getCachedPlayByPlay(gameId: string): Promise<RawAction[]> {
+async function getCachedPlayByPlay(
+  gameId: string,
+  requestId?: string,
+): Promise<RawAction[]> {
   const cached = playByPlayCache.get(gameId);
   if (cached) return cached;
 
@@ -315,10 +403,44 @@ async function getCachedPlayByPlay(gameId: string): Promise<RawAction[]> {
       return persisted;
     }
 
-    const actions = await getPlayByPlay(gameId);
-    playByPlayCache.set(gameId, actions);
-    persistValueBestEffort("play-by-play", gameId, actions);
-    return actions;
+    const upstreamStart = Date.now();
+    try {
+      const actions = await getPlayByPlay(gameId);
+      playByPlayCache.set(gameId, actions);
+      persistValueBestEffort("play-by-play", gameId, actions);
+      return actions;
+    } catch (error: unknown) {
+      const isTimeout =
+        axios.isAxiosError(error) && error.code === "ECONNABORTED";
+      const httpStatus = axios.isAxiosError(error)
+        ? error.response?.status
+        : undefined;
+      const eventKind: RawEventKind = isTimeout
+        ? RawEventKindEnum.upstream_timeout
+        : httpStatus
+          ? RawEventKindEnum.upstream_http_error
+          : RawEventKindEnum.upstream_failed;
+
+      logFailureEvent(eventKind, {
+        eventId: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        route: "play_by_play",
+        requestId: requestId ?? "unknown",
+        gameId,
+        upstreamEndpoint: "cdn.nba.com/playbyplay",
+        durationMs: Date.now() - upstreamStart,
+        timedOut: isTimeout,
+        httpStatus,
+        networkErrorCode: axios.isAxiosError(error)
+          ? error.code
+          : undefined,
+        errorName: error instanceof Error ? error.name : undefined,
+        errorMessage:
+          error instanceof Error ? error.message : String(error),
+        freshUpstreamFetch: true,
+      } as FailureEvidence);
+      throw error;
+    }
   });
 }
 
@@ -609,6 +731,15 @@ app.use(
   }),
 );
 app.use(express.json({ limit: "100kb" }));
+// Assign a unique request ID and parse optional intent header for diagnosis.
+app.use((req, _res, next) => {
+  (req as any).requestId = crypto.randomUUID();
+  const intentHeader = req.headers["x-request-intent"];
+  if (typeof intentHeader === "string" && intentHeader) {
+    (req as any).requestIntent = intentHeader as UserIntentType;
+  }
+  next();
+});
 app.use((req, res, next) => {
   const startedAt = Date.now();
   res.on("finish", () => {
@@ -618,6 +749,7 @@ app.use((req, res, next) => {
       statusCode: res.statusCode,
       durationMs: Date.now() - startedAt,
       ip: getRequestIp(req),
+      requestId: (req as any).requestId,
     });
   });
   next();
@@ -1038,7 +1170,7 @@ app.get("/clips/game", async (req, res) => {
       }
     }
 
-    const actions = await getCachedPlayByPlay(gameId);
+    const actions = await getCachedPlayByPlay(gameId, (req as any).requestId);
     const allShots = getFilteredActions(gameId, actions, playType);
 
     const playerNameMap = await getCachedPlayerNameMap(gameId);
@@ -1138,7 +1270,7 @@ app.get("/clips/game", async (req, res) => {
           (shot as { videoActionNumber?: number }).videoActionNumber ??
           shot.actionNumber;
         const cachedAsset = videoCdnAvailable
-          ? await getCachedVideoAsset(gameId, videoEventId)
+          ? await getCachedVideoAsset(gameId, videoEventId, (req as any).requestId)
           : emptyVideoAsset;
         if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
           assetUrlsResolved += 1;
@@ -1389,7 +1521,7 @@ app.get("/clips/matchup", async (req, res) => {
       async (game) => {
         try {
           const [actions, playerNameMap] = await Promise.all([
-            getCachedPlayByPlay(game.gameId),
+            getCachedPlayByPlay(game.gameId, (req as any).requestId),
             getCachedPlayerNameMap(game.gameId),
           ]);
 
@@ -1488,7 +1620,7 @@ app.get("/clips/matchup", async (req, res) => {
           (action as { videoActionNumber?: number }).videoActionNumber ??
           action.actionNumber;
         const cachedAsset = videoCdnAvailable
-          ? await getCachedVideoAsset(action.gameId, videoEventId)
+          ? await getCachedVideoAsset(action.gameId, videoEventId, (req as any).requestId)
           : emptyVideoAsset;
 
         if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
@@ -1865,7 +1997,7 @@ app.get("/clips/player", async (req, res) => {
           const gameDateNorm = normalizeDate(game.gameDate);
 
           const [actions, playerNameMap] = await Promise.all([
-            getCachedPlayByPlay(game.gameId),
+            getCachedPlayByPlay(game.gameId, (req as any).requestId),
             getCachedPlayerNameMap(game.gameId),
           ]);
 
@@ -2021,7 +2153,7 @@ app.get("/clips/player", async (req, res) => {
 
         const videoEventId = action.videoActionNumber ?? action.actionNumber;
         const cachedAsset = videoCdnAvailable
-          ? await getCachedVideoAsset(action.gameId, videoEventId)
+          ? await getCachedVideoAsset(action.gameId, videoEventId, (req as any).requestId)
           : emptyVideoAsset;
         if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
           assetUrlsResolved += 1;
