@@ -91,6 +91,12 @@ export default function ClipBrowser({
   });
 
   const loadingRef = useRef(false);
+  // Request generation counter — incremented on every new clip-set fetch.
+  // Only results matching the current generation are applied.
+  const generationRef = useRef(0);
+  // AbortController for the current in-flight fetch. Aborted when a new
+  // request supersedes the old one.
+  const abortRef = useRef<AbortController | null>(null);
 
   // Keep a ref to clips so handleSelect never closes over a stale array.
   const clipsRef = useRef(clips);
@@ -118,6 +124,51 @@ export default function ClipBrowser({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // When the clip context changes (new server-rendered props arrive),
+  // abort any in-flight fetch, invalidate pending results, and reset state.
+  useEffect(() => {
+    // Abort previous in-flight request.
+    abortRef.current?.abort();
+    abortRef.current = null;
+    // Invalidate any pending results from old generations.
+    generationRef.current++;
+    // Clear stale loadMore / auto-advance state.
+    loadingRef.current = false;
+    pendingAdvanceRef.current = false;
+    // Sync state from fresh server-rendered props.
+    setClips(initialClips);
+    setTotal(initialTotal);
+    setHasMore(initialHasMore);
+    setNextOffset(initialNextOffset);
+    setVideoCdnAvailable(initialVideoCdnAvailable);
+    setLoading(false);
+    setError(null);
+    const idx =
+      initialActionNumber !== null
+        ? initialClips.findIndex(
+            (c) => c.actionNumber === initialActionNumber,
+          )
+        : -1;
+    setActiveIndex(idx >= 0 ? idx : 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    gameId,
+    player,
+    result,
+    playType,
+    quarter,
+    team,
+    shotValue,
+    subType,
+    distanceBucket,
+    area,
+    descriptor,
+    qualifier,
+    positionGroup,
+    playerIds,
+    season,
+  ]);
 
   // When user clicks a rail item, update both selection state and the URL.
   const handleSelect = useCallback((index: number) => {
@@ -159,6 +210,15 @@ export default function ClipBrowser({
     loadingRef.current = true;
     setLoading(true);
     setError(null);
+
+    // Increment generation and capture it locally.
+    const gen = ++generationRef.current;
+
+    // Abort any previous in-flight fetch before starting a new one.
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const search = buildClipSearchParams({
         gameId,
@@ -180,9 +240,14 @@ export default function ClipBrowser({
         season,
       });
 
-      const res = await fetch(buildApiUrl("/clips/game", search));
+      const res = await fetch(buildApiUrl("/clips/game", search), {
+        signal: controller.signal,
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+
+      // Only apply results if this is still the latest request.
+      if (gen !== generationRef.current) return;
 
       setClips((prev) => [...prev, ...(data.clips ?? [])]);
       setTotal((prev) => data.total ?? prev);
@@ -192,14 +257,20 @@ export default function ClipBrowser({
         setVideoCdnAvailable(data.videoCdnAvailable);
       }
     } catch (err) {
+      // Intentional aborts are silent — do not show error banners.
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      // Stale generation — discard silently.
+      if (gen !== generationRef.current) return;
       setError(
         err instanceof TypeError
           ? getApiUnavailableMessage()
           : `Could not load clips (${err instanceof Error ? err.message : "error"})`,
       );
     } finally {
-      loadingRef.current = false;
-      setLoading(false);
+      if (gen === generationRef.current) {
+        loadingRef.current = false;
+        setLoading(false);
+      }
     }
   }, [
     gameId,

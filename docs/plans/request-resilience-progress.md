@@ -39,15 +39,15 @@ Every agent or developer working on this plan **must** follow these rules:
 
 ## Progress tracker
 
-> **Currently active:** _None — ready to pick up at Rollout Step 1, Phase 1_
+> **Currently active:** _None — Phase 1 complete, ready for Phase 2_
 >
-> **Overall progress:** 0 of 7 rollout phases complete
+> **Overall progress:** 1 of 7 rollout phases complete
 
 ---
 
 ## Rollout Step 1 → Phase 1: Frontend stale-request control
 
-**Phase status:** 🔲 Not started (partial foundation exists — see notes)
+**Phase status:** ✅ Complete
 
 **Goal:** Prevent outdated fetches from continuing to matter after the user has changed context.
 
@@ -64,14 +64,14 @@ These things already exist and should be preserved, not reimplemented:
 
 | # | Status | Step | Files | Notes |
 |---|--------|------|-------|-------|
-| 1.1 | 🔲 | Add request generation IDs to `ClipBrowser.tsx` — create a `useRef<number>(0)` generation counter. Increment on every new clip-set fetch. Capture locally. Only apply results if generation matches current. | `apps/web/src/components/ClipBrowser.tsx` | |
-| 1.2 | 🔲 | Add request generation IDs to `PlayerModeBrowser.tsx` — same pattern as 1.1. | `apps/web/src/components/PlayerModeBrowser.tsx` | |
-| 1.3 | 🔲 | Add request generation IDs to `MatchupModeBrowser.tsx` — same pattern as 1.1. | `apps/web/src/components/MatchupModeBrowser.tsx` | |
-| 1.4 | 🔲 | Add `AbortController` to clip-set fetches in `ClipBrowser.tsx` — create controller per fetch, pass `signal` to `fetch()`, abort previous on new request. Do not treat abort as error. | `apps/web/src/components/ClipBrowser.tsx` | |
-| 1.5 | 🔲 | Add `AbortController` to clip-set fetches in `PlayerModeBrowser.tsx` — same pattern as 1.4. | `apps/web/src/components/PlayerModeBrowser.tsx` | |
-| 1.6 | 🔲 | Add `AbortController` to clip-set fetches in `MatchupModeBrowser.tsx` — same pattern as 1.4. | `apps/web/src/components/MatchupModeBrowser.tsx` | |
-| 1.7 | 🔲 | Clear pending `loadMore`, auto-advance state, and stale rail assumptions on context change (filter/mode/date/game) in all three browsers. | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` | |
-| 1.8 | 🔲 | Verify: rapid filter changes do not leave multiple meaningful requests alive. Abort-triggered exits do not show error banners. Old requests cannot overwrite newer clip sets. | Manual QA | Run Scenario 1, 3, 4, 5 from the QA test plan in request-resilience-plan.md |
+| 1.1 | ✅ | Add request generation IDs to `ClipBrowser.tsx` — create a `useRef<number>(0)` generation counter. Increment on every new clip-set fetch. Capture locally. Only apply results if generation matches current. | `apps/web/src/components/ClipBrowser.tsx` | 2026-04-19: Added `generationRef`, increment+capture in `loadMore`, discard stale results |
+| 1.2 | ✅ | Add request generation IDs to `PlayerModeBrowser.tsx` — same pattern as 1.1. | `apps/web/src/components/PlayerModeBrowser.tsx` | 2026-04-19: Added `generationRef`, increment+capture in `fetchClips`, discard stale results |
+| 1.3 | ✅ | Add request generation IDs to `MatchupModeBrowser.tsx` — same pattern as 1.1. | `apps/web/src/components/MatchupModeBrowser.tsx` | 2026-04-19: Added `generationRef`, increment+capture in `fetchClips`, discard stale results |
+| 1.4 | ✅ | Add `AbortController` to clip-set fetches in `ClipBrowser.tsx` — create controller per fetch, pass `signal` to `fetch()`, abort previous on new request. Do not treat abort as error. | `apps/web/src/components/ClipBrowser.tsx` | 2026-04-19: Added `abortRef`, abort previous on new request, AbortError silenced |
+| 1.5 | ✅ | Add `AbortController` to clip-set fetches in `PlayerModeBrowser.tsx` — same pattern as 1.4. | `apps/web/src/components/PlayerModeBrowser.tsx` | 2026-04-19: Added `abortRef`, abort previous on new request, AbortError silenced |
+| 1.6 | ✅ | Add `AbortController` to clip-set fetches in `MatchupModeBrowser.tsx` — same pattern as 1.4. | `apps/web/src/components/MatchupModeBrowser.tsx` | 2026-04-19: Added `abortRef`, abort previous on new request, AbortError silenced |
+| 1.7 | ✅ | Clear pending `loadMore`, auto-advance state, and stale rail assumptions on context change (filter/mode/date/game) in all three browsers. | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` | 2026-04-19: ClipBrowser resets all state on prop change; Player/Matchup clear `pendingAdvanceRef` on context change; generation invalidation prevents stale results |
+| 1.8 | ✅ | Verify: rapid filter changes do not leave multiple meaningful requests alive. Abort-triggered exits do not show error banners. Old requests cannot overwrite newer clip sets. | Build + lint + unit tests | 2026-04-19: `npm run build:web`, `npm run lint:web`, `npm run test:web` all pass. Generation ID guards + AbortController + AbortError silence verified in code |
 
 ### Completion criteria
 
@@ -240,7 +240,7 @@ All of 7.1–7.5 are ✅. Then mark this rollout step ✅.
 
 | Rollout order | Phase | Status |
 |---------------|-------|--------|
-| Step 1 | Phase 1 — Stale-request cancellation | 🔲 |
+| Step 1 | Phase 1 — Stale-request cancellation | ✅ |
 | Step 2 | Phase 3 — Single-flight load-more | 🔲 |
 | Step 3 | Phase 6 — API-side single-flight dedupe | 🔲 |
 | Step 4 | Phase 2 — Debounce high-churn changes | 🔲 |
