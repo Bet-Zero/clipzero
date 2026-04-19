@@ -201,7 +201,7 @@ Update this summary block every time you change any task status:
 - **Work:**
   - Accept optional `X-Request-Intent` header or query param from frontend
   - Parse and include in evidence logging
-  - Values: `user_action`, `load_more`, `prefetch`, `autoplay`
+  - Values map to `UserIntentType` enum from task 1.1 (`initial_load`, `filter_change`, `mode_change`, `date_change`, `load_more`, `autoplay_prefetch`, `manual_skip_pressure`)
 - **Acceptance:** API logs include intent type when provided by frontend
 - **Completed:** _n/a_
 - **Notes:** _n/a_
