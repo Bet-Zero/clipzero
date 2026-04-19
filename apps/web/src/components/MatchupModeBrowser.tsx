@@ -36,6 +36,8 @@ import {
 } from "@/lib/filters";
 import { NBA_TEAMS, isKnownTeam } from "@/lib/teams";
 import type { Clip, MatchupGame, MatchupModeFilterState } from "@/lib/types";
+import { FailureDiagnosis } from "@/lib/failureTypes";
+import { logFrontendFailureEvent } from "@/lib/failureLogger";
 import {
   FILTER_PRESETS,
   PLAY_TYPES,
@@ -501,7 +503,12 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
         const data = await fetchJsonWithCache(
           url,
           async () => {
-            const res = await fetch(url, { signal: controller.signal });
+            const res = await fetch(url, {
+              signal: controller.signal,
+              headers: {
+                "X-Request-Intent": append ? "load_more" : "initial_load",
+              },
+            });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             return res.json();
           },
@@ -509,13 +516,25 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
         );
 
         // Stale generation — discard silently.
-        if (gen !== generationRef.current) return;
+        if (gen !== generationRef.current) {
+          logFrontendFailureEvent({
+            component: "MatchupModeBrowser",
+            diagnosis: FailureDiagnosis.frontend_request_discarded,
+            url,
+            generation: gen,
+            currentGeneration: generationRef.current,
+          });
+          return;
+        }
 
         if (typeof data.videoCdnAvailable === "boolean") {
           setVideoCdnAvailable(data.videoCdnAvailable);
         }
         // Check for partial video-URL failures as a stress signal.
-        checkClipBatchForStress(data.clips ?? [], data.videoCdnAvailable !== false);
+        checkClipBatchForStress(
+          data.clips ?? [],
+          data.videoCdnAvailable !== false,
+        );
 
         if (append) {
           setClips((prev) => [...prev, ...(data.clips ?? [])]);
@@ -542,10 +561,36 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
           }
         }
       } catch (err) {
-        // Intentional aborts are silent.
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        if (gen !== generationRef.current) return;
+        // Intentional aborts — log as stale_request_canceled, not a real failure.
+        if (err instanceof DOMException && err.name === "AbortError") {
+          logFrontendFailureEvent({
+            component: "MatchupModeBrowser",
+            diagnosis: FailureDiagnosis.stale_request_canceled,
+            generation: gen,
+            currentGeneration: generationRef.current,
+          });
+          return;
+        }
+        if (gen !== generationRef.current) {
+          logFrontendFailureEvent({
+            component: "MatchupModeBrowser",
+            diagnosis: FailureDiagnosis.frontend_request_discarded,
+            generation: gen,
+            currentGeneration: generationRef.current,
+            errorMessage: err instanceof Error ? err.message : String(err),
+          });
+          return;
+        }
         recordFetchFailure();
+        logFrontendFailureEvent({
+          component: "MatchupModeBrowser",
+          diagnosis:
+            err instanceof TypeError
+              ? FailureDiagnosis.frontend_network_failure
+              : FailureDiagnosis.unknown_failure,
+          errorMessage: err instanceof Error ? err.message : String(err),
+          generation: gen,
+        });
         setError(
           err instanceof TypeError
             ? getApiUnavailableMessage()
@@ -671,10 +716,22 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
   }, [clips.length, goToNext]);
 
   useEffect(() => {
-    if (!isHighPressure && !isStressed && hasMore && clips.length - activeIndex <= 3) {
+    if (
+      !isHighPressure &&
+      !isStressed &&
+      hasMore &&
+      clips.length - activeIndex <= 3
+    ) {
       loadMore();
     }
-  }, [activeIndex, clips.length, hasMore, isHighPressure, isStressed, loadMore]);
+  }, [
+    activeIndex,
+    clips.length,
+    hasMore,
+    isHighPressure,
+    isStressed,
+    loadMore,
+  ]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {

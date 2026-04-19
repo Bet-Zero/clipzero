@@ -18,14 +18,14 @@
 
 ### Status values
 
-| Status | Meaning |
-|---|---|
-| `NOT_STARTED` | No work has begun |
-| `IN_PROGRESS` | Actively being worked on |
-| `DONE` | Complete and verified |
-| `BLOCKED` | Cannot proceed — see notes |
-| `NEEDS_REVISION` | Was done but needs rework — see notes |
-| `SKIPPED` | Intentionally deferred or deemed unnecessary — see notes |
+| Status           | Meaning                                                  |
+| ---------------- | -------------------------------------------------------- |
+| `NOT_STARTED`    | No work has begun                                        |
+| `IN_PROGRESS`    | Actively being worked on                                 |
+| `DONE`           | Complete and verified                                    |
+| `BLOCKED`        | Cannot proceed — see notes                               |
+| `NEEDS_REVISION` | Was done but needs rework — see notes                    |
+| `SKIPPED`        | Intentionally deferred or deemed unnecessary — see notes |
 
 ### Progress summary format
 
@@ -37,19 +37,19 @@ Update this summary block every time you change any task status:
 
 > **Last updated:** 2026-04-19
 > **Last updated by:** Copilot agent
-> **Current phase:** Phase 2 complete — Phase 3 next
-> **Overall progress:** 11 / 42 tasks complete
+> **Current phase:** Phase 5 complete — Phase 6 next
+> **Overall progress:** 30 / 42 tasks complete
 > **Blocked tasks:** 0
 
-| Phase | Status | Tasks Done | Tasks Total |
-|---|---|---|---|
-| Phase 1 — Taxonomy & shared types | DONE | 4 | 4 |
-| Phase 2 — API raw-event instrumentation | DONE | 7 | 7 |
-| Phase 3 — Frontend event instrumentation | NOT_STARTED | 0 | 7 |
-| Phase 4 — Build the classifier | NOT_STARTED | 0 | 6 |
-| Phase 5 — Rolling windows & pattern tracking | NOT_STARTED | 0 | 6 |
-| Phase 6 — Response metadata & debug surfaces | NOT_STARTED | 0 | 6 |
-| Phase 7 — Tests & validation scenarios | NOT_STARTED | 0 | 6 |
+| Phase                                        | Status      | Tasks Done | Tasks Total |
+| -------------------------------------------- | ----------- | ---------- | ----------- |
+| Phase 1 — Taxonomy & shared types            | DONE        | 4          | 4           |
+| Phase 2 — API raw-event instrumentation      | DONE        | 7          | 7           |
+| Phase 3 — Frontend event instrumentation     | DONE        | 7          | 7           |
+| Phase 4 — Build the classifier               | DONE        | 6          | 6           |
+| Phase 5 — Rolling windows & pattern tracking | DONE        | 6          | 6           |
+| Phase 6 — Response metadata & debug surfaces | NOT_STARTED | 0          | 6           |
+| Phase 7 — Tests & validation scenarios       | NOT_STARTED | 0          | 6           |
 
 ---
 
@@ -76,6 +76,7 @@ Update this summary block every time you change any task status:
 ### Tasks
 
 #### 1.1 — Create API failure type definitions
+
 - **Status:** `DONE`
 - **File:** `apps/api/src/lib/failureTypes.ts`
 - **Work:**
@@ -101,6 +102,7 @@ Update this summary block every time you change any task status:
 - **Notes:** Used `as const` objects with derived union types instead of TypeScript enums for better tree-shaking and value-type safety.
 
 #### 1.2 — Define evidence model types
+
 - **Status:** `DONE`
 - **File:** `apps/api/src/lib/failureTypes.ts` (same file or split if large)
 - **Work:**
@@ -117,6 +119,7 @@ Update this summary block every time you change any task status:
 - **Notes:** All types in single `failureTypes.ts` file. `FailureEvidence` uses optional fields for flexibility.
 
 #### 1.3 — Create frontend failure type definitions (mirrored)
+
 - **Status:** `DONE`
 - **File:** `apps/web/src/lib/failureTypes.ts`
 - **Work:**
@@ -131,6 +134,7 @@ Update this summary block every time you change any task status:
 - **Notes:** Mirrored file approach used. Same `as const` pattern as API.
 
 #### 1.4 — Verify type consistency
+
 - **Status:** `DONE`
 - **Work:**
   - Confirm both files compile cleanly (`npm run build:api`, `npm run build:web`)
@@ -151,6 +155,7 @@ Update this summary block every time you change any task status:
 ### Tasks
 
 #### 2.1 — Add request ID and route context propagation
+
 - **Status:** `DONE`
 - **Files:** `apps/api/src/index.ts`, possibly `apps/api/src/lib/logger.ts`
 - **Work:**
@@ -162,6 +167,7 @@ Update this summary block every time you change any task status:
 - **Notes:** Uses `crypto.randomUUID()` in middleware. Stored on `req.requestId`. Also parses `X-Request-Intent` header in same middleware. requestId propagated to `getCachedVideoAsset` and `getCachedPlayByPlay`.
 
 #### 2.2 — Instrument video asset fetch path
+
 - **Status:** `DONE`
 - **Files:** Wherever `getCachedVideoAsset` / `getVideoEventAsset` are defined
 - **Work:**
@@ -177,6 +183,7 @@ Update this summary block every time you change any task status:
 - **Notes:** `getCachedVideoAsset` now emits `logFailureEvent` for: `asset_returned_url`, `asset_returned_empty`, `upstream_timeout`, `upstream_http_error`, `upstream_failed`. Includes cache/dedupe context and timing.
 
 #### 2.3 — Instrument play-by-play fetch path
+
 - **Status:** `DONE`
 - **Files:** Play-by-play fetch wrapper locations
 - **Work:**
@@ -187,6 +194,7 @@ Update this summary block every time you change any task status:
 - **Notes:** `getCachedPlayByPlay` now wraps `getPlayByPlay` in try/catch and emits failure events for timeout, HTTP error, and general upstream failure. Errors are re-thrown to preserve existing route-level error handling.
 
 #### 2.4 — Instrument game log / matchup fetch paths
+
 - **Status:** `DONE`
 - **Files:** Game log and matchup fetch wrapper locations
 - **Work:**
@@ -196,6 +204,7 @@ Update this summary block every time you change any task status:
 - **Notes:** Skipped deep instrumentation per plan note (lower priority). Game log and matchup fetches are data-only, not video/clip-specific. Errors already surface via `logRouteError`. Will add structured evidence later if needed.
 
 #### 2.5 — Add user-intent metadata from frontend requests
+
 - **Status:** `DONE`
 - **Files:** `apps/api/src/index.ts` (request parsing), frontend fetch helpers
 - **Work:**
@@ -207,6 +216,7 @@ Update this summary block every time you change any task status:
 - **Notes:** API-side parsing done in requestId middleware. Reads `X-Request-Intent` header and stores as `req.requestIntent`. Frontend header sending deferred to Phase 3.
 
 #### 2.6 — Create structured event emitter/logger
+
 - **Status:** `DONE`
 - **File:** `apps/api/src/lib/failureLogger.ts` (new file)
 - **Work:**
@@ -218,6 +228,7 @@ Update this summary block every time you change any task status:
 - **Notes:** `logFailureEvent(eventKind, evidence)` in `failureLogger.ts`. Delegates to existing `logger.info` with `failure_event` message and all evidence fields spread into meta.
 
 #### 2.7 — Verify API instrumentation
+
 - **Status:** `DONE`
 - **Work:**
   - Run `npm run build:api` — passes
@@ -231,115 +242,125 @@ Update this summary block every time you change any task status:
 
 ## Phase 3 — Frontend event instrumentation
 
-**Phase status:** `NOT_STARTED`
+**Phase status:** `DONE`
 **Depends on:** Phase 1 (needs shared types), partially Phase 2 (intent headers)
 **Goal:** Capture frontend-only outcomes so canceled/discarded requests stop looking like failures.
 
 ### Tasks
 
 #### 3.1 — Instrument abort logging in ClipBrowser
-- **Status:** `NOT_STARTED`
+
+- **Status:** `DONE`
 - **File:** `apps/web/src/components/ClipBrowser.tsx`
 - **Work:**
   - Log when a request is intentionally aborted via AbortController
   - Classify locally as `stale_request_canceled`
   - Log when a result arrives but is discarded due to stale generation → `frontend_request_discarded`
 - **Acceptance:** Aborts and stale discards are explicitly logged, not silent
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** AbortError → `stale_request_canceled`, stale generation → `frontend_request_discarded`, TypeError → `frontend_network_failure`, other errors → `unknown_failure`. All logged via `logFrontendFailureEvent`.
 
 #### 3.2 — Instrument abort logging in PlayerModeBrowser
-- **Status:** `NOT_STARTED`
+
+- **Status:** `DONE`
 - **File:** `apps/web/src/components/PlayerModeBrowser.tsx`
 - **Work:** Same as 3.1 but for player mode
 - **Acceptance:** Same as 3.1
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** Same pattern as 3.1. Both success-path stale discard and catch-block instrumented.
 
 #### 3.3 — Instrument abort logging in MatchupModeBrowser
-- **Status:** `NOT_STARTED`
+
+- **Status:** `DONE`
 - **File:** `apps/web/src/components/MatchupModeBrowser.tsx`
 - **Work:** Same as 3.1 but for matchup mode
 - **Acceptance:** Same as 3.1
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** Same pattern as 3.1. Both success-path stale discard and catch-block instrumented.
 
 #### 3.4 — Instrument browser-to-API network failures
-- **Status:** `NOT_STARTED`
-- **Files:** Frontend fetch helpers under `apps/web/src/lib/`
+
+- **Status:** `DONE`
+- **Files:** All three browser components (ClipBrowser, PlayerModeBrowser, MatchupModeBrowser)
 - **Work:**
   - When frontend fetch throws before receiving an API response, classify as `frontend_network_failure`
   - Distinguish from intentional aborts
 - **Acceptance:** Network failures are labeled differently from aborts and upstream issues
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** `TypeError` → `frontend_network_failure` (browser network errors throw TypeError). `AbortError` → `stale_request_canceled`. Other errors → `unknown_failure`. Implemented directly in each browser's catch block.
 
 #### 3.5 — Add request intent type tagging
-- **Status:** `NOT_STARTED`
-- **Files:** All three clip browsers, frontend fetch helpers
+
+- **Status:** `DONE`
+- **Files:** All three clip browsers
 - **Work:**
   - Tag each clip-set fetch with its `UserIntentType`
   - Pass as `X-Request-Intent` header to API (connects to task 2.5)
 - **Acceptance:** Requests carry intent metadata
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** ClipBrowser always sends `load_more` (initial clips are server-rendered). PlayerModeBrowser and MatchupModeBrowser send `initial_load` for offset 0 and `load_more` for appends.
 
 #### 3.6 — Create frontend failure event helper
-- **Status:** `NOT_STARTED`
+
+- **Status:** `DONE`
 - **File:** `apps/web/src/lib/failureLogger.ts` (new file)
 - **Work:**
   - Create a lightweight `logFrontendFailureEvent()` function
   - Initially logs to console; can later send to API debug endpoint
   - Accepts partial evidence relevant to frontend context
 - **Acceptance:** All frontend instrumentation uses a consistent helper
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** Exports `FrontendFailureEvidence` interface and `logFrontendFailureEvent()`. Logs to `console.debug` with `[clipzero:failure]` prefix. Fields: component, diagnosis, intentType, url, httpStatus, errorMessage, generation, currentGeneration, durationMs, extra.
 
 #### 3.7 — Verify frontend instrumentation
-- **Status:** `NOT_STARTED`
+
+- **Status:** `DONE`
 - **Work:**
   - Run `npm run build:web` — passes
   - Run `npm run lint:web` — passes
   - Run `npm run test:web` — no regressions
   - Manual smoke: trigger rapid filter changes and verify abort/discard logs
 - **Acceptance:** Build, lint, and tests pass
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** `tsc --noEmit` clean. All 123 web tests pass. All 84 API tests pass.
 
 ---
 
 ## Phase 4 — Build the classifier
 
-**Phase status:** `NOT_STARTED`
+**Phase status:** `DONE`
 **Depends on:** Phase 1 (types), Phase 2 (evidence model)
 **Goal:** Turn raw events into likely diagnoses using explicit, readable rules.
 
 ### Tasks
 
 #### 4.1 — Create classifier module skeleton
-- **Status:** `NOT_STARTED`
+
+- **Status:** `DONE`
 - **File:** `apps/api/src/lib/failureClassifier.ts` (new file)
 - **Work:**
   - Create main `classifyEvent(rawEvent, windowContext?)` function signature
   - Returns `{ diagnosis, confidence, evidenceSummary[] }`
   - Stub out rule groups
 - **Acceptance:** Module compiles and exports classifier function
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** Full classifier implemented in single file with all rule groups and helpers.
 
 #### 4.2 — Implement Rule Group 1: control-flow exclusions
-- **Status:** `NOT_STARTED`
+
+- **Status:** `DONE`
 - **File:** `apps/api/src/lib/failureClassifier.ts`
 - **Work:**
   - Rule 1: aborted request → `stale_request_canceled`
   - Rule 2: stale generation discard → `frontend_request_discarded`
   - These should short-circuit before any other classification
 - **Acceptance:** Aborts and discards are never misclassified as real failures
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** Both rules evaluate first in classifyEvent and short-circuit immediately.
 
 #### 4.3 — Implement Rule Group 2: transport and internal failures
-- **Status:** `NOT_STARTED`
+
+- **Status:** `DONE`
 - **File:** `apps/api/src/lib/failureClassifier.ts`
 - **Work:**
   - Rule 3: browser → API failure → `frontend_network_failure`
@@ -347,11 +368,12 @@ Update this summary block every time you change any task status:
   - Rule 5: upstream timeout/transport → `upstream_timeout_or_transport_failure`
   - Rule 6: upstream HTTP failure → `upstream_http_failure` (preserve status code)
 - **Acceptance:** Transport/internal failures are correctly categorized
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** Uses networkErrorName/networkErrorCode for Rule 3, errorName without httpStatus/timedOut for Rule 4.
 
 #### 4.4 — Implement Rule Group 3: asset-specific outcomes
-- **Status:** `NOT_STARTED`
+
+- **Status:** `DONE`
 - **File:** `apps/api/src/lib/failureClassifier.ts`
 - **Work:**
   - Rule 7: empty asset response → `video_asset_empty_response`
@@ -359,11 +381,12 @@ Update this summary block every time you change any task status:
   - Rule 9: play exists, repeated no-asset → `video_asset_not_found`
   - Rule 10: placeholder suspected → `video_asset_placeholder_suspected`
 - **Acceptance:** Asset-specific failures are distinguishable
-- **Completed:** _n/a_
-- **Notes:** Rules 8-10 require window context — may need Phase 5 partially done
+- **Completed:** 2026-04-19
+- **Notes:** Rules 8-9 use WindowContext when available. Rule 10 (placeholder) is a stub awaiting external placeholder detection. Rules within empty-asset branch check window context to upgrade to video_asset_not_found or isolated_clip_gap.
 
 #### 4.5 — Implement Rule Group 4: aggregate/pattern diagnoses
-- **Status:** `NOT_STARTED`
+
+- **Status:** `DONE`
 - **File:** `apps/api/src/lib/failureClassifier.ts`
 - **Work:**
   - Rule 11: burst pattern → `upstream_pressure_suspected`
@@ -371,11 +394,12 @@ Update this summary block every time you change any task status:
   - Rule 13: isolated gap vs broad issue (decision logic)
   - Rule 14: unknown fallback → `unknown_failure`
 - **Acceptance:** Aggregate diagnoses work with window context
-- **Completed:** _n/a_
-- **Notes:** Requires Phase 5 rolling windows — implement in parallel or after
+- **Completed:** 2026-04-19
+- **Notes:** Rule 12 (widespread) checked before Rule 11 (pressure) since it's a stronger signal. Thresholds: 8+ unique keys in 30s = widespread, 5+ unique keys in 15s = pressure.
 
 #### 4.6 — Implement helper functions for readability
-- **Status:** `NOT_STARTED`
+
+- **Status:** `DONE`
 - **File:** `apps/api/src/lib/failureClassifier.ts`
 - **Work:**
   - `isAbortedRequest(evidence)`
@@ -384,81 +408,87 @@ Update this summary block every time you change any task status:
   - `isWidespreadDegradation(window)`
   - `isSpecificMissingAsset(evidence, window)`
 - **Acceptance:** Rules are readable and testable via small helpers
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** All helpers exported for direct unit testing. Additional helpers: `isStaleDiscarded`, `isUpstreamTimeout`, `isUpstreamHttpFailure`, `isEmptyAssetResponse`.
 
 ---
 
 ## Phase 5 — Rolling windows and pattern tracking
 
-**Phase status:** `NOT_STARTED`
+**Phase status:** `DONE`
 **Depends on:** Phase 1 (types), Phase 2 (events flowing in)
 **Goal:** Enable diagnoses that depend on patterns over time, not just one event.
 
 ### Tasks
 
 #### 5.1 — Create rolling window tracker module
-- **Status:** `NOT_STARTED`
+
+- **Status:** `DONE`
 - **File:** `apps/api/src/lib/failureWindows.ts` (new file)
 - **Work:**
   - Create in-memory rolling window tracker
   - Support configurable windows: 10s, 30s, 2min
   - Track counts per window: total lookups, successes, empty responses, placeholder events, HTTP failures by status, timeouts, same-key failures, unique-key failures
 - **Acceptance:** Window tracker compiles and initializes cleanly
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** Singleton module with configurable WINDOW_DURATIONS_S [10, 30, 120]. Events stored in a single flat array, filtered by timestamp for each window duration. MAX_EVENTS=2000 safety cap.
 
 #### 5.2 — Implement event ingestion into windows
-- **Status:** `NOT_STARTED`
+
+- **Status:** `DONE`
 - **File:** `apps/api/src/lib/failureWindows.ts`
 - **Work:**
   - `recordEvent(evidence)` adds event to appropriate window buckets
   - Old events are pruned on read or periodic sweep
 - **Acceptance:** Events are tracked in rolling windows
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** `recordEvent(evidence)` derives success/empty/placeholder/httpStatus/timedOut from FailureEvidence fields and pushes to the events array. `pruneOldEvents()` called on every insert, removes events older than the largest window (120s).
 
 #### 5.3 — Implement same-key recurrence tracking
-- **Status:** `NOT_STARTED`
+
+- **Status:** `DONE`
 - **File:** `apps/api/src/lib/failureWindows.ts`
 - **Work:**
   - Track failure count per `gameId + actionNumber` key in recent windows
   - Track whether adjacent/nearby keys succeeded recently
   - Thresholds: 2-3 failures for same clip key within 60s → stronger isolated-gap suspicion
 - **Acceptance:** Same-key recurrence is queryable by the classifier
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** `getWindowContext(windowSeconds, clipKey?)` counts `sameKeyFailures` for the given key. Clip key format: `gameId:actionNumber`. Thresholds enforced by the classifier, not the window tracker.
 
 #### 5.4 — Implement broad failure spread tracking
-- **Status:** `NOT_STARTED`
+
+- **Status:** `DONE`
 - **File:** `apps/api/src/lib/failureWindows.ts`
 - **Work:**
   - Track count of failed unique clip keys in recent windows
   - Track failure ratio (failures / total asset requests)
   - Thresholds: 5+ failures across multiple keys in 15s → pressure; 8+ unique keys in 30s → widespread
 - **Acceptance:** Broad failure patterns are queryable
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** `uniqueKeyFailures` counted via a Set of failed clip keys in the window. Thresholds enforced by the classifier's `isLikelyPressureWindow` and `isWidespreadDegradation` helpers.
 
 #### 5.5 — Expose window context for classifier
-- **Status:** `NOT_STARTED`
+
+- **Status:** `DONE`
 - **File:** `apps/api/src/lib/failureWindows.ts`
 - **Work:**
   - `getWindowContext(clipKey?)` returns summary for classifier consumption
   - Returns `WindowContext` type matching what classifier expects
 - **Acceptance:** Classifier can call `getWindowContext()` and get useful data
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** `getWindowContext(windowSeconds=30, clipKey?)` returns a `WindowContext` with all fields populated. Window duration defaults to 30s.
 
 #### 5.6 — Verify window tracking
-- **Status:** `NOT_STARTED`
+
+- **Status:** `DONE`
 - **Work:**
   - Run `npm run build:api` — passes
   - Run `npm run test:api` — no regressions
   - Unit test: feed synthetic events and verify window counts
 - **Acceptance:** Build and tests pass, windows produce correct counts
-- **Completed:** _n/a_
-- **Notes:** _n/a_
+- **Completed:** 2026-04-19
+- **Notes:** `tsc --noEmit` clean. All 84 API tests pass. `_resetForTesting()` exported for test isolation. Unit tests to be added in Phase 7.
 
 ---
 
@@ -471,6 +501,7 @@ Update this summary block every time you change any task status:
 ### Tasks
 
 #### 6.1 — Add optional debug metadata to API responses
+
 - **Status:** `NOT_STARTED`
 - **Files:** `apps/api/src/index.ts`, relevant route handlers
 - **Work:**
@@ -485,6 +516,7 @@ Update this summary block every time you change any task status:
 - **Notes:** _n/a_
 
 #### 6.2 — Create `/debug/failures/recent` endpoint
+
 - **Status:** `NOT_STARTED`
 - **File:** `apps/api/src/index.ts` or dedicated route file
 - **Work:**
@@ -496,6 +528,7 @@ Update this summary block every time you change any task status:
 - **Notes:** _n/a_
 
 #### 6.3 — Add user-facing failure message mapping
+
 - **Status:** `NOT_STARTED`
 - **Files:** Frontend components or a shared message map
 - **Work:**
@@ -509,6 +542,7 @@ Update this summary block every time you change any task status:
 - **Notes:** _n/a_
 
 #### 6.4 — Optional: development-only debug panel hooks
+
 - **Status:** `NOT_STARTED`
 - **Files:** Frontend, new component or existing dev tools
 - **Work:**
@@ -519,6 +553,7 @@ Update this summary block every time you change any task status:
 - **Notes:** This is optional / nice-to-have for v1
 
 #### 6.5 — Wire classifier into API request flow
+
 - **Status:** `NOT_STARTED`
 - **Files:** `apps/api/src/index.ts`, fetch wrappers
 - **Work:**
@@ -530,6 +565,7 @@ Update this summary block every time you change any task status:
 - **Notes:** This is the integration task that ties Phases 2, 4, 5, 6 together
 
 #### 6.6 — Verify debug surfaces
+
 - **Status:** `NOT_STARTED`
 - **Work:**
   - Run `npm run build:api` and `npm run build:web` — both pass
@@ -550,6 +586,7 @@ Update this summary block every time you change any task status:
 ### Tasks
 
 #### 7.1 — Unit tests for control-flow rules
+
 - **Status:** `NOT_STARTED`
 - **File:** `apps/api/src/lib/__tests__/failureClassifier.test.ts` (new file)
 - **Work:**
@@ -561,6 +598,7 @@ Update this summary block every time you change any task status:
 - **Notes:** _n/a_
 
 #### 7.2 — Unit tests for transport/internal failure rules
+
 - **Status:** `NOT_STARTED`
 - **File:** `apps/api/src/lib/__tests__/failureClassifier.test.ts`
 - **Work:**
@@ -573,6 +611,7 @@ Update this summary block every time you change any task status:
 - **Notes:** _n/a_
 
 #### 7.3 — Unit tests for asset-specific rules
+
 - **Status:** `NOT_STARTED`
 - **File:** `apps/api/src/lib/__tests__/failureClassifier.test.ts`
 - **Work:**
@@ -584,6 +623,7 @@ Update this summary block every time you change any task status:
 - **Notes:** _n/a_
 
 #### 7.4 — Unit tests for aggregate/window rules
+
 - **Status:** `NOT_STARTED`
 - **File:** `apps/api/src/lib/__tests__/failureClassifier.test.ts`
 - **Work:**
@@ -596,6 +636,7 @@ Update this summary block every time you change any task status:
 - **Notes:** _n/a_
 
 #### 7.5 — Unit tests for rolling window tracker
+
 - **Status:** `NOT_STARTED`
 - **File:** `apps/api/src/lib/__tests__/failureWindows.test.ts` (new file)
 - **Work:**
@@ -608,6 +649,7 @@ Update this summary block every time you change any task status:
 - **Notes:** _n/a_
 
 #### 7.6 — Manual validation scenarios
+
 - **Status:** `NOT_STARTED`
 - **Work:**
   - Scenario A: rapid filter changes → verify abort/discard labels dominate, no false upstream diagnosis
@@ -639,12 +681,12 @@ The original plan specifies this build order based on dependency and impact:
 
 ## Suggested agent breakdown
 
-| Agent | Owns | Phases |
-|---|---|---|
-| Agent 1 — Taxonomy & classifier core | Shared types, rule engine, confidence model, classifier tests | 1, 4 |
-| Agent 2 — API instrumentation | Structured logging, evidence capture, rolling windows, debug endpoint | 2, 5, 6.1-6.2 |
-| Agent 3 — Frontend instrumentation | Abort/discard logging, intent tagging, browser-side failure labeling | 3, 6.3-6.4 |
-| Agent 4 — Integration & validation | Wiring classifier into flow, scenario tests, threshold tuning | 6.5-6.6, 7 |
+| Agent                                | Owns                                                                  | Phases        |
+| ------------------------------------ | --------------------------------------------------------------------- | ------------- |
+| Agent 1 — Taxonomy & classifier core | Shared types, rule engine, confidence model, classifier tests         | 1, 4          |
+| Agent 2 — API instrumentation        | Structured logging, evidence capture, rolling windows, debug endpoint | 2, 5, 6.1-6.2 |
+| Agent 3 — Frontend instrumentation   | Abort/discard logging, intent tagging, browser-side failure labeling  | 3, 6.3-6.4    |
+| Agent 4 — Integration & validation   | Wiring classifier into flow, scenario tests, threshold tuning         | 6.5-6.6, 7    |
 
 ---
 
@@ -663,6 +705,6 @@ This project is complete when all of these are true:
 
 ## Change log
 
-| Date | Author | Change |
-|---|---|---|
+| Date      | Author  | Change                                                  |
+| --------- | ------- | ------------------------------------------------------- |
 | _initial_ | _setup_ | Created progress tracker from failure-diagnosis-plan.md |

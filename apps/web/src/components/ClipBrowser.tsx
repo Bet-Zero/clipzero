@@ -2,10 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildApiUrl, getApiUnavailableMessage } from "@/lib/api";
-import {
-  CLIP_PAGE_TTL_MS,
-  fetchJsonWithCache,
-} from "@/lib/requestCache";
+import { CLIP_PAGE_TTL_MS, fetchJsonWithCache } from "@/lib/requestCache";
 import {
   recordClipNavigation,
   useInteractionPressure,
@@ -19,6 +16,8 @@ import {
 import { DEFAULT_RESULT, buildClipSearchParams } from "@/lib/filters";
 import { PLAY_TYPE_LABELS } from "@/lib/filterConfig";
 import type { Clip } from "@/lib/types";
+import { FailureDiagnosis } from "@/lib/failureTypes";
+import { logFrontendFailureEvent } from "@/lib/failureLogger";
 import ClipPlayer from "@/components/ClipPlayer";
 import ClipRail from "@/components/ClipRail";
 
@@ -282,7 +281,10 @@ export default function ClipBrowser({
       const data = await fetchJsonWithCache(
         url,
         async () => {
-          const res = await fetch(url, { signal: controller.signal });
+          const res = await fetch(url, {
+            signal: controller.signal,
+            headers: { "X-Request-Intent": "load_more" },
+          });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           return res.json();
         },
@@ -290,10 +292,22 @@ export default function ClipBrowser({
       );
 
       // Only apply results if this is still the latest request.
-      if (gen !== generationRef.current) return;
+      if (gen !== generationRef.current) {
+        logFrontendFailureEvent({
+          component: "ClipBrowser",
+          diagnosis: FailureDiagnosis.frontend_request_discarded,
+          url,
+          generation: gen,
+          currentGeneration: generationRef.current,
+        });
+        return;
+      }
 
       // Check for partial video-URL failures as a stress signal.
-      checkClipBatchForStress(data.clips ?? [], data.videoCdnAvailable !== false);
+      checkClipBatchForStress(
+        data.clips ?? [],
+        data.videoCdnAvailable !== false,
+      );
       setClips((prev) => [...prev, ...(data.clips ?? [])]);
       setTotal((prev) => data.total ?? prev);
       setHasMore(data.hasMore ?? false);
@@ -302,11 +316,37 @@ export default function ClipBrowser({
         setVideoCdnAvailable(data.videoCdnAvailable);
       }
     } catch (err) {
-      // Intentional aborts are silent — do not show error banners.
-      if (err instanceof DOMException && err.name === "AbortError") return;
+      // Intentional aborts — log as stale_request_canceled, not a real failure.
+      if (err instanceof DOMException && err.name === "AbortError") {
+        logFrontendFailureEvent({
+          component: "ClipBrowser",
+          diagnosis: FailureDiagnosis.stale_request_canceled,
+          generation: gen,
+          currentGeneration: generationRef.current,
+        });
+        return;
+      }
       // Stale generation — discard silently.
-      if (gen !== generationRef.current) return;
+      if (gen !== generationRef.current) {
+        logFrontendFailureEvent({
+          component: "ClipBrowser",
+          diagnosis: FailureDiagnosis.frontend_request_discarded,
+          generation: gen,
+          currentGeneration: generationRef.current,
+          errorMessage: err instanceof Error ? err.message : String(err),
+        });
+        return;
+      }
       recordFetchFailure();
+      logFrontendFailureEvent({
+        component: "ClipBrowser",
+        diagnosis:
+          err instanceof TypeError
+            ? FailureDiagnosis.frontend_network_failure
+            : FailureDiagnosis.unknown_failure,
+        errorMessage: err instanceof Error ? err.message : String(err),
+        generation: gen,
+      });
       setError(
         err instanceof TypeError
           ? getApiUnavailableMessage()
@@ -372,10 +412,22 @@ export default function ClipBrowser({
   // rapid context changes, and upstream failures are all signs that prefetch
   // will create more load than benefit.
   useEffect(() => {
-    if (!isHighPressure && !isStressed && hasMore && clips.length - activeIndex <= 3) {
+    if (
+      !isHighPressure &&
+      !isStressed &&
+      hasMore &&
+      clips.length - activeIndex <= 3
+    ) {
       loadMore();
     }
-  }, [activeIndex, clips.length, hasMore, isHighPressure, isStressed, loadMore]);
+  }, [
+    activeIndex,
+    clips.length,
+    hasMore,
+    isHighPressure,
+    isStressed,
+    loadMore,
+  ]);
 
   // Keyboard navigation: ArrowLeft / ArrowRight.
   useEffect(() => {
