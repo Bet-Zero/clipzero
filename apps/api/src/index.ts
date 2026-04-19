@@ -26,6 +26,7 @@ import type {
 } from "./lib/nba";
 import { getPersistentValue, setPersistentValue } from "./lib/persistentCache";
 import { createRateLimiter } from "./lib/rateLimit";
+import { SingleFlight } from "./lib/singleFlight";
 import { matchesNormalizedGroup } from "./lib/subtypeGroups";
 
 // ---------------------------------------------------------------------------
@@ -97,6 +98,16 @@ async function checkNbaVideoCdnHealth(): Promise<boolean> {
 void checkNbaVideoCdnHealth();
 
 const app = express();
+// Single-flight deduplicator — collapses concurrent identical upstream fetches
+// into one in-flight request. Keyed by fetch type and parameters.
+const sf = new SingleFlight();
+// Short TTL (15s) suppressing repeated same-key video asset null results.
+// Prevents hammering an upstream key that is consistently failing while still
+// allowing recovery after the window passes.
+const videoAssetNullTtl = new Map<string, number>();
+const VIDEO_ASSET_NULL_TTL_MS = 15_000;
+// Maximum concurrent upstream video asset lookups per batch.
+const VIDEO_ASSET_CONCURRENCY = 3;
 // Only trust proxy when explicitly configured (e.g. behind Cloudflare/nginx).
 // When self-hosting directly, trusting proxy headers lets attackers spoof IPs
 // to bypass rate limiting via X-Forwarded-For.
@@ -200,52 +211,76 @@ async function getCachedVideoAsset(
   const memoryCached = videoAssetCache.get(cacheKey);
   if (memoryCached) return memoryCached;
 
-  const persisted = await getPersistentValue<{
-    videoUrl: string | null;
-    thumbnailUrl: string | null;
-  }>("video-assets", cacheKey);
-  // Only use persisted value if it has a valid URL — don't serve stale nulls
-  // from previously failed fetches.
-  if (persisted && (persisted.videoUrl || persisted.thumbnailUrl)) {
-    videoAssetCache.set(cacheKey, persisted);
-    return persisted;
+  // Suppress repeated null results within a short window to avoid hammering
+  // an upstream key that is consistently failing.
+  const nullTs = videoAssetNullTtl.get(cacheKey);
+  if (nullTs !== undefined && Date.now() - nullTs < VIDEO_ASSET_NULL_TTL_MS) {
+    return emptyVideoAsset;
   }
 
-  function persistCachedValue(cachedValue: {
-    videoUrl: string | null;
-    thumbnailUrl: string | null;
-  }) {
-    void setPersistentValue("video-assets", cacheKey, cachedValue).catch(
-      (error) => {
-        logger.warn("persistent_cache_write_failed", {
-          cacheName: "video-assets",
-          cacheKey,
-          gameId,
-          actionNumber,
-          ...serializeError(error),
-        });
-      },
-    );
+  // Single-flight: if the same asset is already being fetched, join that
+  // promise instead of starting a duplicate upstream request.
+  if (sf.has(`video:${cacheKey}`)) {
+    logger.info("video_asset_inflight_deduped", { gameId, actionNumber });
   }
+  return sf.call(`video:${cacheKey}`, async () => {
+    // Re-check memory: a coalesced caller may have just written it.
+    const mc = videoAssetCache.get(cacheKey);
+    if (mc) return mc;
 
-  try {
-    const asset = await getVideoEventAsset(gameId, actionNumber);
-    const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
-    const cachedValue = {
-      videoUrl: firstVideo?.murl ?? null,
-      thumbnailUrl: firstVideo?.mth ?? null,
-    };
-    videoAssetCache.set(cacheKey, cachedValue);
-    // Only persist to disk when we have a valid URL — don't permanently cache
-    // failures or empty results so they can be retried on future requests.
-    if (cachedValue.videoUrl || cachedValue.thumbnailUrl) {
-      persistCachedValue(cachedValue);
+    const persisted = await getPersistentValue<{
+      videoUrl: string | null;
+      thumbnailUrl: string | null;
+    }>("video-assets", cacheKey);
+    // Only use persisted value if it has a valid URL — don't serve stale nulls
+    // from previously failed fetches.
+    if (persisted && (persisted.videoUrl || persisted.thumbnailUrl)) {
+      videoAssetCache.set(cacheKey, persisted);
+      return persisted;
     }
-    return cachedValue;
-  } catch {
-    // Don't cache failures at all — allow retry on every subsequent request.
-    return { videoUrl: null, thumbnailUrl: null };
-  }
+
+    function persistCachedValue(cachedValue: {
+      videoUrl: string | null;
+      thumbnailUrl: string | null;
+    }) {
+      void setPersistentValue("video-assets", cacheKey, cachedValue).catch(
+        (error) => {
+          logger.warn("persistent_cache_write_failed", {
+            cacheName: "video-assets",
+            cacheKey,
+            gameId,
+            actionNumber,
+            ...serializeError(error),
+          });
+        },
+      );
+    }
+
+    try {
+      const asset = await getVideoEventAsset(gameId, actionNumber);
+      const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
+      const cachedValue = {
+        videoUrl: firstVideo?.murl ?? null,
+        thumbnailUrl: firstVideo?.mth ?? null,
+      };
+      videoAssetCache.set(cacheKey, cachedValue);
+      // Only persist to disk when we have a valid URL — don't permanently cache
+      // failures or empty results so they can be retried on future requests.
+      if (cachedValue.videoUrl || cachedValue.thumbnailUrl) {
+        persistCachedValue(cachedValue);
+        videoAssetNullTtl.delete(cacheKey);
+      } else {
+        // Record the null result timestamp for short-window suppression.
+        videoAssetNullTtl.set(cacheKey, Date.now());
+      }
+      return cachedValue;
+    } catch {
+      // Don't cache failures at all — allow retry on every subsequent request.
+      // Do apply the short-window null TTL to avoid burst hammering on errors.
+      videoAssetNullTtl.set(cacheKey, Date.now());
+      return { videoUrl: null, thumbnailUrl: null };
+    }
+  });
 }
 
 function persistValueBestEffort<T>(
@@ -266,19 +301,25 @@ async function getCachedPlayByPlay(gameId: string): Promise<RawAction[]> {
   const cached = playByPlayCache.get(gameId);
   if (cached) return cached;
 
-  const persisted = await getPersistentValue<RawAction[]>(
-    "play-by-play",
-    gameId,
-  );
-  if (persisted) {
-    playByPlayCache.set(gameId, persisted);
-    return persisted;
-  }
+  return sf.call(`pbp:${gameId}`, async () => {
+    // Re-check memory: a coalesced caller may have just written it.
+    const mc = playByPlayCache.get(gameId);
+    if (mc) return mc;
 
-  const actions = await getPlayByPlay(gameId);
-  playByPlayCache.set(gameId, actions);
-  persistValueBestEffort("play-by-play", gameId, actions);
-  return actions;
+    const persisted = await getPersistentValue<RawAction[]>(
+      "play-by-play",
+      gameId,
+    );
+    if (persisted) {
+      playByPlayCache.set(gameId, persisted);
+      return persisted;
+    }
+
+    const actions = await getPlayByPlay(gameId);
+    playByPlayCache.set(gameId, actions);
+    persistValueBestEffort("play-by-play", gameId, actions);
+    return actions;
+  });
 }
 
 async function getCachedPlayerNameMap(
@@ -335,19 +376,24 @@ async function getCachedPlayerDirectory(
   const cached = playerDirectoryCache.get(season);
   if (cached) return cached;
 
-  const persisted = await getPersistentValue<PlayerDirectoryEntry[]>(
-    "player-directory",
-    season,
-  );
-  if (persisted) {
-    playerDirectoryCache.set(season, persisted);
-    return persisted;
-  }
+  return sf.call(`player-dir:${season}`, async () => {
+    const mc = playerDirectoryCache.get(season);
+    if (mc) return mc;
 
-  const directory = await getAllPlayers(season);
-  playerDirectoryCache.set(season, directory);
-  persistValueBestEffort("player-directory", season, directory);
-  return directory;
+    const persisted = await getPersistentValue<PlayerDirectoryEntry[]>(
+      "player-directory",
+      season,
+    );
+    if (persisted) {
+      playerDirectoryCache.set(season, persisted);
+      return persisted;
+    }
+
+    const directory = await getAllPlayers(season);
+    playerDirectoryCache.set(season, directory);
+    persistValueBestEffort("player-directory", season, directory);
+    return directory;
+  });
 }
 
 async function getCachedPlayerGameLogForSeason(
@@ -358,19 +404,24 @@ async function getCachedPlayerGameLogForSeason(
   const cached = playerGameLogCache.get(cacheKey);
   if (cached) return cached;
 
-  const persisted = await getPersistentValue<PlayerGameLogEntry[]>(
-    "player-game-logs",
-    cacheKey,
-  );
-  if (persisted) {
-    playerGameLogCache.set(cacheKey, persisted);
-    return persisted;
-  }
+  return sf.call(`player-log:${cacheKey}`, async () => {
+    const mc = playerGameLogCache.get(cacheKey);
+    if (mc) return mc;
 
-  const gameLog = await getPlayerGameLog(personId, season);
-  playerGameLogCache.set(cacheKey, gameLog);
-  persistValueBestEffort("player-game-logs", cacheKey, gameLog);
-  return gameLog;
+    const persisted = await getPersistentValue<PlayerGameLogEntry[]>(
+      "player-game-logs",
+      cacheKey,
+    );
+    if (persisted) {
+      playerGameLogCache.set(cacheKey, persisted);
+      return persisted;
+    }
+
+    const gameLog = await getPlayerGameLog(personId, season);
+    playerGameLogCache.set(cacheKey, gameLog);
+    persistValueBestEffort("player-game-logs", cacheKey, gameLog);
+    return gameLog;
+  });
 }
 
 async function getCachedTeamGameLogForSeason(
@@ -381,19 +432,24 @@ async function getCachedTeamGameLogForSeason(
   const cached = teamGameLogCache.get(cacheKey);
   if (cached) return cached;
 
-  const persisted = await getPersistentValue<TeamGameLogEntry[]>(
-    "team-game-logs",
-    cacheKey,
-  );
-  if (persisted) {
-    teamGameLogCache.set(cacheKey, persisted);
-    return persisted;
-  }
+  return sf.call(`team-log:${cacheKey}`, async () => {
+    const mc = teamGameLogCache.get(cacheKey);
+    if (mc) return mc;
 
-  const gameLog = await getTeamGameLog(team.teamId, season);
-  teamGameLogCache.set(cacheKey, gameLog);
-  persistValueBestEffort("team-game-logs", cacheKey, gameLog);
-  return gameLog;
+    const persisted = await getPersistentValue<TeamGameLogEntry[]>(
+      "team-game-logs",
+      cacheKey,
+    );
+    if (persisted) {
+      teamGameLogCache.set(cacheKey, persisted);
+      return persisted;
+    }
+
+    const gameLog = await getTeamGameLog(team.teamId, season);
+    teamGameLogCache.set(cacheKey, gameLog);
+    persistValueBestEffort("team-game-logs", cacheKey, gameLog);
+    return gameLog;
+  });
 }
 
 function teamLite(team: TeamDirectoryEntry): MatchupGame["homeTeam"] {
@@ -451,21 +507,26 @@ async function getCachedMatchupGamesForSeason(
   const cached = matchupGamesCache.get(cacheKey);
   if (cached) return cached;
 
-  const log = await getCachedTeamGameLogForSeason(teamA, season);
-  const byGameId = new Map<string, MatchupGame>();
+  return sf.call(`matchup:${cacheKey}`, async () => {
+    const mc = matchupGamesCache.get(cacheKey);
+    if (mc) return mc;
 
-  for (const entry of log) {
-    const game = buildMatchupGame(entry, teamA, teamB);
-    if (game) byGameId.set(game.gameId, game);
-  }
+    const log = await getCachedTeamGameLogForSeason(teamA, season);
+    const byGameId = new Map<string, MatchupGame>();
 
-  const games = [...byGameId.values()].sort((a, b) => {
-    const dateCompare = a.gameDate.localeCompare(b.gameDate);
-    return dateCompare !== 0 ? dateCompare : a.gameId.localeCompare(b.gameId);
+    for (const entry of log) {
+      const game = buildMatchupGame(entry, teamA, teamB);
+      if (game) byGameId.set(game.gameId, game);
+    }
+
+    const games = [...byGameId.values()].sort((a, b) => {
+      const dateCompare = a.gameDate.localeCompare(b.gameDate);
+      return dateCompare !== 0 ? dateCompare : a.gameId.localeCompare(b.gameId);
+    });
+
+    matchupGamesCache.set(cacheKey, games);
+    return games;
   });
-
-  matchupGamesCache.set(cacheKey, games);
-  return games;
 }
 
 async function getCachedSeasonActionsBundle(
@@ -1061,36 +1122,40 @@ app.get("/clips/game", async (req, res) => {
 
     const shots = filteredShots.slice(offset, offset + limit);
 
-    const clips = await mapWithConcurrency(shots, 3, async (shot) => {
-      if (!shot.actionNumber) {
+    const clips = await mapWithConcurrency(
+      shots,
+      VIDEO_ASSET_CONCURRENCY,
+      async (shot) => {
+        if (!shot.actionNumber) {
+          return {
+            ...shot,
+            videoUrl: null,
+            thumbnailUrl: null,
+          };
+        }
+
+        const videoEventId =
+          (shot as { videoActionNumber?: number }).videoActionNumber ??
+          shot.actionNumber;
+        const cachedAsset = videoCdnAvailable
+          ? await getCachedVideoAsset(gameId, videoEventId)
+          : emptyVideoAsset;
+        if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
+          assetUrlsResolved += 1;
+          return {
+            ...shot,
+            videoUrl: cachedAsset.videoUrl,
+            thumbnailUrl: cachedAsset.thumbnailUrl,
+          };
+        }
+
+        assetUrlsUnresolved += 1;
         return {
           ...shot,
-          videoUrl: null,
-          thumbnailUrl: null,
+          ...cachedAsset,
         };
-      }
-
-      const videoEventId =
-        (shot as { videoActionNumber?: number }).videoActionNumber ??
-        shot.actionNumber;
-      const cachedAsset = videoCdnAvailable
-        ? await getCachedVideoAsset(gameId, videoEventId)
-        : emptyVideoAsset;
-      if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
-        assetUrlsResolved += 1;
-        return {
-          ...shot,
-          videoUrl: cachedAsset.videoUrl,
-          thumbnailUrl: cachedAsset.thumbnailUrl,
-        };
-      }
-
-      assetUrlsUnresolved += 1;
-      return {
-        ...shot,
-        ...cachedAsset,
-      };
-    });
+      },
+    );
 
     const hasMore = offset + clips.length < filteredShots.length;
     const nextOffset = hasMore ? offset + clips.length : null;
@@ -1407,37 +1472,41 @@ app.get("/clips/matchup", async (req, res) => {
     });
 
     const pageActions = filteredActions.slice(offset, offset + limit);
-    const clips = await mapWithConcurrency(pageActions, 3, async (action) => {
-      if (!action.actionNumber) {
+    const clips = await mapWithConcurrency(
+      pageActions,
+      VIDEO_ASSET_CONCURRENCY,
+      async (action) => {
+        if (!action.actionNumber) {
+          return {
+            ...action,
+            videoUrl: null,
+            thumbnailUrl: null,
+          };
+        }
+
+        const videoEventId =
+          (action as { videoActionNumber?: number }).videoActionNumber ??
+          action.actionNumber;
+        const cachedAsset = videoCdnAvailable
+          ? await getCachedVideoAsset(action.gameId, videoEventId)
+          : emptyVideoAsset;
+
+        if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
+          assetUrlsResolved += 1;
+          return {
+            ...action,
+            videoUrl: cachedAsset.videoUrl,
+            thumbnailUrl: cachedAsset.thumbnailUrl,
+          };
+        }
+
+        assetUrlsUnresolved += 1;
         return {
           ...action,
-          videoUrl: null,
-          thumbnailUrl: null,
+          ...cachedAsset,
         };
-      }
-
-      const videoEventId =
-        (action as { videoActionNumber?: number }).videoActionNumber ??
-        action.actionNumber;
-      const cachedAsset = videoCdnAvailable
-        ? await getCachedVideoAsset(action.gameId, videoEventId)
-        : emptyVideoAsset;
-
-      if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
-        assetUrlsResolved += 1;
-        return {
-          ...action,
-          videoUrl: cachedAsset.videoUrl,
-          thumbnailUrl: cachedAsset.thumbnailUrl,
-        };
-      }
-
-      assetUrlsUnresolved += 1;
-      return {
-        ...action,
-        ...cachedAsset,
-      };
-    });
+      },
+    );
 
     const hasMore = offset + clips.length < filteredActions.length;
     const nextOffset = hasMore ? offset + clips.length : null;
@@ -1942,23 +2011,27 @@ app.get("/clips/player", async (req, res) => {
     let assetUrlsResolved = 0;
     let assetUrlsUnresolved = 0;
 
-    const clips = await mapWithConcurrency(pageActions, 3, async (action) => {
-      if (!action.actionNumber) {
-        return { ...action, videoUrl: null, thumbnailUrl: null };
-      }
+    const clips = await mapWithConcurrency(
+      pageActions,
+      VIDEO_ASSET_CONCURRENCY,
+      async (action) => {
+        if (!action.actionNumber) {
+          return { ...action, videoUrl: null, thumbnailUrl: null };
+        }
 
-      const videoEventId = action.videoActionNumber ?? action.actionNumber;
-      const cachedAsset = videoCdnAvailable
-        ? await getCachedVideoAsset(action.gameId, videoEventId)
-        : emptyVideoAsset;
-      if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
-        assetUrlsResolved += 1;
+        const videoEventId = action.videoActionNumber ?? action.actionNumber;
+        const cachedAsset = videoCdnAvailable
+          ? await getCachedVideoAsset(action.gameId, videoEventId)
+          : emptyVideoAsset;
+        if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
+          assetUrlsResolved += 1;
+          return { ...action, ...cachedAsset };
+        }
+
+        assetUrlsUnresolved += 1;
         return { ...action, ...cachedAsset };
-      }
-
-      assetUrlsUnresolved += 1;
-      return { ...action, ...cachedAsset };
-    });
+      },
+    );
 
     const hasMore = offset + clips.length < total;
     const nextOffset = hasMore ? offset + clips.length : null;

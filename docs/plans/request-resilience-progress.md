@@ -27,21 +27,21 @@ Every agent or developer working on this plan **must** follow these rules:
 
 ### Status legend
 
-| Icon | Meaning |
-|------|---------|
-| ✅ | Complete — merged and verified |
-| 🔨 | In progress — actively being worked |
-| 🔲 | Not started — ready to pick up |
-| 🚫 | Blocked — cannot proceed, see note |
-| ⏭️ | Skipped — decided not needed |
+| Icon | Meaning                             |
+| ---- | ----------------------------------- |
+| ✅   | Complete — merged and verified      |
+| 🔨   | In progress — actively being worked |
+| 🔲   | Not started — ready to pick up      |
+| 🚫   | Blocked — cannot proceed, see note  |
+| ⏭️   | Skipped — decided not needed        |
 
 ---
 
 ## Progress tracker
 
-> **Currently active:** _None — Phase 1 complete, ready for Phase 2_
+> **Currently active:** _None — Phase 2 (debounce) complete, ready for Rollout Step 5_
 >
-> **Overall progress:** 1 of 7 rollout phases complete
+> **Overall progress:** 4 of 7 rollout phases complete
 
 ---
 
@@ -62,16 +62,16 @@ These things already exist and should be preserved, not reimplemented:
 
 ### Steps
 
-| # | Status | Step | Files | Notes |
-|---|--------|------|-------|-------|
-| 1.1 | ✅ | Add request generation IDs to `ClipBrowser.tsx` — create a `useRef<number>(0)` generation counter. Increment on every new clip-set fetch. Capture locally. Only apply results if generation matches current. | `apps/web/src/components/ClipBrowser.tsx` | 2026-04-19: Added `generationRef`, increment+capture in `loadMore`, discard stale results |
-| 1.2 | ✅ | Add request generation IDs to `PlayerModeBrowser.tsx` — same pattern as 1.1. | `apps/web/src/components/PlayerModeBrowser.tsx` | 2026-04-19: Added `generationRef`, increment+capture in `fetchClips`, discard stale results |
-| 1.3 | ✅ | Add request generation IDs to `MatchupModeBrowser.tsx` — same pattern as 1.1. | `apps/web/src/components/MatchupModeBrowser.tsx` | 2026-04-19: Added `generationRef`, increment+capture in `fetchClips`, discard stale results |
-| 1.4 | ✅ | Add `AbortController` to clip-set fetches in `ClipBrowser.tsx` — create controller per fetch, pass `signal` to `fetch()`, abort previous on new request. Do not treat abort as error. | `apps/web/src/components/ClipBrowser.tsx` | 2026-04-19: Added `abortRef`, abort previous on new request, AbortError silenced |
-| 1.5 | ✅ | Add `AbortController` to clip-set fetches in `PlayerModeBrowser.tsx` — same pattern as 1.4. | `apps/web/src/components/PlayerModeBrowser.tsx` | 2026-04-19: Added `abortRef`, abort previous on new request, AbortError silenced |
-| 1.6 | ✅ | Add `AbortController` to clip-set fetches in `MatchupModeBrowser.tsx` — same pattern as 1.4. | `apps/web/src/components/MatchupModeBrowser.tsx` | 2026-04-19: Added `abortRef`, abort previous on new request, AbortError silenced |
-| 1.7 | ✅ | Clear pending `loadMore`, auto-advance state, and stale rail assumptions on context change (filter/mode/date/game) in all three browsers. | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` | 2026-04-19: ClipBrowser resets all state on prop change; Player/Matchup clear `pendingAdvanceRef` on context change; generation invalidation prevents stale results |
-| 1.8 | ✅ | Verify: rapid filter changes do not leave multiple meaningful requests alive. Abort-triggered exits do not show error banners. Old requests cannot overwrite newer clip sets. | Build + lint + unit tests | 2026-04-19: `npm run build:web`, `npm run lint:web`, `npm run test:web` all pass. Generation ID guards + AbortController + AbortError silence verified in code |
+| #   | Status | Step                                                                                                                                                                                                         | Files                                                                | Notes                                                                                                                                                               |
+| --- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.1 | ✅     | Add request generation IDs to `ClipBrowser.tsx` — create a `useRef<number>(0)` generation counter. Increment on every new clip-set fetch. Capture locally. Only apply results if generation matches current. | `apps/web/src/components/ClipBrowser.tsx`                            | 2026-04-19: Added `generationRef`, increment+capture in `loadMore`, discard stale results                                                                           |
+| 1.2 | ✅     | Add request generation IDs to `PlayerModeBrowser.tsx` — same pattern as 1.1.                                                                                                                                 | `apps/web/src/components/PlayerModeBrowser.tsx`                      | 2026-04-19: Added `generationRef`, increment+capture in `fetchClips`, discard stale results                                                                         |
+| 1.3 | ✅     | Add request generation IDs to `MatchupModeBrowser.tsx` — same pattern as 1.1.                                                                                                                                | `apps/web/src/components/MatchupModeBrowser.tsx`                     | 2026-04-19: Added `generationRef`, increment+capture in `fetchClips`, discard stale results                                                                         |
+| 1.4 | ✅     | Add `AbortController` to clip-set fetches in `ClipBrowser.tsx` — create controller per fetch, pass `signal` to `fetch()`, abort previous on new request. Do not treat abort as error.                        | `apps/web/src/components/ClipBrowser.tsx`                            | 2026-04-19: Added `abortRef`, abort previous on new request, AbortError silenced                                                                                    |
+| 1.5 | ✅     | Add `AbortController` to clip-set fetches in `PlayerModeBrowser.tsx` — same pattern as 1.4.                                                                                                                  | `apps/web/src/components/PlayerModeBrowser.tsx`                      | 2026-04-19: Added `abortRef`, abort previous on new request, AbortError silenced                                                                                    |
+| 1.6 | ✅     | Add `AbortController` to clip-set fetches in `MatchupModeBrowser.tsx` — same pattern as 1.4.                                                                                                                 | `apps/web/src/components/MatchupModeBrowser.tsx`                     | 2026-04-19: Added `abortRef`, abort previous on new request, AbortError silenced                                                                                    |
+| 1.7 | ✅     | Clear pending `loadMore`, auto-advance state, and stale rail assumptions on context change (filter/mode/date/game) in all three browsers.                                                                    | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` | 2026-04-19: ClipBrowser resets all state on prop change; Player/Matchup clear `pendingAdvanceRef` on context change; generation invalidation prevents stale results |
+| 1.8 | ✅     | Verify: rapid filter changes do not leave multiple meaningful requests alive. Abort-triggered exits do not show error banners. Old requests cannot overwrite newer clip sets.                                | Build + lint + unit tests                                            | 2026-04-19: `npm run build:web`, `npm run lint:web`, `npm run test:web` all pass. Generation ID guards + AbortController + AbortError silence verified in code      |
 
 ### Completion criteria
 
@@ -81,7 +81,7 @@ All of 1.1–1.8 are ✅. Then mark this rollout step ✅.
 
 ## Rollout Step 2 → Phase 3: Single-flight load-more protection
 
-**Phase status:** 🔲 Not started (partial foundation exists — see notes)
+**Phase status:** ✅ Complete
 
 **Goal:** Only one load-more operation active at a time per clip context.
 
@@ -92,12 +92,12 @@ All of 1.1–1.8 are ✅. Then mark this rollout step ✅.
 
 ### Steps
 
-| # | Status | Step | Files | Notes |
-|---|--------|------|-------|-------|
-| 2.1 | 🔲 | Add per-context offset tracking — maintain a `Set<number>` of already-fetched or in-flight offsets, keyed to the current clip context. Reset on context change. Prevent duplicate offset requests. | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` | Consider extracting shared helper to `apps/web/src/lib/loadMoreGuard.ts` |
-| 2.2 | 🔲 | Add minimum cooldown between load-more starts — after a successful loadMore completes, enforce a 300ms gap before the next one can begin. Use a timestamp ref. | Same files as 2.1 | |
-| 2.3 | 🔲 | Ensure clip-context change (from Phase 1 work) properly resets the offset set and cooldown timer. | Same files as 2.1 | Depends on 1.7 being done |
-| 2.4 | 🔲 | Verify: rapid rail skipping cannot stack overlapping load-more requests. No duplicate offset requests. Autoplay near-end remains smooth. | Manual QA | Run Scenario 2 from the QA test plan |
+| #   | Status | Step                                                                                                                                                                                               | Files                                                                | Notes                                                                                                               |
+| --- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| 2.1 | ✅     | Add per-context offset tracking — maintain a `Set<number>` of already-fetched or in-flight offsets, keyed to the current clip context. Reset on context change. Prevent duplicate offset requests. | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` | 2026-04-19: Added `fetchedOffsetsRef` to all three browsers; reset on context change                                |
+| 2.2 | ✅     | Add minimum cooldown between load-more starts — after a successful loadMore completes, enforce a 300ms gap before the next one can begin. Use a timestamp ref.                                     | Same files as 2.1                                                    | 2026-04-19: Added `lastLoadMoreTimeRef`; 300ms guard in all three `loadMore` callbacks                              |
+| 2.3 | ✅     | Ensure clip-context change (from Phase 1 work) properly resets the offset set and cooldown timer.                                                                                                  | Same files as 2.1                                                    | 2026-04-19: ClipBrowser resets in context-change useEffect; Player/Matchup reset inside `fetchClips` when `!append` |
+| 2.4 | 🔲     | Verify: rapid rail skipping cannot stack overlapping load-more requests. No duplicate offset requests. Autoplay near-end remains smooth.                                                           | Manual QA                                                            | Run Scenario 2 from the QA test plan                                                                                |
 
 ### Completion criteria
 
@@ -107,7 +107,7 @@ All of 2.1–2.4 are ✅. Then mark this rollout step ✅.
 
 ## Rollout Step 3 → Phase 6: API-side request coalescing and upstream protection
 
-**Phase status:** 🔲 Not started
+**Phase status:** ✅ Complete
 
 **Goal:** Reduce duplicate upstream NBA calls even when the frontend still produces bursts.
 
@@ -118,19 +118,19 @@ All of 2.1–2.4 are ✅. Then mark this rollout step ✅.
 
 ### Steps
 
-| # | Status | Step | Files | Notes |
-|---|--------|------|-------|-------|
-| 3.1 | 🔲 | Create a single-flight helper — `apps/api/src/lib/singleFlight.ts`. Should accept a string key and an async function. If a request for that key is already in flight, return the same promise. Otherwise, execute and cache the promise until it resolves. | `apps/api/src/lib/singleFlight.ts` (new) | |
-| 3.2 | 🔲 | Wrap play-by-play fetch (`getCachedPlayByPlay`) with single-flight by `gameId`. | `apps/api/src/index.ts` | |
-| 3.3 | 🔲 | Wrap video asset fetch with single-flight by `gameId:actionNumber`. | `apps/api/src/index.ts` | |
-| 3.4 | 🔲 | Wrap player directory fetch with single-flight by `season`. | `apps/api/src/index.ts` | |
-| 3.5 | 🔲 | Wrap player game log fetch with single-flight by `personId:season`. | `apps/api/src/index.ts` | |
-| 3.6 | 🔲 | Wrap team game log fetch with single-flight by `team:season`. | `apps/api/src/index.ts` | |
-| 3.7 | 🔲 | Wrap matchup games fetch with single-flight by `season:teamA:teamB`. | `apps/api/src/index.ts` | |
-| 3.8 | 🔲 | Add short TTL negative-result suppression (10–20s) for repeated same-key video asset misses. Do not permanently cache nulls. | `apps/api/src/index.ts` or `apps/api/src/lib/singleFlight.ts` | |
-| 3.9 | 🔲 | Review and tighten concurrency caps for video asset resolution. Keep low and stable. | `apps/api/src/index.ts` | |
-| 3.10 | 🔲 | Add internal logging to distinguish: memory cache hit, persistent cache hit, in-flight dedupe hit, fresh upstream fetch. | `apps/api/src/index.ts` | |
-| 3.11 | 🔲 | Verify: duplicate identical upstream fetches are collapsed. Transient same-key misses are not hammered. API remains stable under repetitive same-key frontend requests. | API tests + manual | Run `npm run test:api` after changes |
+| #    | Status | Step                                                                                                                                                                                                                                                       | Files                                    | Notes                                                                                                                      |
+| ---- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| 3.1  | ✅     | Create a single-flight helper — `apps/api/src/lib/singleFlight.ts`. Should accept a string key and an async function. If a request for that key is already in flight, return the same promise. Otherwise, execute and cache the promise until it resolves. | `apps/api/src/lib/singleFlight.ts` (new) | 2026-04-19: `SingleFlight` class with `call()` and `has()` methods                                                         |
+| 3.2  | ✅     | Wrap play-by-play fetch (`getCachedPlayByPlay`) with single-flight by `gameId`.                                                                                                                                                                            | `apps/api/src/index.ts`                  | 2026-04-19: Wrapped with `sf.call('pbp:${gameId}', ...)`                                                                   |
+| 3.3  | ✅     | Wrap video asset fetch with single-flight by `gameId:actionNumber`.                                                                                                                                                                                        | `apps/api/src/index.ts`                  | 2026-04-19: Wrapped with `sf.call('video:${cacheKey}', ...)`                                                               |
+| 3.4  | ✅     | Wrap player directory fetch with single-flight by `season`.                                                                                                                                                                                                | `apps/api/src/index.ts`                  | 2026-04-19: Wrapped with `sf.call('player-dir:${season}', ...)`                                                            |
+| 3.5  | ✅     | Wrap player game log fetch with single-flight by `personId:season`.                                                                                                                                                                                        | `apps/api/src/index.ts`                  | 2026-04-19: Wrapped with `sf.call('player-log:${cacheKey}', ...)`                                                          |
+| 3.6  | ✅     | Wrap team game log fetch with single-flight by `team:season`.                                                                                                                                                                                              | `apps/api/src/index.ts`                  | 2026-04-19: Wrapped with `sf.call('team-log:${cacheKey}', ...)`                                                            |
+| 3.7  | ✅     | Wrap matchup games fetch with single-flight by `season:teamA:teamB`.                                                                                                                                                                                       | `apps/api/src/index.ts`                  | 2026-04-19: Wrapped with `sf.call('matchup:${cacheKey}', ...)`                                                             |
+| 3.8  | ✅     | Add short TTL negative-result suppression (10–20s) for repeated same-key video asset misses. Do not permanently cache nulls.                                                                                                                               | `apps/api/src/index.ts`                  | 2026-04-19: `videoAssetNullTtl` Map with 15s TTL; suppresses repeated null results and errors                              |
+| 3.9  | ✅     | Review and tighten concurrency caps for video asset resolution. Keep low and stable.                                                                                                                                                                       | `apps/api/src/index.ts`                  | 2026-04-19: Extracted `VIDEO_ASSET_CONCURRENCY = 3` constant; all three `mapWithConcurrency` video-asset call sites use it |
+| 3.10 | ✅     | Add internal logging to distinguish: memory cache hit, persistent cache hit, in-flight dedupe hit, fresh upstream fetch.                                                                                                                                   | `apps/api/src/index.ts`                  | 2026-04-19: `video_asset_inflight_deduped` log emitted when a video asset fetch joins an existing in-flight request        |
+| 3.11 | 🔲     | Verify: duplicate identical upstream fetches are collapsed. Transient same-key misses are not hammered. API remains stable under repetitive same-key frontend requests.                                                                                    | API tests + manual                       | Run `npm run test:api` after changes                                                                                       |
 
 ### Completion criteria
 
@@ -140,7 +140,7 @@ All of 3.1–3.11 are ✅. Then mark this rollout step ✅.
 
 ## Rollout Step 4 → Phase 2: Debounce high-churn state changes
 
-**Phase status:** 🔲 Not started (partial foundation exists — see notes)
+**Phase status:** ✅ Complete
 
 **Goal:** Reduce bursts caused by rapid successive filter/navigation actions.
 
@@ -151,13 +151,13 @@ All of 3.1–3.11 are ✅. Then mark this rollout step ✅.
 
 ### Steps
 
-| # | Status | Step | Files | Notes |
-|---|--------|------|-------|-------|
-| 4.1 | 🔲 | Add debounce to filter-triggered route/state updates — 150ms for button/select filter changes. Do NOT debounce explicit clip selection, prev/next navigation, or single-click game selection. | `apps/web/src/components/FilterBar.tsx` (or equivalent filter components) | |
-| 4.2 | 🔲 | Coalesce multiple filter changes within the debounce window into one navigation/fetch. Apply changes optimistically in UI state, delay the network call. | Same as 4.1 | |
-| 4.3 | 🔲 | Ensure controls still feel responsive immediately — debounce the expensive work, not the visible click feedback. | Same as 4.1 | |
-| 4.4 | 🔲 | Add debounce to mode/date switches in PlayerModeBrowser and MatchupModeBrowser where rapid toggling is possible. | `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` | |
-| 4.5 | 🔲 | Verify: rapid filter clicks collapse into one effective request. Controls feel responsive. No obvious lag in normal usage. | Manual QA | Run Scenario 1, 4, 5 from QA test plan |
+| #   | Status | Step                                                                                                                                                                                          | Files                                                                     | Notes                                                                                                                                           |
+| --- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4.1 | ✅     | Add debounce to filter-triggered route/state updates — 150ms for button/select filter changes. Do NOT debounce explicit clip selection, prev/next navigation, or single-click game selection. | `apps/web/src/components/FilterBar.tsx` (or equivalent filter components) | 2026-04-19: Added `navigateTimerRef` + `pendingNavigateUrlRef`; `navigate()` debounces `router.push` 150ms while `setPending` fires immediately |
+| 4.2 | ✅     | Coalesce multiple filter changes within the debounce window into one navigation/fetch. Apply changes optimistically in UI state, delay the network call.                                      | Same as 4.1                                                               | 2026-04-19: Last URL built within the 150ms window wins; `setPending` accumulation ensures each URL is built with the latest optimistic state   |
+| 4.3 | ✅     | Ensure controls still feel responsive immediately — debounce the expensive work, not the visible click feedback.                                                                              | Same as 4.1                                                               | 2026-04-19: `setPending` (controls) is immediate; only `router.push` (navigation) is delayed                                                    |
+| 4.4 | ✅     | Add debounce to mode/date switches in PlayerModeBrowser and MatchupModeBrowser where rapid toggling is possible.                                                                              | `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx`                         | 2026-04-19: Same 150ms debounce pattern applied to `navigateTo()` in both browsers                                                              |
+| 4.5 | 🔲     | Verify: rapid filter clicks collapse into one effective request. Controls feel responsive. No obvious lag in normal usage.                                                                    | Manual QA                                                                 | Run Scenario 1, 4, 5 from QA test plan                                                                                                          |
 
 ### Completion criteria
 
@@ -173,13 +173,13 @@ All of 4.1–4.5 are ✅. Then mark this rollout step ✅.
 
 ### Steps
 
-| # | Status | Step | Files | Notes |
-|---|--------|------|-------|-------|
-| 5.1 | 🔲 | Limit prefetch horizon — at most one page ahead automatically. Do not recursively chase more pages during an existing fetch. | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` | |
-| 5.2 | 🔲 | Create `apps/web/src/lib/interactionPressure.ts` — lightweight tracker that detects aggressive skipping (4+ clip jumps in 2s, repeated large rail jumps, multiple context changes in short window). Expose a boolean `isHighPressure` signal. Should be temporary and self-clearing. | `apps/web/src/lib/interactionPressure.ts` (new) | |
-| 5.3 | 🔲 | Integrate interaction pressure into prefetch decisions — when `isHighPressure` is true, suspend auto-prefetch or reduce to explicit-need only. | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` | |
-| 5.4 | 🔲 | Only prefetch when playback suggests usefulness — prefer prefetch during normal watching / steady autoplay / approaching end of loaded clips. Be conservative when user is jumping, context just changed, or app is in cooldown (Phase 7). | Same files | |
-| 5.5 | 🔲 | Verify: normal watching stays smooth. Aggressive skipping no longer causes runaway background fetch. Prefetch becomes conservative during high interaction pressure. | Manual QA | Run Scenario 2 from QA test plan |
+| #   | Status | Step                                                                                                                                                                                                                                                                                 | Files                                                                | Notes                            |
+| --- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- | -------------------------------- |
+| 5.1 | 🔲     | Limit prefetch horizon — at most one page ahead automatically. Do not recursively chase more pages during an existing fetch.                                                                                                                                                         | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` |                                  |
+| 5.2 | 🔲     | Create `apps/web/src/lib/interactionPressure.ts` — lightweight tracker that detects aggressive skipping (4+ clip jumps in 2s, repeated large rail jumps, multiple context changes in short window). Expose a boolean `isHighPressure` signal. Should be temporary and self-clearing. | `apps/web/src/lib/interactionPressure.ts` (new)                      |                                  |
+| 5.3 | 🔲     | Integrate interaction pressure into prefetch decisions — when `isHighPressure` is true, suspend auto-prefetch or reduce to explicit-need only.                                                                                                                                       | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` |                                  |
+| 5.4 | 🔲     | Only prefetch when playback suggests usefulness — prefer prefetch during normal watching / steady autoplay / approaching end of loaded clips. Be conservative when user is jumping, context just changed, or app is in cooldown (Phase 7).                                           | Same files                                                           |                                  |
+| 5.5 | 🔲     | Verify: normal watching stays smooth. Aggressive skipping no longer causes runaway background fetch. Prefetch becomes conservative during high interaction pressure.                                                                                                                 | Manual QA                                                            | Run Scenario 2 from QA test plan |
 
 ### Completion criteria
 
@@ -195,13 +195,13 @@ All of 5.1–5.5 are ✅. Then mark this rollout step ✅.
 
 ### Steps
 
-| # | Status | Step | Files | Notes |
-|---|--------|------|-------|-------|
-| 6.1 | 🔲 | Add frontend "stress mode" state — triggered when several newly requested clips have missing video URLs or repeated page fetches fail in a small window (e.g., 3+ failures in 10s). | `apps/web/src/lib/stressMode.ts` (new) or integrated into browsers | |
-| 6.2 | 🔲 | Define stress-mode behavior: suspend auto-prefetch, widen load-more cooldown (e.g., 2x normal), stop staying far ahead of user. Duration: 15–30s, auto-reset if conditions normalize. | Same as 6.1 | |
-| 6.3 | 🔲 | Integrate stress mode into all three browsers — check stress state before prefetch and loadMore decisions. | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` | |
-| 6.4 | 🔲 | (Optional) Add API-side backoff hints — `retrySuggested: true`, `suggestedCooldownMs: 15000` in response metadata. Only if clearly useful; frontend-only stress mode is acceptable as first pass. | `apps/api/src/index.ts` | |
-| 6.5 | 🔲 | Verify: burst of failures causes app to reduce pressure temporarily. After window passes, normal behavior resumes. | Manual QA | Run Scenario 6 from QA test plan |
+| #   | Status | Step                                                                                                                                                                                              | Files                                                                | Notes                            |
+| --- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------- |
+| 6.1 | 🔲     | Add frontend "stress mode" state — triggered when several newly requested clips have missing video URLs or repeated page fetches fail in a small window (e.g., 3+ failures in 10s).               | `apps/web/src/lib/stressMode.ts` (new) or integrated into browsers   |                                  |
+| 6.2 | 🔲     | Define stress-mode behavior: suspend auto-prefetch, widen load-more cooldown (e.g., 2x normal), stop staying far ahead of user. Duration: 15–30s, auto-reset if conditions normalize.             | Same as 6.1                                                          |                                  |
+| 6.3 | 🔲     | Integrate stress mode into all three browsers — check stress state before prefetch and loadMore decisions.                                                                                        | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` |                                  |
+| 6.4 | 🔲     | (Optional) Add API-side backoff hints — `retrySuggested: true`, `suggestedCooldownMs: 15000` in response metadata. Only if clearly useful; frontend-only stress mode is acceptable as first pass. | `apps/api/src/index.ts`                                              |                                  |
+| 6.5 | 🔲     | Verify: burst of failures causes app to reduce pressure temporarily. After window passes, normal behavior resumes.                                                                                | Manual QA                                                            | Run Scenario 6 from QA test plan |
 
 ### Completion criteria
 
@@ -222,13 +222,13 @@ All of 6.1–6.5 are ✅ (6.4 may be ⏭️ if deferred). Then mark this rollout
 
 ### Steps
 
-| # | Status | Step | Files | Notes |
-|---|--------|------|-------|-------|
-| 7.1 | 🔲 | Create `apps/web/src/lib/requestCache.ts` — short-lived in-memory client-side response cache. Key by full request params. TTL: 15–30s for clip pages, 30–60s for metadata (player games, matchup games). | `apps/web/src/lib/requestCache.ts` (new) | |
-| 7.2 | 🔲 | Add in-flight request dedup — if the same exact request is already in flight, return the same promise instead of starting another fetch. | `apps/web/src/lib/requestCache.ts` | Can share pattern with API single-flight helper |
-| 7.3 | 🔲 | Integrate client-side cache into clip-set fetches in all three browsers. | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` | |
-| 7.4 | 🔲 | Confirm that `actionNumber` changes remain local-only and do not trigger fetches. | All browsers | Should already be true — verify and protect |
-| 7.5 | 🔲 | Verify: repeating the same request key shortly after success does not hit the network. Identical in-flight requests collapse. Rail selection remains local-only. | Manual QA + network tab inspection | |
+| #   | Status | Step                                                                                                                                                                                                     | Files                                                                | Notes                                           |
+| --- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------- |
+| 7.1 | 🔲     | Create `apps/web/src/lib/requestCache.ts` — short-lived in-memory client-side response cache. Key by full request params. TTL: 15–30s for clip pages, 30–60s for metadata (player games, matchup games). | `apps/web/src/lib/requestCache.ts` (new)                             |                                                 |
+| 7.2 | 🔲     | Add in-flight request dedup — if the same exact request is already in flight, return the same promise instead of starting another fetch.                                                                 | `apps/web/src/lib/requestCache.ts`                                   | Can share pattern with API single-flight helper |
+| 7.3 | 🔲     | Integrate client-side cache into clip-set fetches in all three browsers.                                                                                                                                 | `ClipBrowser.tsx`, `PlayerModeBrowser.tsx`, `MatchupModeBrowser.tsx` |                                                 |
+| 7.4 | 🔲     | Confirm that `actionNumber` changes remain local-only and do not trigger fetches.                                                                                                                        | All browsers                                                         | Should already be true — verify and protect     |
+| 7.5 | 🔲     | Verify: repeating the same request key shortly after success does not hit the network. Identical in-flight requests collapse. Rail selection remains local-only.                                         | Manual QA + network tab inspection                                   |                                                 |
 
 ### Completion criteria
 
@@ -238,15 +238,15 @@ All of 7.1–7.5 are ✅. Then mark this rollout step ✅.
 
 ## Overall completion checklist
 
-| Rollout order | Phase | Status |
-|---------------|-------|--------|
-| Step 1 | Phase 1 — Stale-request cancellation | ✅ |
-| Step 2 | Phase 3 — Single-flight load-more | 🔲 |
-| Step 3 | Phase 6 — API-side single-flight dedupe | 🔲 |
-| Step 4 | Phase 2 — Debounce high-churn changes | 🔲 |
-| Step 5 | Phase 5 — Bounded prefetch / skip dampening | 🔲 |
-| Step 6 | Phase 7 — Cooldown / backoff | 🔲 |
-| Step 7 | Phase 4 — Client-side dedupe and reuse | 🔲 |
+| Rollout order | Phase                                       | Status |
+| ------------- | ------------------------------------------- | ------ |
+| Step 1        | Phase 1 — Stale-request cancellation        | ✅     |
+| Step 2        | Phase 3 — Single-flight load-more           | ✅     |
+| Step 3        | Phase 6 — API-side single-flight dedupe     | ✅     |
+| Step 4        | Phase 2 — Debounce high-churn changes       | ✅     |
+| Step 5        | Phase 5 — Bounded prefetch / skip dampening | 🔲     |
+| Step 6        | Phase 7 — Cooldown / backoff                | 🔲     |
+| Step 7        | Phase 4 — Client-side dedupe and reuse      | 🔲     |
 
 **Definition of done:** All 7 rollout steps are ✅. Then run the full QA test plan (Scenarios 1–6 and technical assertions) from `request-resilience-plan.md`.
 

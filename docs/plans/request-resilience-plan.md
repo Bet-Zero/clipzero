@@ -102,18 +102,23 @@ Frontend and API changes affecting:
 ## Principles
 
 ### 1. Newest intent wins
+
 If the user has moved on, old requests must not keep doing work that matters.
 
 ### 2. Do not let speed create storms
+
 Fast clicking is normal. The app should smooth it out.
 
 ### 3. Protect playback first
+
 If there is a tradeoff between aggressive prefetching and reliability, reliability wins.
 
 ### 4. Avoid hidden request multiplication
+
 Multiple UI paths should not accidentally trigger the same upstream work in parallel.
 
 ### 5. Be conservative under stress
+
 When upstream starts failing, the app should reduce pressure automatically.
 
 ---
@@ -123,14 +128,17 @@ When upstream starts failing, the app should reduce pressure automatically.
 # Phase 1 — Frontend stale-request control
 
 ## Goal
+
 Prevent outdated fetches from continuing to matter after the user has already changed context.
 
 ## Why
+
 Right now, rapid mode/filter/date changes can leave multiple fetches in flight. Even if older results do not fully overwrite the UI, they still create avoidable pressure.
 
 ## Required changes
 
 ### 1. Add request tokens / generation IDs per clip-set loader
+
 Each major loader should track a monotonically increasing request generation:
 
 - `ClipBrowser` game-mode clip-set fetches
@@ -148,6 +156,7 @@ When a new request starts:
 If not, discard the result completely.
 
 ### 2. Use `AbortController` for browser-side fetches
+
 All browser fetches for clip sets and supporting metadata should use `AbortController`.
 
 When a new request supersedes an old one:
@@ -157,6 +166,7 @@ When a new request supersedes an old one:
 - do not show a user-facing failure for an intentional abort
 
 ### 3. Clear pending auto-advance when clip set changes
+
 When a new filter/mode/date/game context is entered:
 
 - clear any pending `loadMore`
@@ -183,14 +193,17 @@ Likely files:
 # Phase 2 — Debounce high-churn state changes
 
 ## Goal
+
 Reduce bursts caused by rapid successive filter/navigation actions.
 
 ## Why
+
 A user can click several controls within a second. The app should collapse those into fewer requests.
 
 ## Required changes
 
 ### 1. Debounce filter-triggered route updates
+
 For filter changes that commonly happen in quick succession, add a small debounce before issuing the route update / fetch-triggering change.
 
 Suggested debounce windows:
@@ -205,12 +218,14 @@ Do **not** debounce:
 - direct game selection if the UI already only changes once per click
 
 ### 2. Coalesce multiple filter changes into one navigation
+
 If the user changes several filters inside the debounce window:
 
 - apply them optimistically in UI state
 - issue only one final navigation/update
 
 ### 3. Keep the interface feeling immediate
+
 Debounce should delay the network/navigation side, not make the controls feel dead.
 
 This means:
@@ -235,14 +250,17 @@ This means:
 # Phase 3 — Single-flight load-more protection
 
 ## Goal
+
 Make sure only one load-more operation can be active at a time per clip context.
 
 ## Why
+
 This is one of the most likely sources of request bursts during active rail skipping and autoplay.
 
 ## Required changes
 
 ### 1. Enforce strict single-flight on load-more
+
 In all clip browsers:
 
 - if a `loadMore` is already running, do not start another
@@ -253,6 +271,7 @@ In all clip browsers:
   - rapid manual rail skipping
 
 ### 2. Add a minimum cooldown between successful load-more starts
+
 Even after a load-more finishes, add a short minimum gap before another one can begin.
 
 Suggested initial value:
@@ -262,6 +281,7 @@ Suggested initial value:
 This is not user-facing; it is burst smoothing.
 
 ### 3. Prevent duplicate offset requests
+
 If offset `24` is already being fetched or was just fetched for this clip context:
 
 - do not request it again
@@ -286,14 +306,17 @@ Maintain a per-context in-flight and recently-completed offset map.
 # Phase 4 — Dedupe and local reuse
 
 ## Goal
+
 Stop repeating work the app already has.
 
 ## Why
+
 A large part of resilience is not sending the same request again when nothing meaningful changed.
 
 ## Required changes
 
 ### 1. Add short-lived client-side response reuse for clip-set pages
+
 For clip-set fetches keyed by full request params:
 
 - maintain a short-lived in-memory cache in the browser
@@ -305,11 +328,13 @@ Suggested TTLs:
 - metadata lists like player games / matchup games: 30–60 seconds
 
 ### 2. Dedupe in-flight identical requests
+
 If the same exact request is already in flight:
 
 - reuse the same promise rather than starting another fetch
 
 ### 3. Preserve already-loaded pages when only clip selection changes
+
 Changing `actionNumber` should not trigger any new clip-set fetch.
 
 That behavior mostly exists already but must be preserved.
@@ -332,14 +357,17 @@ That behavior mostly exists already but must be preserved.
 # Phase 5 — Bound prefetching and smarter rail behavior
 
 ## Goal
+
 Keep the browsing experience smooth without letting prefetch turn into aggressive upstream pressure.
 
 ## Why
+
 Prefetching is useful, but it becomes harmful when the user is behaving unpredictably or upstream is unstable.
 
 ## Required changes
 
 ### 1. Limit prefetch horizon
+
 Do not fetch too far ahead.
 
 Guideline:
@@ -348,6 +376,7 @@ Guideline:
 - do not recursively chase more pages just because the user is near the end repeatedly during an existing fetch
 
 ### 2. Only prefetch when playback state suggests likely usefulness
+
 Prefer prefetch when:
 
 - the user is watching normally
@@ -361,6 +390,7 @@ Be more conservative when:
 - the app is in a recent-failure cooldown state
 
 ### 3. Detect aggressive skipping and temporarily reduce eagerness
+
 Add a lightweight frontend behavior tracker.
 
 Examples of signals:
@@ -394,14 +424,17 @@ This should be temporary and self-clearing.
 # Phase 6 — API-side request coalescing and upstream protection
 
 ## Goal
+
 Reduce avoidable duplicate upstream NBA calls even when the frontend still produces bursts.
 
 ## Why
+
 Frontend resilience is necessary, but the API should also protect upstream and absorb duplicate work.
 
 ## Required changes
 
 ### 1. Add single-flight dedupe for expensive upstream calls
+
 At the API layer, dedupe concurrent identical requests for:
 
 - play-by-play fetch by `gameId`
@@ -418,6 +451,7 @@ Meaning:
 - not start a second upstream fetch
 
 ### 2. Distinguish memory cache hit vs in-flight dedupe hit
+
 This is especially important later for diagnosis, but even now the API should internally distinguish:
 
 - memory cache hit
@@ -426,6 +460,7 @@ This is especially important later for diagnosis, but even now the API should in
 - fresh upstream fetch
 
 ### 3. Add concurrency caps specifically for video asset resolution
+
 The API already uses limited concurrency in places. Tighten the rules for asset resolution where needed.
 
 Guidance:
@@ -434,6 +469,7 @@ Guidance:
 - do not scale concurrency upward because the frontend is more active
 
 ### 4. Consider short TTL negative-result suppression for repeated same-key misses
+
 Be careful here.
 
 Do **not** long-cache null video assets permanently.
@@ -464,14 +500,17 @@ Likely files:
 # Phase 7 — Cooldown and backoff behavior after upstream stress signals
 
 ## Goal
+
 Make the system automatically become less aggressive for a short window when upstream starts showing signs of stress.
 
 ## Why
+
 Once placeholder/missing behavior starts surfacing, continuing aggressive fetch behavior usually makes things worse.
 
 ## Required changes
 
 ### 1. Add a temporary “stress mode” in the frontend
+
 Trigger this mode for a short duration when the clip browser sees repeated asset failure signals in a small window.
 
 Examples:
@@ -492,6 +531,7 @@ Suggested duration:
 - reset if conditions normalize
 
 ### 2. Add optional API-side backoff hints
+
 Once implemented, the API may include simple response metadata such as:
 
 - `retrySuggested: true`
@@ -529,6 +569,7 @@ Reason:
 ## Suggested agent breakdown
 
 ### Agent 1 — Frontend request lifecycle
+
 Own:
 
 - abort controllers
@@ -538,6 +579,7 @@ Own:
 - pending auto-advance cleanup
 
 ### Agent 2 — Frontend interaction smoothing
+
 Own:
 
 - debounce behavior
@@ -546,6 +588,7 @@ Own:
 - stress-mode behavior
 
 ### Agent 3 — API resilience
+
 Own:
 
 - server-side single-flight dedupe
@@ -554,6 +597,7 @@ Own:
 - asset lookup concurrency review
 
 ### Agent 4 — QA / verification
+
 Own:
 
 - heavy interaction test cases
@@ -569,6 +613,7 @@ Own:
 ### Manual scenarios
 
 #### Scenario 1 — rapid game-mode filter changes
+
 - switch play type repeatedly
 - toggle team/player filters quickly
 - change quarter multiple times in under 2 seconds
@@ -576,27 +621,32 @@ Own:
 - confirm no noisy error UI appears from aborted stale requests
 
 #### Scenario 2 — aggressive rail skipping
+
 - click forward rapidly through many clips
 - trigger multiple near-end situations
 - confirm only one load-more is active at a time
 - confirm no duplicate page loads for same offset
 
 #### Scenario 3 — rapid date/game switching
+
 - switch date repeatedly
 - switch between games before prior set settles
 - confirm old requests do not continue to populate the UI
 
 #### Scenario 4 — player mode stress
+
 - search/select player
 - rapidly change play type, opponent, quarter, exclusions
 - confirm clip loading remains stable and prior requests are canceled/ignored
 
 #### Scenario 5 — matchup mode stress
+
 - change team A / team B repeatedly
 - toggle game exclusions while clips are loading
 - confirm old matchup requests do not linger or win
 
 #### Scenario 6 — degraded upstream simulation
+
 - simulate repeated asset lookup failures locally where possible
 - confirm frontend reduces eagerness and stops aggressive prefetch behavior temporarily
 

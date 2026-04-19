@@ -469,6 +469,10 @@ export default function FilterBar({
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  // Debounce timer and pending URL for filter-triggered navigation.
+  // setPending updates controls immediately; router.push is delayed 150ms.
+  const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingNavigateUrlRef = useRef<string | null>(null);
   const portalTarget = useDomElementById("filter-bar-portal");
   const overlayTarget = useDomElementById("filter-overlay-anchor");
   const watchBarPortal = useDomElementById("watch-bar-portal");
@@ -499,6 +503,9 @@ export default function FilterBar({
 
   // Build a URL with the given overrides merged into current filter state.
   // Omitting a key preserves its current value; passing "" clears it.
+  // The optimistic UI state (setPending) updates immediately; the actual
+  // router.push is debounced 150ms so rapid filter clicks collapse into one
+  // navigation.
   function navigate(overrides: Record<string, string>) {
     setPending((prev) => ({
       sourceKey: paramsKey,
@@ -550,7 +557,15 @@ export default function FilterBar({
     if (state.group) search.set("group", state.group);
     if (state.playerIds) search.set("playerIds", state.playerIds);
 
-    router.push(`/?${cleanSearchString(search)}`);
+    // Store the latest URL and debounce the actual push.
+    pendingNavigateUrlRef.current = `/?${cleanSearchString(search)}`;
+    if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current);
+    navigateTimerRef.current = setTimeout(() => {
+      navigateTimerRef.current = null;
+      const url = pendingNavigateUrlRef.current;
+      pendingNavigateUrlRef.current = null;
+      if (url) router.push(url);
+    }, 150);
   }
 
   // When play type changes, clear every play-type-specific param.

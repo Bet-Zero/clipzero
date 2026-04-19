@@ -330,6 +330,9 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
   const triggerRef = useRef<HTMLDivElement>(null);
   const gamesTriggerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  // Debounce timer and pending URL for filter-triggered navigation.
+  const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingNavigateUrlRef = useRef<string | null>(null);
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
   const [isGamesOpen, setIsGamesOpen] = useState(false);
 
@@ -338,6 +341,10 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
   const generationRef = useRef(0);
   // AbortController for the current in-flight clip fetch.
   const abortRef = useRef<AbortController | null>(null);
+  // Per-context set of offsets already fetched or currently in-flight.
+  const fetchedOffsetsRef = useRef<Set<number>>(new Set());
+  // Timestamp of the last load-more start. Enforces a 300ms minimum gap.
+  const lastLoadMoreTimeRef = useRef<number>(0);
   const clipsRef = useRef(clips);
   clipsRef.current = clips;
   const activeIndexRef = useRef(activeIndex);
@@ -420,6 +427,12 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
   const fetchClips = useCallback(
     async (offset: number, append: boolean) => {
       if (!validMatchup || games.length === 0) return;
+
+      // Fresh context fetch: clear offset tracking and cooldown.
+      if (!append) {
+        fetchedOffsetsRef.current = new Set();
+        lastLoadMoreTimeRef.current = 0;
+      }
 
       if (offset === 0) {
         setInitialLoading(true);
@@ -563,6 +576,13 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
 
   const loadMore = useCallback(async () => {
     if (loadingRef.current || !hasMore || nextOffset === null) return;
+    // Single-flight: skip if this offset was already fetched or is in-flight.
+    if (fetchedOffsetsRef.current.has(nextOffset)) return;
+    // Minimum cooldown: enforce a 300ms gap between load-more starts.
+    const now = Date.now();
+    if (now - lastLoadMoreTimeRef.current < 300) return;
+    fetchedOffsetsRef.current.add(nextOffset);
+    lastLoadMoreTimeRef.current = now;
     await fetchClips(nextOffset, true);
   }, [hasMore, nextOffset, fetchClips]);
 
@@ -716,10 +736,16 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
             : { ...updates },
       }));
     }
-
-    router.push(buildMatchupModeUrl(season, getFilterState(overrides)), {
-      scroll: false,
-    });
+    // Build the URL eagerly and debounce the push.
+    const url = buildMatchupModeUrl(season, getFilterState(overrides));
+    pendingNavigateUrlRef.current = url;
+    if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current);
+    navigateTimerRef.current = setTimeout(() => {
+      navigateTimerRef.current = null;
+      const pendingUrl = pendingNavigateUrlRef.current;
+      pendingNavigateUrlRef.current = null;
+      if (pendingUrl) router.push(pendingUrl, { scroll: false });
+    }, 150);
   }
 
   function selectTeam(which: "teamA" | "teamB", nextTeam: string) {

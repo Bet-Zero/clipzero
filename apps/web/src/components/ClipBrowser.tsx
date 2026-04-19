@@ -97,6 +97,12 @@ export default function ClipBrowser({
   // AbortController for the current in-flight fetch. Aborted when a new
   // request supersedes the old one.
   const abortRef = useRef<AbortController | null>(null);
+  // Per-context set of offsets already fetched or currently in-flight.
+  // Prevents duplicate load-more requests for the same offset.
+  const fetchedOffsetsRef = useRef<Set<number>>(new Set());
+  // Timestamp of the last load-more start. Enforces a 300ms minimum gap
+  // between consecutive load-more operations to smooth bursts.
+  const lastLoadMoreTimeRef = useRef<number>(0);
 
   // Keep a ref to clips so handleSelect never closes over a stale array.
   const clipsRef = useRef(clips);
@@ -136,6 +142,9 @@ export default function ClipBrowser({
     // Clear stale loadMore / auto-advance state.
     loadingRef.current = false;
     pendingAdvanceRef.current = false;
+    // Reset per-context load-more guards.
+    fetchedOffsetsRef.current = new Set();
+    lastLoadMoreTimeRef.current = 0;
     // Sync state from fresh server-rendered props.
     setClips(initialClips);
     setTotal(initialTotal);
@@ -146,9 +155,7 @@ export default function ClipBrowser({
     setError(null);
     const idx =
       initialActionNumber !== null
-        ? initialClips.findIndex(
-            (c) => c.actionNumber === initialActionNumber,
-          )
+        ? initialClips.findIndex((c) => c.actionNumber === initialActionNumber)
         : -1;
     setActiveIndex(idx >= 0 ? idx : 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -207,6 +214,15 @@ export default function ClipBrowser({
       nextOffsetRef.current === null
     )
       return;
+    // Capture offset before any async work.
+    const offset = nextOffsetRef.current;
+    // Single-flight: skip if this offset was already fetched or is in-flight.
+    if (fetchedOffsetsRef.current.has(offset)) return;
+    // Minimum cooldown: enforce a 300ms gap between load-more starts.
+    const now = Date.now();
+    if (now - lastLoadMoreTimeRef.current < 300) return;
+    fetchedOffsetsRef.current.add(offset);
+    lastLoadMoreTimeRef.current = now;
     loadingRef.current = true;
     setLoading(true);
     setError(null);
@@ -223,7 +239,7 @@ export default function ClipBrowser({
       const search = buildClipSearchParams({
         gameId,
         limit: initialLimit,
-        offset: nextOffsetRef.current,
+        offset,
         player,
         result,
         playType,
