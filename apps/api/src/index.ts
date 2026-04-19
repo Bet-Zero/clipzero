@@ -654,25 +654,30 @@ app.get("/games", async (req, res) => {
         : "";
 
     const cacheKey = date || "today";
-
-    const memoryCached = gamesCache.get(cacheKey);
-    if (memoryCached) {
-      return res.json(memoryCached);
-    }
-
-    const diskCached = await getCachedGames(cacheKey);
-    if (diskCached) {
-      gamesCache.set(cacheKey, diskCached);
-      return res.json(diskCached);
-    }
-
     const todayUtc = new Date().toISOString().slice(0, 10);
-    // Use the fast CDN scoreboard for today's date; the slower stats.nba.com
-    // endpoint is only used for historical dates to reduce latency risk.
-    const games =
-      !date || date === todayUtc
-        ? await getTodaysGames()
-        : await getGamesByDate(date);
+    // Only historical dates are stable and safe to cache persistently.
+    // Today's and future dates are live (game statuses change) and must not be cached.
+    const isHistorical = !!date && date < todayUtc;
+
+    if (isHistorical) {
+      const memoryCached = gamesCache.get(cacheKey);
+      if (memoryCached) {
+        return res.json(memoryCached);
+      }
+
+      const diskCached = await getCachedGames(cacheKey);
+      if (diskCached) {
+        gamesCache.set(cacheKey, diskCached);
+        return res.json(diskCached);
+      }
+    }
+
+    // Use the fast CDN scoreboard only when no explicit date is given (today's
+    // landing page). For explicit dates — including today — always use the
+    // stats.nba.com endpoint which is date-accurate and immune to CDN lag at
+    // the date boundary (the CDN's "today" is ET-based and can still show
+    // yesterday's games for several hours after UTC midnight).
+    const games = !date ? await getTodaysGames() : await getGamesByDate(date);
 
     const payload = {
       count: games.length,
@@ -686,8 +691,12 @@ app.get("/games", async (req, res) => {
       })),
     };
 
-    gamesCache.set(cacheKey, payload);
-    await setCachedGames(cacheKey, payload);
+    // Only persist historical dates; today/future data is live and must never
+    // be written to the long-lived disk cache.
+    if (isHistorical) {
+      gamesCache.set(cacheKey, payload);
+      await setCachedGames(cacheKey, payload);
+    }
 
     res.json(payload);
   } catch (error: any) {
