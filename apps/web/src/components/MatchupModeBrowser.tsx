@@ -334,6 +334,10 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
   const [isGamesOpen, setIsGamesOpen] = useState(false);
 
   const loadingRef = useRef(false);
+  // Request generation counter — incremented on every new clip-set fetch.
+  const generationRef = useRef(0);
+  // AbortController for the current in-flight clip fetch.
+  const abortRef = useRef<AbortController | null>(null);
   const clipsRef = useRef(clips);
   clipsRef.current = clips;
   const activeIndexRef = useRef(activeIndex);
@@ -425,6 +429,14 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
       loadingRef.current = true;
       setError(null);
 
+      // Increment generation and capture locally.
+      const gen = ++generationRef.current;
+
+      // Abort any previous in-flight fetch.
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       const pinnedNum = !append ? getCurrentActionNumber(params) : null;
 
       try {
@@ -447,9 +459,15 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
           excludeGameIds: [...excludedGameIds],
         });
 
-        const res = await fetch(buildApiUrl("/clips/matchup", search));
+        const res = await fetch(buildApiUrl("/clips/matchup", search), {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
+
+        // Stale generation — discard silently.
+        if (gen !== generationRef.current) return;
+
         if (typeof data.videoCdnAvailable === "boolean") {
           setVideoCdnAvailable(data.videoCdnAvailable);
         }
@@ -479,15 +497,20 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
           }
         }
       } catch (err) {
+        // Intentional aborts are silent.
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (gen !== generationRef.current) return;
         setError(
           err instanceof TypeError
             ? getApiUnavailableMessage()
             : `Could not load clips (${err instanceof Error ? err.message : "error"})`,
         );
       } finally {
-        loadingRef.current = false;
-        setClipsLoading(false);
-        setInitialLoading(false);
+        if (gen === generationRef.current) {
+          loadingRef.current = false;
+          setClipsLoading(false);
+          setInitialLoading(false);
+        }
       }
     },
     [
@@ -512,6 +535,8 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
   );
 
   useEffect(() => {
+    // Clear stale auto-advance state from the previous context.
+    pendingAdvanceRef.current = false;
     if (validMatchup && !gamesLoading && games.length > 0) {
       fetchClips(0, false);
     } else if (validMatchup && !gamesLoading && games.length === 0) {
