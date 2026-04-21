@@ -43,14 +43,7 @@ async function loadCache(cacheName: string): Promise<Record<string, unknown>> {
   return loadPromise;
 }
 
-async function writeCache(
-  cacheName: string,
-  payload: Record<string, unknown>,
-): Promise<void> {
-  const filePath = cacheFile(cacheName);
-  const tempPath = `${filePath}.tmp`;
-  const snapshot = JSON.stringify(payload, null, 2);
-
+async function writeCache(cacheName: string): Promise<void> {
   const previousWrite = pendingWrites.get(cacheName) ?? Promise.resolve();
   const nextWrite = previousWrite
     .catch((error) => {
@@ -60,13 +53,29 @@ async function writeCache(
       });
     })
     .then(async () => {
+      const filePath = cacheFile(cacheName);
+      const tempPath = `${filePath}.tmp`;
+      const snapshot = JSON.stringify(await loadCache(cacheName), null, 2);
+
       await ensureCacheDir();
-      await fs.writeFile(tempPath, snapshot, "utf-8");
-      await fs.rename(tempPath, filePath);
+
+      try {
+        await fs.writeFile(tempPath, snapshot, "utf-8");
+        await fs.rename(tempPath, filePath);
+      } catch (error) {
+        await fs.rm(tempPath, { force: true }).catch(() => undefined);
+        throw error;
+      }
     });
 
   pendingWrites.set(cacheName, nextWrite);
-  await nextWrite;
+  try {
+    await nextWrite;
+  } finally {
+    if (pendingWrites.get(cacheName) === nextWrite) {
+      pendingWrites.delete(cacheName);
+    }
+  }
 }
 
 export async function getPersistentValue<T>(
@@ -84,5 +93,5 @@ export async function setPersistentValue<T>(
 ): Promise<void> {
   const cache = await loadCache(cacheName);
   cache[key] = value as unknown;
-  await writeCache(cacheName, cache);
+  await writeCache(cacheName);
 }

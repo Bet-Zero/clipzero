@@ -15,10 +15,33 @@ export function seasonBounds(season: Season): { start: string; end: string } {
   };
 }
 
+function normalizeIsoDate(date: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return null;
+  }
+
+  const [year, month, day] = date.split("-").map(Number);
+  const normalized = new Date(Date.UTC(year!, month! - 1, day!));
+  if (
+    normalized.getUTCFullYear() !== year ||
+    normalized.getUTCMonth() !== month! - 1 ||
+    normalized.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return normalized.toISOString().slice(0, 10);
+}
+
 /** Returns true if the YYYY-MM-DD date falls within the season window. */
 export function dateInSeason(date: string, season: Season): boolean {
+  const normalizedDate = normalizeIsoDate(date);
+  if (!normalizedDate) {
+    return false;
+  }
+
   const { start, end } = seasonBounds(season);
-  return date >= start && date <= end;
+  return normalizedDate >= start && normalizedDate <= end;
 }
 
 /**

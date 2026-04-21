@@ -65,6 +65,12 @@ describe("dateInSeason", () => {
   it("returns false for off-season date", () => {
     expect(dateInSeason("2025-08-15", "2024-25")).toBe(false);
   });
+
+  it("returns false for malformed dates", () => {
+    expect(dateInSeason("2025-2-1", "2024-25")).toBe(false);
+    expect(dateInSeason("2025-02-30", "2024-25")).toBe(false);
+    expect(dateInSeason("not-a-date", "2024-25")).toBe(false);
+  });
 });
 
 describe("seasonForDate", () => {
@@ -86,6 +92,11 @@ describe("seasonForDate", () => {
 
   it("returns DEFAULT_SEASON for date not in any season", () => {
     expect(seasonForDate("2020-01-01")).toBe(DEFAULT_SEASON);
+  });
+
+  it("returns DEFAULT_SEASON for malformed dates", () => {
+    expect(seasonForDate("2025-02-30")).toBe(DEFAULT_SEASON);
+    expect(seasonForDate("not-a-date")).toBe(DEFAULT_SEASON);
   });
 
   it("prefers the latest season when date falls in multiple", () => {
