@@ -15,6 +15,7 @@ import type {
 } from "./lib/failureTypes";
 import { RawEventKind as RawEventKindEnum } from "./lib/failureTypes";
 import { getCachedGames, setCachedGames } from "./lib/gamesCache";
+import { buildHealthResponse } from "./lib/health";
 import { logger, serializeError } from "./lib/logger";
 import {
   getFilteredActions,
@@ -829,12 +830,11 @@ function matchesDistanceBucket(
 
 app.get("/health", async (_req, res) => {
   const videoCdnAvailable = await checkNbaVideoCdnHealth();
-  res.json({
-    ok: true,
-    disabled: apiConfig.disabled,
+  const { statusCode, payload } = buildHealthResponse(
+    apiConfig.disabled,
     videoCdnAvailable,
-    timestamp: new Date().toISOString(),
-  });
+  );
+  res.status(statusCode).json(payload);
 });
 
 app.get("/games", async (req, res) => {
