@@ -69,6 +69,16 @@ let lastNbaVideoCdnProbe: {
   error?: string | null;
 } | null = null;
 
+// Rolling history of recent probe results for debugging and trend analysis.
+const NBA_PROBE_HISTORY_MAX = 20;
+const lastNbaVideoCdnProbeHistory: Array<{
+  timestamp: number;
+  status?: number;
+  etag?: string | null;
+  contentLength?: number | null;
+  error?: string | null;
+}> = [];
+
 async function refreshNbaVideoCdnHealth(): Promise<boolean> {
   try {
     const res = await axios.get(NBA_VIDEO_CDN_PROBE_URL, {
@@ -90,6 +100,11 @@ async function refreshNbaVideoCdnHealth(): Promise<boolean> {
         : null,
       error: null,
     };
+    // Append to rolling history
+    lastNbaVideoCdnProbeHistory.push(lastNbaVideoCdnProbe);
+    if (lastNbaVideoCdnProbeHistory.length > NBA_PROBE_HISTORY_MAX) {
+      lastNbaVideoCdnProbeHistory.shift();
+    }
     if (available !== nbaVideoCdnAvailable) {
       logger.info("nba_video_cdn_health_changed", {
         available,
@@ -114,6 +129,10 @@ async function refreshNbaVideoCdnHealth(): Promise<boolean> {
       contentLength: null,
       error: error instanceof Error ? error.message : String(error),
     };
+    lastNbaVideoCdnProbeHistory.push(lastNbaVideoCdnProbe);
+    if (lastNbaVideoCdnProbeHistory.length > NBA_PROBE_HISTORY_MAX) {
+      lastNbaVideoCdnProbeHistory.shift();
+    }
     logger.warn("nba_video_cdn_health_probe_failed", serializeError(error));
   } finally {
     lastNbaVideoCdnCheck = Date.now();
@@ -123,21 +142,22 @@ async function refreshNbaVideoCdnHealth(): Promise<boolean> {
 }
 
 async function checkNbaVideoCdnHealth(): Promise<boolean> {
+  // The CDN returns 206 for byte-range requests on fake/zero probe paths
+  // regardless of whether real clip URLs are working.  Using the probe result
+  // to gate fetches blocks all videos as a false positive.  Run the probe in
+  // the background for diagnostic evidence only — never use it as a gate.
   const now = Date.now();
   if (
-    lastNbaVideoCdnCheck > 0 &&
-    now - lastNbaVideoCdnCheck < NBA_VIDEO_CDN_CHECK_INTERVAL_MS
+    lastNbaVideoCdnCheck === 0 ||
+    now - lastNbaVideoCdnCheck >= NBA_VIDEO_CDN_CHECK_INTERVAL_MS
   ) {
-    return nbaVideoCdnAvailable;
+    if (!nbaVideoCdnCheckInFlight) {
+      nbaVideoCdnCheckInFlight = refreshNbaVideoCdnHealth().finally(() => {
+        nbaVideoCdnCheckInFlight = null;
+      });
+    }
   }
-
-  if (!nbaVideoCdnCheckInFlight) {
-    nbaVideoCdnCheckInFlight = refreshNbaVideoCdnHealth().finally(() => {
-      nbaVideoCdnCheckInFlight = null;
-    });
-  }
-
-  return nbaVideoCdnCheckInFlight;
+  return true;
 }
 
 // Fire-and-forget initial check so we know the state early.
@@ -2387,6 +2407,13 @@ app.get("/debug/failures/recent", (req, res) => {
     sameKeyHotspots,
     windowSummaries,
     globalVideoHealth,
+    probeHistory: lastNbaVideoCdnProbeHistory.map((p) => ({
+      timestamp: new Date(p.timestamp).toISOString(),
+      status: p.status,
+      etag: p.etag,
+      contentLength: p.contentLength,
+      error: p.error,
+    })),
   });
 });
 

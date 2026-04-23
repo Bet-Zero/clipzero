@@ -37,6 +37,9 @@ export const apiConfig = {
     readBoolEnv("CLIPZERO_DISABLE_ACCESS") ||
     readBoolEnv("CLIPZERO_API_DISABLED"),
   debugEnabled: readBoolEnv("CLIPZERO_DEBUG"),
+  // When set, force the API to consider the video CDN available and bypass
+  // the external probe. Useful as a temporary safety valve during incidents.
+  forceVideoCdnAvailable: readBoolEnv("CLIPZERO_FORCE_VIDEO_CDN_AVAILABLE"),
   allowedOrigins: readOrigins(process.env.CLIPZERO_ALLOWED_ORIGINS),
   rateLimit: {
     windowMs: readIntEnv("CLIPZERO_RATE_LIMIT_WINDOW_MS", 60_000),

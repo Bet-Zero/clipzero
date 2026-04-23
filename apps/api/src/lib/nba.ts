@@ -1,5 +1,37 @@
 import axios from "axios";
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function getWithRetries<T>(
+  url: string,
+  opts: any = {},
+  maxAttempts = 3,
+): Promise<import("axios").AxiosResponse<T>> {
+  let attempt = 0;
+  let delay = 300;
+  while (true) {
+    attempt += 1;
+    try {
+      return await axios.get<T>(url, opts);
+    } catch (err: any) {
+      const isAxios = axios.isAxiosError(err);
+      const status = isAxios ? err.response?.status : undefined;
+
+      // Do not retry on 403 (forbidden) — treat as a hard failure.
+      const shouldRetry = isAxios
+        ? err.code === "ECONNABORTED" || status === 429 || (status && status >= 500)
+        : true;
+
+      if (!shouldRetry || attempt >= maxAttempts) throw err;
+
+      await sleep(delay);
+      delay *= 2;
+    }
+  }
+}
+
 export type RawAction = {
   actionNumber?: number;
   clock?: string;
@@ -325,7 +357,9 @@ type BoxScoreResponse = {
   };
 };
 
-const NBA_HEADERS = {
+// Headers to use when calling stats.nba.com endpoints (these tend to
+// expect browser-like headers and x-nba-stats tokens).
+const STATS_HEADERS = {
   "User-Agent":
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
   Referer: "https://www.nba.com/",
@@ -334,15 +368,21 @@ const NBA_HEADERS = {
   "x-nba-stats-token": "true",
   Accept: "application/json, text/plain, */*",
   "Accept-Language": "en-US,en;q=0.9",
-  "Accept-Encoding": "gzip, deflate, br",
-  Connection: "keep-alive",
+};
+
+// Minimal headers for CDN / static JSON endpoints (cdn.nba.com, videos.nba.com).
+// Using browser-like headers against CDN hosts has been observed to change
+// upstream behavior (403s / placeholder responses), so prefer minimal headers
+// for those domains.
+const CDN_HEADERS = {
+  Accept: "application/json, text/plain, */*",
 };
 
 export async function getPlayByPlay(gameId: string): Promise<RawAction[]> {
   const url = `https://cdn.nba.com/static/json/liveData/playbyplay/playbyplay_${gameId}.json`;
 
   const response = await axios.get<PlayByPlayResponse>(url, {
-    headers: NBA_HEADERS,
+    headers: CDN_HEADERS,
     timeout: 20000,
   });
 
@@ -546,7 +586,7 @@ export async function getPlayerNameMapForGame(gameId: string) {
   const url = `https://cdn.nba.com/static/json/liveData/boxscore/boxscore_${gameId}.json`;
 
   const response = await axios.get<BoxScoreResponse>(url, {
-    headers: NBA_HEADERS,
+    headers: CDN_HEADERS,
     timeout: 60000,
   });
 
@@ -576,8 +616,8 @@ export async function getPlayerNameMapForGame(gameId: string) {
 export async function getVideoEventAsset(gameId: string, gameEventId: number) {
   const url = "https://stats.nba.com/stats/videoeventsasset";
 
-  const response = await axios.get(url, {
-    headers: NBA_HEADERS,
+  const response = await getWithRetries<any>(url, {
+    headers: STATS_HEADERS,
     params: {
       GameID: gameId,
       GameEventID: gameEventId,
@@ -636,8 +676,8 @@ function formatDateForNba(date: string) {
 export async function getGamesByDate(date: string): Promise<ScoreboardGame[]> {
   const url = "https://stats.nba.com/stats/scoreboardv3";
 
-  const response = await axios.get(url, {
-    headers: NBA_HEADERS,
+  const response = await getWithRetries<any>(url, {
+    headers: STATS_HEADERS,
     params: {
       GameDate: formatDateForNba(date),
       LeagueID: "00",
@@ -666,8 +706,9 @@ export async function getTodaysGames(): Promise<ScoreboardGame[]> {
   const url =
     "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json";
 
-  const response = await axios.get<ScoreboardResponse>(url, {
-    headers: NBA_HEADERS,
+  const response = await getWithRetries<ScoreboardResponse>(url, {
+    headers: CDN_HEADERS,
+    timeout: 10000,
   });
 
   return response.data.scoreboard.games;
@@ -712,8 +753,8 @@ export async function getAllPlayers(
 ): Promise<PlayerDirectoryEntry[]> {
   const url = "https://stats.nba.com/stats/commonallplayers";
 
-  const response = await axios.get(url, {
-    headers: NBA_HEADERS,
+  const response = await getWithRetries<any>(url, {
+    headers: STATS_HEADERS,
     params: {
       LeagueID: "00",
       Season: season,
@@ -761,8 +802,8 @@ export async function getPlayerGameLog(
 ): Promise<PlayerGameLogEntry[]> {
   const url = "https://stats.nba.com/stats/playergamelog";
 
-  const response = await axios.get(url, {
-    headers: NBA_HEADERS,
+  const response = await getWithRetries<any>(url, {
+    headers: STATS_HEADERS,
     params: {
       PlayerID: playerId,
       Season: season,
@@ -811,8 +852,8 @@ export async function getTeamGameLog(
 ): Promise<TeamGameLogEntry[]> {
   const url = "https://stats.nba.com/stats/teamgamelog";
 
-  const response = await axios.get(url, {
-    headers: NBA_HEADERS,
+  const response = await getWithRetries<any>(url, {
+    headers: STATS_HEADERS,
     params: {
       TeamID: teamId,
       Season: season,
