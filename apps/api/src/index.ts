@@ -142,10 +142,12 @@ async function refreshNbaVideoCdnHealth(): Promise<boolean> {
 }
 
 async function checkNbaVideoCdnHealth(): Promise<boolean> {
-  // The CDN returns 206 for byte-range requests on fake/zero probe paths
-  // regardless of whether real clip URLs are working.  Using the probe result
-  // to gate fetches blocks all videos as a false positive.  Run the probe in
-  // the background for diagnostic evidence only — never use it as a gate.
+  // The probe tests server→CDN access, which the CDN treats differently from
+  // browser→CDN access.  Server IPs get a fallback response for any path
+  // (same bytes, 200/206 status) while browsers playing the same URLs get the
+  // real clip.  The probe is therefore always a false positive from this host
+  // and must not be used to gate video fetches.
+  // Run it in the background only to populate diagnostic evidence in logs.
   const now = Date.now();
   if (
     lastNbaVideoCdnCheck === 0 ||
