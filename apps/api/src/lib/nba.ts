@@ -8,6 +8,7 @@ async function getWithRetries<T>(
   url: string,
   opts: any = {},
   maxAttempts = 3,
+  retryOnTimeout = true,
 ): Promise<import("axios").AxiosResponse<T>> {
   let attempt = 0;
   let delay = 300;
@@ -18,10 +19,11 @@ async function getWithRetries<T>(
     } catch (err: any) {
       const isAxios = axios.isAxiosError(err);
       const status = isAxios ? err.response?.status : undefined;
+      const isTimeout = isAxios && err.code === "ECONNABORTED";
 
       // Do not retry on 403 (forbidden) — treat as a hard failure.
       const shouldRetry = isAxios
-        ? err.code === "ECONNABORTED" ||
+        ? (isTimeout && retryOnTimeout) ||
           status === 429 ||
           (status && status >= 500)
         : true;
@@ -618,14 +620,21 @@ export async function getPlayerNameMapForGame(gameId: string) {
 export async function getVideoEventAsset(gameId: string, gameEventId: number) {
   const url = "https://stats.nba.com/stats/videoeventsasset";
 
-  const response = await getWithRetries<any>(url, {
-    headers: STATS_HEADERS,
-    params: {
-      GameID: gameId,
-      GameEventID: gameEventId,
+  // Short timeout, no retry on timeout: a stalled video-asset fetch must fail
+  // fast so it doesn't block the whole clip batch (3 × 60 s = 3-minute hang).
+  const response = await getWithRetries<any>(
+    url,
+    {
+      headers: STATS_HEADERS,
+      params: {
+        GameID: gameId,
+        GameEventID: gameEventId,
+      },
+      timeout: 12000,
     },
-    timeout: 60000,
-  });
+    2,
+    false,
+  );
 
   return response.data;
 }
