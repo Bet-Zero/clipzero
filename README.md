@@ -56,6 +56,7 @@ Quick health check:
 ```bash
 cd /Users/brenthibbitts/clipzero
 pm2 status
+curl -sS http://127.0.0.1:4000/health
 curl -sS https://clipzeroapi.xyz/health
 ```
 
@@ -69,8 +70,25 @@ clipzero-tunnel   online
 Expected health response includes:
 
 ```json
-{ "ok": true, "disabled": false }
+{ "ok": true, "disabled": false, "videoCdnAvailable": true }
 ```
+
+`videoCdnAvailable: false` does not mean the API or tunnel is down. It means the
+NBA video CDN is currently serving placeholder video content, so ClipZero should
+hide/suppress clip playback and show the warning state instead of attempting to
+play the placeholder for every clip.
+
+### PM2 ownership rule
+
+For the normal deployed-style setup, PM2 should own both long-running processes:
+
+- `clipzero-api` owns local port `4000`
+- `clipzero-tunnel` exposes that local API at `https://clipzeroapi.xyz`
+
+Do not manually run `npm run start:api`, `npm run start -w apps/api`, or
+`npm run dev:api` on port `4000` unless you are intentionally doing local-only
+debugging outside PM2. A manual process can take over port `4000`, make PM2 look
+healthy while serving the wrong process, and confuse tunnel troubleshooting.
 
 Open the app:
 
@@ -121,6 +139,54 @@ Vercel deploys the frontend after `git push`.
 ```bash
 pm2 logs clipzero-api --lines 100
 pm2 logs clipzero-tunnel --lines 100
+```
+
+### Common incident checks
+
+#### Public site is broken, but local API may still be fine
+
+```bash
+cd /Users/brenthibbitts/clipzero
+curl -sS http://127.0.0.1:4000/health
+curl -sS https://clipzeroapi.xyz/health
+pm2 restart clipzero-tunnel --update-env
+```
+
+If local health works but the public URL does not, the likely problem is the
+tunnel, not the API.
+
+#### All clips show unavailable or the NBA placeholder condition is suspected
+
+```bash
+cd /Users/brenthibbitts/clipzero
+curl -sS http://127.0.0.1:4000/health
+curl -sS https://clipzeroapi.xyz/health
+pm2 logs clipzero-api --lines 100 --nostream
+```
+
+If health returns `videoCdnAvailable: false`, the API and tunnel can still be
+working normally. That means the upstream NBA video CDN is serving placeholder
+video content, and ClipZero should suppress playback until the upstream recovers.
+
+#### PM2 says online, but the wrong process is serving port 4000
+
+```bash
+cd /Users/brenthibbitts/clipzero
+lsof -nP -iTCP:4000 -sTCP:LISTEN
+ps -fp $(lsof -tiTCP:4000 -sTCP:LISTEN)
+```
+
+If port `4000` is owned by a stray manual shell process instead of the expected
+PM2-managed API process, clear it and restart the managed stack:
+
+```bash
+cd /Users/brenthibbitts/clipzero
+kill $(lsof -tiTCP:4000 -sTCP:LISTEN)
+pm2 restart clipzero-api --update-env
+pm2 restart clipzero-tunnel --update-env
+pm2 status
+curl -sS http://127.0.0.1:4000/health
+curl -sS https://clipzeroapi.xyz/health
 ```
 
 ### If the Mac rebooted

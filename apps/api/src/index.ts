@@ -65,10 +65,6 @@ async function refreshNbaVideoCdnHealth(): Promise<boolean> {
     const res = await axios.get(NBA_VIDEO_CDN_PROBE_URL, {
       headers: {
         Range: "bytes=0-0",
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        Referer: "https://www.nba.com/",
-        Origin: "https://www.nba.com",
       },
       responseType: "arraybuffer",
       timeout: 8000,
@@ -100,10 +96,21 @@ async function refreshNbaVideoCdnHealth(): Promise<boolean> {
 }
 
 async function checkNbaVideoCdnHealth(): Promise<boolean> {
-  // Do not block NBA URLs based on synthetic CDN probes. The CDN returns
-  // misleading responses for fake paths, while real clip URLs can still play.
-  // The source of truth is whether videoeventsasset returns a clip URL.
-  return true;
+  const now = Date.now();
+  if (
+    lastNbaVideoCdnCheck > 0 &&
+    now - lastNbaVideoCdnCheck < NBA_VIDEO_CDN_CHECK_INTERVAL_MS
+  ) {
+    return nbaVideoCdnAvailable;
+  }
+
+  if (!nbaVideoCdnCheckInFlight) {
+    nbaVideoCdnCheckInFlight = refreshNbaVideoCdnHealth().finally(() => {
+      nbaVideoCdnCheckInFlight = null;
+    });
+  }
+
+  return nbaVideoCdnCheckInFlight;
 }
 
 // Fire-and-forget initial check so we know the state early.
