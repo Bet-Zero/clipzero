@@ -177,18 +177,18 @@ curl -sS http://127.0.0.1:4000/debug/failures/recent
 ```
 
 - The API now retains a short rolling history of CDN probe results and exposes
-	them in the debug endpoint so you can see recent `etag`/status/content-length
-	samples and trends.
+  them in the debug endpoint so you can see recent `etag`/status/content-length
+  samples and trends.
 
 - Long-term remediation steps:
-	- Use minimal headers for CDN/static JSON fetches (we now separate stats vs
-		CDN headers to avoid triggering 403/placeholder behavior).
-	- Add retries with exponential backoff for transient upstream errors (timeouts,
-		5xx, 429) while treating 403 as a hard failure to avoid masking auth/ACL
-		issues.
-	- Limit concurrency and use streaming/parsing to avoid large memory spikes.
-	- Add alerting on prolonged `videoCdnAvailable:false` with evidence (ETag
-		fingerprint) so the on-call team can triage upstream incidents promptly.
+  - Use minimal headers for CDN/static JSON fetches (we now separate stats vs
+    CDN headers to avoid triggering 403/placeholder behavior).
+  - Add retries with exponential backoff for transient upstream errors (timeouts,
+    5xx, 429) while treating 403 as a hard failure to avoid masking auth/ACL
+    issues.
+  - Limit concurrency and use streaming/parsing to avoid large memory spikes.
+  - Add alerting on prolonged `videoCdnAvailable:false` with evidence (ETag
+    fingerprint) so the on-call team can triage upstream incidents promptly.
 
 #### PM2 says online, but the wrong process is serving port 4000
 

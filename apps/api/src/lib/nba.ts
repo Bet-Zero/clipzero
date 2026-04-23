@@ -21,7 +21,9 @@ async function getWithRetries<T>(
 
       // Do not retry on 403 (forbidden) — treat as a hard failure.
       const shouldRetry = isAxios
-        ? err.code === "ECONNABORTED" || status === 429 || (status && status >= 500)
+        ? err.code === "ECONNABORTED" ||
+          status === 429 ||
+          (status && status >= 500)
         : true;
 
       if (!shouldRetry || attempt >= maxAttempts) throw err;
