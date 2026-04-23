@@ -199,6 +199,19 @@ export function classifyEvent(
     // Fall through to other rules.
   }
 
+  // If probe evidence exists (we probed the NBA CDN and observed the
+  // placeholder behavior), prefer the placeholder diagnosis first.
+  if (evidence.probeEtag !== undefined || evidence.probeStatusCode !== undefined) {
+    return {
+      rawEventKind: eventKind,
+      diagnosis: FailureDiagnosis.video_asset_placeholder_suspected,
+      confidence: DiagnosisConfidence.high,
+      evidenceSummary: [
+        `Probe evidence: status=${evidence.probeStatusCode ?? "?"} etag=${evidence.probeEtag ?? "?"}`,
+      ],
+    };
+  }
+
   // Rule 7: Empty asset response
   if (isEmptyAssetResponse(evidence)) {
     // Check rule 8/9 with window context first

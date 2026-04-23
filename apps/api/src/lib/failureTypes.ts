@@ -133,6 +133,13 @@ export interface FailureEvidence {
   // --- Error details ---
   errorName?: string;
   errorMessage?: string;
+
+  // --- Probe evidence (NBA video CDN health probe) ---
+  probeStatusCode?: number;
+  probeEtag?: string | null;
+  probeContentLength?: number | null;
+  probeTimestamp?: string;
+  probeError?: string;
 }
 
 /** Result of classifying a raw event. */

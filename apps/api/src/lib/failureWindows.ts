@@ -77,12 +77,18 @@ export function recordEvent(evidence: FailureEvidence): void {
   const isEmpty =
     evidence.responseBodyValid === true && evidence.urlFieldPresent === false;
 
+  // Consider this a placeholder event when probe evidence is attached
+  // (the probe verifies the CDN is serving a catch-all placeholder MP4).
+  const isPlaceholder = Boolean(
+    evidence.probeEtag !== undefined || evidence.probeStatusCode !== undefined,
+  );
+
   events.push({
     timestamp: Date.now(),
     clipKey: clipKeyFrom(evidence),
     success: isSuccess,
     empty: isEmpty,
-    placeholder: false, // placeholder detection not yet wired
+    placeholder: isPlaceholder,
     httpStatus: evidence.httpStatus,
     timedOut: evidence.timedOut === true,
   });

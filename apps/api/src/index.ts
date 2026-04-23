@@ -60,6 +60,16 @@ const NBA_VIDEO_CDN_CHECK_INTERVAL_MS = 60_000;
 let nbaVideoCdnAvailable = true;
 let lastNbaVideoCdnCheck = 0;
 let nbaVideoCdnCheckInFlight: Promise<boolean> | null = null;
+// Last probe details (populated by refreshNbaVideoCdnHealth)
+let lastNbaVideoCdnProbe:
+  | {
+      timestamp: number;
+      status?: number;
+      etag?: string | null;
+      contentLength?: number | null;
+      error?: string | null;
+    }
+  | null = null;
 
 async function refreshNbaVideoCdnHealth(): Promise<boolean> {
   try {
@@ -72,6 +82,16 @@ async function refreshNbaVideoCdnHealth(): Promise<boolean> {
       validateStatus: () => true,
     });
     const available = res.status !== 200 && res.status !== 206;
+    // Record probe details for diagnostics
+    lastNbaVideoCdnProbe = {
+      timestamp: Date.now(),
+      status: res.status,
+      etag: res.headers.etag ?? null,
+      contentLength: res.headers["content-length"]
+        ? Number(res.headers["content-length"])
+        : null,
+      error: null,
+    };
     if (available !== nbaVideoCdnAvailable) {
       logger.info("nba_video_cdn_health_changed", {
         available,
@@ -88,6 +108,14 @@ async function refreshNbaVideoCdnHealth(): Promise<boolean> {
       logger.info("nba_video_cdn_health_changed", { available: true });
     }
     nbaVideoCdnAvailable = true;
+    // Record probe error for diagnostics
+    lastNbaVideoCdnProbe = {
+      timestamp: Date.now(),
+      status: undefined,
+      etag: null,
+      contentLength: null,
+      error: error instanceof Error ? error.message : String(error),
+    };
     logger.warn("nba_video_cdn_health_probe_failed", serializeError(error));
   } finally {
     lastNbaVideoCdnCheck = Date.now();
@@ -243,6 +271,13 @@ async function getCachedVideoAsset(
       ...baseEvidence(),
       memoryCacheHit: false,
       freshUpstreamFetch: false,
+      probeStatusCode: lastNbaVideoCdnProbe?.status,
+      probeEtag: lastNbaVideoCdnProbe?.etag ?? null,
+      probeContentLength: lastNbaVideoCdnProbe?.contentLength ?? null,
+      probeTimestamp: lastNbaVideoCdnProbe
+        ? new Date(lastNbaVideoCdnProbe.timestamp).toISOString()
+        : undefined,
+      probeError: lastNbaVideoCdnProbe?.error ?? undefined,
     } as FailureEvidence);
     return emptyVideoAsset;
   }
@@ -337,6 +372,13 @@ async function getCachedVideoAsset(
           urlFieldPresent: false,
           thumbnailFieldPresent: false,
           responseBodyValid: true,
+          probeStatusCode: lastNbaVideoCdnProbe?.status,
+          probeEtag: lastNbaVideoCdnProbe?.etag ?? null,
+          probeContentLength: lastNbaVideoCdnProbe?.contentLength ?? null,
+          probeTimestamp: lastNbaVideoCdnProbe
+            ? new Date(lastNbaVideoCdnProbe.timestamp).toISOString()
+            : undefined,
+          probeError: lastNbaVideoCdnProbe?.error ?? undefined,
         } as FailureEvidence);
       }
       return cachedValue;
@@ -837,10 +879,23 @@ function matchesDistanceBucket(
 
 app.get("/health", async (_req, res) => {
   const videoCdnAvailable = await checkNbaVideoCdnHealth();
+  const probePayload = lastNbaVideoCdnProbe
+    ? {
+        timestamp: new Date(lastNbaVideoCdnProbe.timestamp).toISOString(),
+        status: lastNbaVideoCdnProbe.status,
+        etag: lastNbaVideoCdnProbe.etag,
+        contentLength: lastNbaVideoCdnProbe.contentLength,
+        error: lastNbaVideoCdnProbe.error,
+      }
+    : undefined;
+
   const { statusCode, payload } = buildHealthResponse(
     apiConfig.disabled,
     videoCdnAvailable,
+    undefined,
+    probePayload,
   );
+
   res.status(statusCode).json(payload);
 });
 
