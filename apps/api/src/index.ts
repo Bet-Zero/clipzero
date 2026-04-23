@@ -61,15 +61,13 @@ let nbaVideoCdnAvailable = true;
 let lastNbaVideoCdnCheck = 0;
 let nbaVideoCdnCheckInFlight: Promise<boolean> | null = null;
 // Last probe details (populated by refreshNbaVideoCdnHealth)
-let lastNbaVideoCdnProbe:
-  | {
-      timestamp: number;
-      status?: number;
-      etag?: string | null;
-      contentLength?: number | null;
-      error?: string | null;
-    }
-  | null = null;
+let lastNbaVideoCdnProbe: {
+  timestamp: number;
+  status?: number;
+  etag?: string | null;
+  contentLength?: number | null;
+  error?: string | null;
+} | null = null;
 
 async function refreshNbaVideoCdnHealth(): Promise<boolean> {
   try {

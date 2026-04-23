@@ -201,7 +201,10 @@ export function classifyEvent(
 
   // If probe evidence exists (we probed the NBA CDN and observed the
   // placeholder behavior), prefer the placeholder diagnosis first.
-  if (evidence.probeEtag !== undefined || evidence.probeStatusCode !== undefined) {
+  if (
+    evidence.probeEtag !== undefined ||
+    evidence.probeStatusCode !== undefined
+  ) {
     return {
       rawEventKind: eventKind,
       diagnosis: FailureDiagnosis.video_asset_placeholder_suspected,
