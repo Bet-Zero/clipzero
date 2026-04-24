@@ -50,7 +50,6 @@ type Props = {
 
 export default function ClipPlayer({ clip, onEnded }: Props) {
   const [downloading, setDownloading] = useState(false);
-  void onEnded;
 
   const handleDownload = useCallback(async () => {
     if (!clip?.videoUrl || downloading) return;
@@ -85,13 +84,15 @@ export default function ClipPlayer({ clip, onEnded }: Props) {
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
       {clip.videoUrl ? (
-        <iframe
+        <video
           key={clip.videoUrl}
           src={clip.videoUrl}
-          title={`${clip.playerName ?? "NBA"} clip`}
-          className="aspect-video w-full border-0 bg-black"
-          allow="autoplay; fullscreen"
-          allowFullScreen
+          poster={clip.thumbnailUrl ?? undefined}
+          controls
+          autoPlay
+          preload="metadata"
+          className="w-full bg-black"
+          onEnded={onEnded}
         />
       ) : (
         <div className="flex aspect-video items-center justify-center bg-zinc-900 text-sm text-zinc-500">
