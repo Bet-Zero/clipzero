@@ -38,7 +38,7 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.nba.com https://videos.nba.com https://*.nba.com; media-src 'self' https://videos.nba.com https://*.nba.com; frame-src https://videos.nba.com https://*.nba.com; connect-src 'self' https://clipzeroapi.xyz; frame-ancestors 'none'; base-uri 'self'; form-action 'self';",
+              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.nba.com https://videos.nba.com https://*.nba.com; media-src 'self' https://videos.nba.com https://*.nba.com; connect-src 'self' https://clipzeroapi.xyz; frame-ancestors 'none'; base-uri 'self'; form-action 'self';",
           },
         ],
       },
