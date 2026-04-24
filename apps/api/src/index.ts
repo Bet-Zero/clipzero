@@ -262,6 +262,14 @@ function normalizeDate(dateStr: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Upgrade a 960x540 video URL to its 1280x720 equivalent when possible. */
+function normalizeVideoUrl(url: string | null): string | null {
+  if (url && url.endsWith("_960x540.mp4")) {
+    return url.slice(0, -"_960x540.mp4".length) + "_1280x720.mp4";
+  }
+  return url;
+}
+
 async function getCachedVideoAsset(
   gameId: string,
   actionNumber: number,
@@ -330,8 +338,12 @@ async function getCachedVideoAsset(
     // Only use persisted value if it has a valid URL — don't serve stale nulls
     // from previously failed fetches.
     if (persisted && (persisted.videoUrl || persisted.thumbnailUrl)) {
-      videoAssetCache.set(cacheKey, persisted);
-      return persisted;
+      const normalized = {
+        videoUrl: normalizeVideoUrl(persisted.videoUrl),
+        thumbnailUrl: persisted.thumbnailUrl,
+      };
+      videoAssetCache.set(cacheKey, normalized);
+      return normalized;
     }
 
     function persistCachedValue(cachedValue: {
@@ -366,7 +378,7 @@ async function getCachedVideoAsset(
           (video: { murl?: string }) => typeof video?.murl === "string",
         );
       const cachedValue = {
-        videoUrl: selectedVideo?.murl ?? null,
+        videoUrl: normalizeVideoUrl(selectedVideo?.murl ?? null),
         thumbnailUrl: selectedVideo?.mth ?? null,
       };
       videoAssetCache.set(cacheKey, cachedValue);
