@@ -355,10 +355,19 @@ async function getCachedVideoAsset(
       const upstreamStart = Date.now();
       const asset = await getVideoEventAsset(gameId, actionNumber);
       const upstreamDuration = Date.now() - upstreamStart;
-      const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
+      const videoUrls = asset?.resultSets?.Meta?.videoUrls ?? [];
+      const selectedVideo =
+        videoUrls.find(
+          (video: { murl?: string }) =>
+            typeof video?.murl === "string" &&
+            video.murl.includes("_1280x720.mp4"),
+        ) ??
+        videoUrls.find(
+          (video: { murl?: string }) => typeof video?.murl === "string",
+        );
       const cachedValue = {
-        videoUrl: firstVideo?.murl ?? null,
-        thumbnailUrl: firstVideo?.mth ?? null,
+        videoUrl: selectedVideo?.murl ?? null,
+        thumbnailUrl: selectedVideo?.mth ?? null,
       };
       videoAssetCache.set(cacheKey, cachedValue);
       // Only persist to disk when we have a valid URL — don't permanently cache
@@ -1031,15 +1040,24 @@ app.get("/clips/test", async (_req, res) => {
     const videoCdnAvailable = await checkNbaVideoCdnHealth();
 
     const asset = await getVideoEventAsset(gameId, gameEventId);
-    const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
+    const videoUrls = asset?.resultSets?.Meta?.videoUrls ?? [];
+    const selectedVideo =
+      videoUrls.find(
+        (video: { murl?: string }) =>
+          typeof video?.murl === "string" &&
+          video.murl.includes("_1280x720.mp4"),
+      ) ??
+      videoUrls.find(
+        (video: { murl?: string }) => typeof video?.murl === "string",
+      );
 
     res.json({
       gameId,
       gameEventId,
-      success: Boolean(videoCdnAvailable && firstVideo?.murl),
+      success: Boolean(videoCdnAvailable && selectedVideo?.murl),
       videoCdnAvailable,
-      videoUrl: videoCdnAvailable ? (firstVideo?.murl ?? null) : null,
-      thumbnailUrl: videoCdnAvailable ? (firstVideo?.mth ?? null) : null,
+      videoUrl: videoCdnAvailable ? (selectedVideo?.murl ?? null) : null,
+      thumbnailUrl: videoCdnAvailable ? (selectedVideo?.mth ?? null) : null,
     });
   } catch (error: any) {
     logRouteError("clips_test", error, {});

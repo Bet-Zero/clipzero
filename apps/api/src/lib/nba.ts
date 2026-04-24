@@ -660,12 +660,20 @@ export async function getClipRecordsForGame(
     try {
       const asset = await getVideoEventAsset(gameId, shot.actionNumber);
       const videoUrls = asset?.resultSets?.Meta?.videoUrls ?? [];
-      const firstVideo = videoUrls[0];
+      const selectedVideo =
+        videoUrls.find(
+          (video: { murl?: string }) =>
+            typeof video?.murl === "string" &&
+            video.murl.includes("_1280x720.mp4"),
+        ) ??
+        videoUrls.find(
+          (video: { murl?: string }) => typeof video?.murl === "string",
+        );
 
       clipRecords.push({
         ...shot,
-        videoUrl: firstVideo?.murl ?? null,
-        thumbnailUrl: firstVideo?.mth ?? null,
+        videoUrl: selectedVideo?.murl ?? null,
+        thumbnailUrl: selectedVideo?.mth ?? null,
       } as ClipRecord);
     } catch {
       clipRecords.push({
