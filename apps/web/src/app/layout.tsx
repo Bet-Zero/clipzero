@@ -4,7 +4,6 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "ClipZero",
   description: "Fast NBA clip filtering. Zero clutter.",
-  referrer: "no-referrer",
   robots: {
     index: false,
     follow: false,
