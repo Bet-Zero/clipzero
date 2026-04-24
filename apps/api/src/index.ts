@@ -142,12 +142,6 @@ async function refreshNbaVideoCdnHealth(): Promise<boolean> {
 }
 
 async function checkNbaVideoCdnHealth(): Promise<boolean> {
-  // The probe tests server→CDN access, which the CDN treats differently from
-  // browser→CDN access.  Server IPs get a fallback response for any path
-  // (same bytes, 200/206 status) while browsers playing the same URLs get the
-  // real clip.  The probe is therefore always a false positive from this host
-  // and must not be used to gate video fetches.
-  // Run it in the background only to populate diagnostic evidence in logs.
   const now = Date.now();
   if (
     lastNbaVideoCdnCheck === 0 ||
@@ -159,6 +153,7 @@ async function checkNbaVideoCdnHealth(): Promise<boolean> {
       });
     }
   }
+  // Probe signal is telemetry-only. Do not block playback URL delivery.
   return true;
 }
 
@@ -289,26 +284,7 @@ async function getCachedVideoAsset(
     };
   }
 
-  // When the CDN is down (serving placeholder for all paths), don't use cached
-  // URLs because they will play the placeholder.  Also don't fetch new ones —
-  // they would be equally useless and we'd risk persisting them to disk.
-  const videoCdnAvailable = await checkNbaVideoCdnHealth();
-  if (!videoCdnAvailable) {
-    logFailureEvent(RawEventKindEnum.asset_returned_empty, {
-      eventId: crypto.randomUUID(),
-      ...baseEvidence(),
-      memoryCacheHit: false,
-      freshUpstreamFetch: false,
-      probeStatusCode: lastNbaVideoCdnProbe?.status,
-      probeEtag: lastNbaVideoCdnProbe?.etag ?? null,
-      probeContentLength: lastNbaVideoCdnProbe?.contentLength ?? null,
-      probeTimestamp: lastNbaVideoCdnProbe
-        ? new Date(lastNbaVideoCdnProbe.timestamp).toISOString()
-        : undefined,
-      probeError: lastNbaVideoCdnProbe?.error ?? undefined,
-    } as FailureEvidence);
-    return emptyVideoAsset;
-  }
+  void checkNbaVideoCdnHealth();
 
   const memoryCached = videoAssetCache.get(cacheKey);
   if (memoryCached) return memoryCached;
@@ -1049,7 +1025,7 @@ app.get("/clips/test", async (_req, res) => {
   try {
     const gameId = "0022501115";
     const gameEventId = 7;
-    const videoCdnAvailable = await checkNbaVideoCdnHealth();
+    void checkNbaVideoCdnHealth();
 
     const asset = await getVideoEventAsset(gameId, gameEventId);
     const videoUrls = asset?.resultSets?.Meta?.videoUrls ?? [];
@@ -1066,10 +1042,10 @@ app.get("/clips/test", async (_req, res) => {
     res.json({
       gameId,
       gameEventId,
-      success: Boolean(videoCdnAvailable && selectedVideo?.murl),
-      videoCdnAvailable,
-      videoUrl: videoCdnAvailable ? (selectedVideo?.murl ?? null) : null,
-      thumbnailUrl: videoCdnAvailable ? (selectedVideo?.mth ?? null) : null,
+      success: Boolean(selectedVideo?.murl),
+      videoCdnAvailable: nbaVideoCdnAvailable,
+      videoUrl: selectedVideo?.murl ?? null,
+      thumbnailUrl: selectedVideo?.mth ?? null,
     });
   } catch (error: any) {
     logRouteError("clips_test", error, {});
@@ -1267,13 +1243,14 @@ app.get("/clips/game", async (req, res) => {
         : null;
 
     const cacheKey = `${gameId}:${player}:${team}:${result}:${playType}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${area}:${descriptor}:${qualifier}:${playerIdsParam}:${positionGroup}:${season}:${limit}:${offset}`;
-    const videoCdnAvailable = await checkNbaVideoCdnHealth();
+    void checkNbaVideoCdnHealth();
+    const videoCdnAvailable = nbaVideoCdnAvailable;
     // Bypass response cache when an actionNumber lookup is requested,
     // since targetIndex is not part of the cached payload.
     // Also bypass while the NBA video CDN is serving placeholders; cached
     // payloads can contain otherwise valid URLs that currently resolve to the
     // placeholder MP4.
-    if (!targetActionNumber && videoCdnAvailable) {
+    if (!targetActionNumber) {
       const cached = clipCache.get(cacheKey);
       if (cached) {
         return res.json(cached);
@@ -1379,13 +1356,11 @@ app.get("/clips/game", async (req, res) => {
         const videoEventId =
           (shot as { videoActionNumber?: number }).videoActionNumber ??
           shot.actionNumber;
-        const cachedAsset = videoCdnAvailable
-          ? await getCachedVideoAsset(
-              gameId,
-              videoEventId,
-              (req as any).requestId,
-            )
-          : emptyVideoAsset;
+        const cachedAsset = await getCachedVideoAsset(
+          gameId,
+          videoEventId,
+          (req as any).requestId,
+        );
         if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
           assetUrlsResolved += 1;
           return {
@@ -1431,7 +1406,7 @@ app.get("/clips/game", async (req, res) => {
 
     // Only cache when no actionNumber lookup and all video assets resolved —
     // don't lock in a response with missing clips that could be retried.
-    if (!targetActionNumber && videoCdnAvailable && assetUrlsUnresolved === 0) {
+    if (!targetActionNumber && assetUrlsUnresolved === 0) {
       clipCache.set(cacheKey, payload);
     }
 
@@ -1612,8 +1587,9 @@ app.get("/clips/matchup", async (req, res) => {
 
     const normalizedExcludeKey = [...excludeGameIds].sort().join(",");
     const cacheKey = `${season}:${teamA.tricode}:${teamB.tricode}:${normalizedExcludeKey}:${team}:${result}:${playType}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${area}:${descriptor}:${qualifier}:${limit}:${offset}`;
-    const videoCdnAvailable = await checkNbaVideoCdnHealth();
-    if (!targetActionNumber && videoCdnAvailable) {
+    void checkNbaVideoCdnHealth();
+    const videoCdnAvailable = nbaVideoCdnAvailable;
+    if (!targetActionNumber) {
       const cached = matchupClipCache.get(cacheKey);
       if (cached) {
         return res.json(cached);
@@ -1733,13 +1709,11 @@ app.get("/clips/matchup", async (req, res) => {
         const videoEventId =
           (action as { videoActionNumber?: number }).videoActionNumber ??
           action.actionNumber;
-        const cachedAsset = videoCdnAvailable
-          ? await getCachedVideoAsset(
-              action.gameId,
-              videoEventId,
-              (req as any).requestId,
-            )
-          : emptyVideoAsset;
+        const cachedAsset = await getCachedVideoAsset(
+          action.gameId,
+          videoEventId,
+          (req as any).requestId,
+        );
 
         if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
           assetUrlsResolved += 1;
@@ -1787,7 +1761,7 @@ app.get("/clips/matchup", async (req, res) => {
       ...(targetIndex !== undefined ? { targetIndex } : {}),
     };
 
-    if (!targetActionNumber && videoCdnAvailable && assetUrlsUnresolved === 0) {
+    if (!targetActionNumber && assetUrlsUnresolved === 0) {
       matchupClipCache.set(cacheKey, payload);
     }
 
@@ -2075,8 +2049,9 @@ app.get("/clips/player", async (req, res) => {
 
     // Check response cache (bypass when actionNumber lookup is requested)
     const cacheKey = `${personId}:${season}:${playType}:${result}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${area}:${descriptor}:${qualifier}:${opponent}:${limit}:${offset}:${[...excludeDates].sort().join(",")}:${[...excludeGameIds].sort().join(",")}`;
-    const videoCdnAvailable = await checkNbaVideoCdnHealth();
-    if (!targetActionNumber && videoCdnAvailable) {
+    void checkNbaVideoCdnHealth();
+    const videoCdnAvailable = nbaVideoCdnAvailable;
+    if (!targetActionNumber) {
       const cached = playerClipCache.get(cacheKey);
       if (cached) {
         return res.json(cached);
@@ -2270,13 +2245,11 @@ app.get("/clips/player", async (req, res) => {
         }
 
         const videoEventId = action.videoActionNumber ?? action.actionNumber;
-        const cachedAsset = videoCdnAvailable
-          ? await getCachedVideoAsset(
-              action.gameId,
-              videoEventId,
-              (req as any).requestId,
-            )
-          : emptyVideoAsset;
+        const cachedAsset = await getCachedVideoAsset(
+          action.gameId,
+          videoEventId,
+          (req as any).requestId,
+        );
         if (cachedAsset.videoUrl || cachedAsset.thumbnailUrl) {
           assetUrlsResolved += 1;
           return { ...action, ...cachedAsset };
@@ -2325,7 +2298,6 @@ app.get("/clips/player", async (req, res) => {
     // would prevent future requests from extending the scan window.
     if (
       !targetActionNumber &&
-      videoCdnAvailable &&
       assetUrlsUnresolved === 0 &&
       seasonFullyScanned
     ) {
