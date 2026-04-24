@@ -91,6 +91,7 @@ export default function ClipPlayer({ clip, onEnded }: Props) {
           controls
           autoPlay
           preload="metadata"
+          referrerPolicy="no-referrer"
           className="w-full bg-black"
           onEnded={onEnded}
         />
