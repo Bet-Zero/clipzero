@@ -84,15 +84,12 @@ export default function ClipPlayer({ clip, onEnded }: Props) {
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
       {clip.videoUrl ? (
-        <video
+        <iframe
           key={clip.videoUrl}
           src={clip.videoUrl}
-          poster={clip.thumbnailUrl ?? undefined}
-          controls
-          autoPlay
-          preload="metadata"
-className="w-full bg-black"
-          onEnded={onEnded}
+          className="aspect-video w-full border-0 bg-black"
+          allowFullScreen
+          allow="autoplay"
         />
       ) : (
         <div className="flex aspect-video items-center justify-center bg-zinc-900 text-sm text-zinc-500">
