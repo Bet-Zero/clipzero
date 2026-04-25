@@ -90,6 +90,7 @@ export default function ClipPlayer({ clip, onEnded }: Props) {
           poster={clip.thumbnailUrl ?? undefined}
           controls
           autoPlay
+          muted
           preload="metadata"
           className="w-full bg-black"
           onEnded={onEnded}
