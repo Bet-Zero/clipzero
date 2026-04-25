@@ -1140,7 +1140,9 @@ app.get("/video/proxy", async (req, res) => {
       }
     }
     res.setHeader("cache-control", "public, max-age=3600");
-
+    res.setHeader("cache-control", "public, max-age=3600");
+    res.setHeader("cross-origin-resource-policy", "cross-origin");
+    res.setHeader("access-control-allow-origin", "*");
     if (body.length > 0) res.write(body);
   });
 
