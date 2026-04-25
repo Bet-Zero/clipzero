@@ -59,8 +59,8 @@ const NBA_VIDEO_CDN_PROBE_URL =
   "https://videos.nba.com/nba/pbp/media/0000/00/00/0000000000/0/00000000-0000-0000-0000-000000000000_960x540.mp4";
 const NBA_VIDEO_CDN_CHECK_INTERVAL_MS = 60_000;
 const CURL_IMPERSONATE_PATH = path.resolve(
-  process.cwd(),
-  "apps/api/bin/curl-impersonate",
+  __dirname,
+  "../bin/curl-impersonate",
 );
 
 let nbaVideoCdnAvailable = true;
