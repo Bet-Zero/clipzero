@@ -86,7 +86,7 @@ export default function ClipPlayer({ clip, onEnded }: Props) {
       {clip.videoUrl ? (
         <video
           key={clip.videoUrl}
-          src={clip.videoUrl}
+          src={`/api/video?u=${encodeURIComponent(clip.videoUrl)}`}
           poster={clip.thumbnailUrl ?? undefined}
           controls
           autoPlay
