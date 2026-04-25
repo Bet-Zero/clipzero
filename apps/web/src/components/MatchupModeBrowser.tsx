@@ -1305,13 +1305,6 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
             />
 
             <div className="mx-auto w-full max-w-4xl">
-              {!videoCdnAvailable && (
-                <div className="mb-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-                  NBA video CDN is currently returning placeholder videos. Clips
-                  are listed, but playback is disabled until NBA video files
-                  recover.
-                </div>
-              )}
               <ClipPlayer
                 clip={clips[activeIndex] ?? null}
                 onEnded={handleClipEnded}
