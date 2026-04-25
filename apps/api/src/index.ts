@@ -1,4 +1,6 @@
 import crypto from "node:crypto";
+import { spawn } from "child_process";
+import path from "path";
 import axios from "axios";
 import cors from "cors";
 import express from "express";
@@ -56,6 +58,10 @@ import { matchesNormalizedGroup } from "./lib/subtypeGroups";
 const NBA_VIDEO_CDN_PROBE_URL =
   "https://videos.nba.com/nba/pbp/media/0000/00/00/0000000000/0/00000000-0000-0000-0000-000000000000_960x540.mp4";
 const NBA_VIDEO_CDN_CHECK_INTERVAL_MS = 60_000;
+const CURL_IMPERSONATE_PATH = path.resolve(
+  process.cwd(),
+  "apps/api/bin/curl-impersonate",
+);
 
 let nbaVideoCdnAvailable = true;
 let lastNbaVideoCdnCheck = 0;
@@ -1053,6 +1059,108 @@ app.get("/clips/test", async (_req, res) => {
       error: "Failed to fetch test clip",
     });
   }
+});
+
+app.get("/video/proxy", async (req, res) => {
+  const url = typeof req.query.u === "string" ? req.query.u : "";
+  if (!url || !/^https:\/\/videos\.nba\.com\//.test(url)) {
+    res.status(400).send("bad url");
+    return;
+  }
+
+  const range = req.headers.range;
+  const sessionId = crypto.randomUUID().toUpperCase();
+
+  const args = [
+    "--impersonate",
+    "safari18_0",
+    "-H",
+    "Accept: */*",
+    "-H",
+    "Accept-Encoding: identity",
+    "-H",
+    "Accept-Language: en-US,en;q=0.9",
+    "-H",
+    "Sec-Fetch-Dest: video",
+    "-H",
+    "Sec-Fetch-Mode: no-cors",
+    "-H",
+    "Sec-Fetch-Site: same-origin",
+    "-H",
+    `Referer: ${url}`,
+    "-H",
+    `X-Playback-Session-Id: ${sessionId}`,
+    "-H",
+    `Range: ${range ?? "bytes=0-1"}`,
+    "-sS",
+    "-D",
+    "-",
+    url,
+  ];
+
+  const child = spawn(CURL_IMPERSONATE_PATH, args);
+
+  let headersParsed = false;
+  let headerBuffer = Buffer.alloc(0);
+
+  child.stdout.on("data", (chunk: Buffer) => {
+    if (headersParsed) {
+      res.write(chunk);
+      return;
+    }
+
+    headerBuffer = Buffer.concat([headerBuffer, chunk]);
+    const sep = headerBuffer.indexOf("\r\n\r\n");
+    if (sep === -1) return;
+
+    const headerText = headerBuffer.subarray(0, sep).toString("utf8");
+    const body = headerBuffer.subarray(sep + 4);
+    headersParsed = true;
+
+    const lines = headerText.split("\r\n");
+    const statusMatch = lines[0]?.match(/^HTTP\/[\d.]+\s+(\d+)/);
+    const status = statusMatch ? parseInt(statusMatch[1], 10) : 200;
+    res.status(status);
+
+    const passThrough = new Set([
+      "content-type",
+      "content-length",
+      "content-range",
+      "accept-ranges",
+      "etag",
+      "last-modified",
+    ]);
+    for (const line of lines.slice(1)) {
+      const idx = line.indexOf(":");
+      if (idx === -1) continue;
+      const name = line.slice(0, idx).trim().toLowerCase();
+      const value = line.slice(idx + 1).trim();
+      if (passThrough.has(name)) {
+        res.setHeader(name, value);
+      }
+    }
+    res.setHeader("cache-control", "public, max-age=3600");
+
+    if (body.length > 0) res.write(body);
+  });
+
+  child.stderr.on("data", (chunk: Buffer) => {
+    logger.warn("video_proxy_stderr", { msg: chunk.toString("utf8") });
+  });
+
+  child.on("error", (err) => {
+    logger.warn("video_proxy_spawn_error", serializeError(err));
+    if (!res.headersSent) res.status(502).send("proxy spawn failed");
+    else res.end();
+  });
+
+  child.on("close", () => {
+    res.end();
+  });
+
+  req.on("close", () => {
+    child.kill();
+  });
 });
 
 app.get("/clips/game", async (req, res) => {
