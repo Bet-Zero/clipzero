@@ -618,11 +618,18 @@ export async function getPlayerNameMapForGame(gameId: string) {
 }
 
 /**
- * Pick a playable rendition from stats.nba.com's videoEventsAsset response.
- * The `videoUrls` list often has multiple items; the first is frequently
- * `_960x540.mp4`, which may match the NBA video CDN's generic placeholder
- * pattern. Prefer the `_1280x720` variant when present (see `/clips/test` and
- * probe URL in the API), then fall back to the first entry with a URL.
+ * Standardize **which `murl` / `mth` pair** to use from a stats.nba.com
+ * `videoeventsasset` JSON body (`resultSets.Meta.videoUrls`).
+ *
+ * - Prefers a `_1280x720` rendition when listed, else the first non-empty `murl`.
+ * - If the API only returns one URL, this returns that URL (same as always
+ *   using index 0 for that case).
+ *
+ * This **does not** claim to fix NBA CDN `videos.nba.com` behavior. The URL can
+ * be structurally valid while the edge still serves generic placeholder bytes
+ * (e.g. request- or path-dependent delivery). For that, rely on health/probe
+ * and failure evidence outside this function, not on picking a different array
+ * slot when there is no alternate `murl`.
  */
 export function selectVideoFromEventAsset(
   asset: unknown,
@@ -648,6 +655,11 @@ export function selectVideoFromEventAsset(
   };
 }
 
+/**
+ * Fetches raw `videoeventsasset` JSON. All consumers should pass the result
+ * through {@link selectVideoFromEventAsset} to pick a consistent `murl` / `mth`
+ * (rendition selection only; see that function’s docs for CDN scope).
+ */
 export async function getVideoEventAsset(gameId: string, gameEventId: number) {
   const url = "https://stats.nba.com/stats/videoeventsasset";
 

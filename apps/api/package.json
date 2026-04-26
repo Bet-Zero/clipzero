@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "node --env-file-if-exists=../../.env dist/index.js",
     "data:test": "tsx src/scripts/testDataSource.ts",
+    "data:video-api": "tsx src/scripts/testVideoApi.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

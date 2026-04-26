@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { selectVideoFromEventAsset } from "./nba";
 
+// Rendition standardization from stats `videoUrls` only — does not model CDN
+// placeholder bytes; see function JSDoc in nba.ts.
+
 describe("selectVideoFromEventAsset", () => {
   it("returns null when there are no video URLs", () => {
     expect(selectVideoFromEventAsset(null)).toBeNull();
