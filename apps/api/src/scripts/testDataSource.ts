@@ -1,16 +1,16 @@
-import { getVideoEventAsset } from "../lib/nba";
+import { getVideoEventAsset, selectVideoFromEventAsset } from "../lib/nba";
 
 async function main() {
   const gameId = "0022501115";
   const gameEventId = 7;
 
   const asset = await getVideoEventAsset(gameId, gameEventId);
-  const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
+  const selected = selectVideoFromEventAsset(asset);
 
   console.log({
-    success: Boolean(firstVideo?.murl),
-    videoUrl: firstVideo?.murl ?? null,
-    thumbnailUrl: firstVideo?.mth ?? null,
+    success: Boolean(selected?.murl),
+    videoUrl: selected?.murl ?? null,
+    thumbnailUrl: selected?.mth ?? null,
   });
 }
 

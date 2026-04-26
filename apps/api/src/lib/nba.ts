@@ -617,6 +617,37 @@ export async function getPlayerNameMapForGame(gameId: string) {
   return playerMap;
 }
 
+/**
+ * Pick a playable rendition from stats.nba.com's videoEventsAsset response.
+ * The `videoUrls` list often has multiple items; the first is frequently
+ * `_960x540.mp4`, which may match the NBA video CDN's generic placeholder
+ * pattern. Prefer the `_1280x720` variant when present (see `/clips/test` and
+ * probe URL in the API), then fall back to the first entry with a URL.
+ */
+export function selectVideoFromEventAsset(
+  asset: unknown,
+): { murl: string; mth: string | null } | null {
+  const videoUrls = (asset as {
+    resultSets?: { Meta?: { videoUrls?: { murl?: string; mth?: string }[] } };
+  })?.resultSets?.Meta?.videoUrls;
+  if (!Array.isArray(videoUrls) || videoUrls.length === 0) {
+    return null;
+  }
+  const preferred = videoUrls.find(
+    (video) =>
+      typeof video?.murl === "string" && video.murl.includes("_1280x720.mp4"),
+  );
+  const fallback = videoUrls.find(
+    (video) => typeof video?.murl === "string" && video.murl.length > 0,
+  );
+  const selected = preferred ?? fallback;
+  if (!selected) return null;
+  return {
+    murl: selected.murl!,
+    mth: typeof selected.mth === "string" ? selected.mth : null,
+  };
+}
+
 export async function getVideoEventAsset(gameId: string, gameEventId: number) {
   const url = "https://stats.nba.com/stats/videoeventsasset";
 
@@ -659,21 +690,12 @@ export async function getClipRecordsForGame(
 
     try {
       const asset = await getVideoEventAsset(gameId, shot.actionNumber);
-      const videoUrls = asset?.resultSets?.Meta?.videoUrls ?? [];
-      const selectedVideo =
-        videoUrls.find(
-          (video: { murl?: string }) =>
-            typeof video?.murl === "string" &&
-            video.murl.includes("_1280x720.mp4"),
-        ) ??
-        videoUrls.find(
-          (video: { murl?: string }) => typeof video?.murl === "string",
-        );
+      const selected = selectVideoFromEventAsset(asset);
 
       clipRecords.push({
         ...shot,
-        videoUrl: selectedVideo?.murl ?? null,
-        thumbnailUrl: selectedVideo?.mth ?? null,
+        videoUrl: selected?.murl ?? null,
+        thumbnailUrl: selected?.mth ?? null,
       } as ClipRecord);
     } catch {
       clipRecords.push({

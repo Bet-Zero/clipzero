@@ -26,6 +26,7 @@ import {
   getPlayerNameMapForGame,
   getTodaysGames,
   getVideoEventAsset,
+  selectVideoFromEventAsset,
   getAllPlayers,
   getPlayerGameLog,
   getTeamByTricode,
@@ -304,10 +305,10 @@ async function getCachedVideoAsset(
 
   try {
     const asset = await getVideoEventAsset(gameId, actionNumber);
-    const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
+    const selected = selectVideoFromEventAsset(asset);
     const cachedValue = {
-      videoUrl: firstVideo?.murl ?? null,
-      thumbnailUrl: firstVideo?.mth ?? null,
+      videoUrl: selected?.murl ?? null,
+      thumbnailUrl: selected?.mth ?? null,
     };
     videoAssetCache.set(cacheKey, cachedValue);
     // Only persist to disk when we have a valid URL — don't permanently cache
@@ -914,16 +915,7 @@ app.get("/clips/test", async (_req, res) => {
     void checkNbaVideoCdnHealth();
 
     const asset = await getVideoEventAsset(gameId, gameEventId);
-    const videoUrls = asset?.resultSets?.Meta?.videoUrls ?? [];
-    const selectedVideo =
-      videoUrls.find(
-        (video: { murl?: string }) =>
-          typeof video?.murl === "string" &&
-          video.murl.includes("_1280x720.mp4"),
-      ) ??
-      videoUrls.find(
-        (video: { murl?: string }) => typeof video?.murl === "string",
-      );
+    const selectedVideo = selectVideoFromEventAsset(asset);
 
     res.json({
       gameId,
