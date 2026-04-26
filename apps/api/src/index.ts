@@ -2411,6 +2411,203 @@ app.get("/debug/failures/recent", (req, res) => {
   });
 });
 
+app.get("/debug/video-asset", async (req, res) => {
+  if (!apiConfig.debugEnabled) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  const gameId =
+    typeof req.query.gameId === "string" ? req.query.gameId.trim() : "";
+  const actionNumberParam =
+    typeof req.query.actionNumber === "string"
+      ? Number(req.query.actionNumber)
+      : NaN;
+  const actionNumber =
+    Number.isFinite(actionNumberParam) && actionNumberParam > 0
+      ? actionNumberParam
+      : null;
+  const forceUpstream =
+    req.query.forceUpstream === "1" || req.query.forceUpstream === "true";
+
+  if (!gameId || actionNumber === null) {
+    res.status(400).json({
+      error: "gameId and positive numeric actionNumber are required",
+    });
+    return;
+  }
+
+  function extractActionFolder(pathname: string): number | null {
+    const segments = pathname.split("/").filter(Boolean);
+    if (segments.length < 2) return null;
+    const parsed = Number(segments[segments.length - 2]);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function validateSelectedUrl(url: string | null) {
+    if (!url) {
+      return {
+        passed: false,
+        isNbaVideosHost: false,
+        gameIdMatches: false,
+        actionFolderMatches: false,
+        extractedActionFolder: null as number | null,
+      };
+    }
+
+    try {
+      const parsed = new URL(url);
+      const isNbaVideosHost =
+        parsed.hostname.toLowerCase() === "videos.nba.com";
+      const gameIdMatches = parsed.pathname.includes(`/${gameId}/`);
+      const extractedActionFolder = extractActionFolder(parsed.pathname);
+      const actionFolderMatches = extractedActionFolder === actionNumber;
+      return {
+        passed: isNbaVideosHost && gameIdMatches && actionFolderMatches,
+        isNbaVideosHost,
+        gameIdMatches,
+        actionFolderMatches,
+        extractedActionFolder,
+      };
+    } catch {
+      return {
+        passed: false,
+        isNbaVideosHost: false,
+        gameIdMatches: false,
+        actionFolderMatches: false,
+        extractedActionFolder: null as number | null,
+      };
+    }
+  }
+
+  const cacheKey = `${gameId}:${actionNumber}`;
+  const memoryCached = videoAssetCache.get(cacheKey) ?? null;
+  const memoryValidation = memoryCached
+    ? validateSelectedUrl(memoryCached.videoUrl)
+    : null;
+
+  const diskCached = await getPersistentValue<{
+    videoUrl: string | null;
+    thumbnailUrl: string | null;
+  }>("video-assets", cacheKey);
+  const diskValidation = diskCached
+    ? validateSelectedUrl(diskCached.videoUrl)
+    : null;
+
+  let upstreamError: unknown = null;
+  let upstreamAsset: any = null;
+  let rawVideoUrls: Array<{
+    murl: string | null;
+    mth: string | null;
+    d: number | null;
+  }> = [];
+
+  try {
+    upstreamAsset = await getVideoEventAsset(gameId, actionNumber);
+    rawVideoUrls = (upstreamAsset?.resultSets?.Meta?.videoUrls ?? []).map(
+      (video: { murl?: string; mth?: string; d?: number }) => ({
+        murl: video?.murl ?? null,
+        mth: video?.mth ?? null,
+        d: typeof video?.d === "number" ? video.d : null,
+      }),
+    );
+  } catch (error) {
+    upstreamError = error;
+  }
+
+  // Keep selector identical to runtime behavior (first raw video URL entry).
+  const selectedFromRaw = rawVideoUrls[0] ?? null;
+
+  let resolvedSource: "upstream" | "memory" | "disk" = "upstream";
+  let selectedVideoUrl = selectedFromRaw?.murl ?? null;
+  let selectedThumbnailUrl = selectedFromRaw?.mth ?? null;
+
+  if (!forceUpstream) {
+    if (memoryCached && memoryValidation?.passed) {
+      resolvedSource = "memory";
+      selectedVideoUrl = memoryCached.videoUrl;
+      selectedThumbnailUrl = memoryCached.thumbnailUrl;
+    } else if (diskCached && diskValidation?.passed) {
+      resolvedSource = "disk";
+      selectedVideoUrl = diskCached.videoUrl;
+      selectedThumbnailUrl = diskCached.thumbnailUrl;
+    }
+  }
+
+  const selectedValidation = validateSelectedUrl(selectedVideoUrl);
+
+  let selectedUrlProbe: {
+    status: number;
+    contentRange: string | null;
+    contentLength: string | null;
+    etag: string | null;
+    lastModified: string | null;
+    contentType: string | null;
+  } | null = null;
+  let selectedUrlProbeError: unknown = null;
+
+  if (selectedVideoUrl) {
+    try {
+      const probeRes = await axios.get(selectedVideoUrl, {
+        headers: {
+          Range: "bytes=0-0",
+        },
+        responseType: "arraybuffer",
+        timeout: 8000,
+        validateStatus: () => true,
+      });
+      selectedUrlProbe = {
+        status: probeRes.status,
+        contentRange: probeRes.headers["content-range"] ?? null,
+        contentLength: probeRes.headers["content-length"] ?? null,
+        etag: probeRes.headers.etag ?? null,
+        lastModified: probeRes.headers["last-modified"] ?? null,
+        contentType: probeRes.headers["content-type"] ?? null,
+      };
+    } catch (error) {
+      selectedUrlProbeError = error;
+    }
+  }
+
+  res.json({
+    gameId,
+    actionNumber,
+    forceUpstream,
+    cache: {
+      key: cacheKey,
+      source: forceUpstream ? "upstream" : resolvedSource,
+      memory: {
+        present: Boolean(memoryCached),
+        videoUrl: memoryCached?.videoUrl ?? null,
+        validation: memoryValidation,
+      },
+      disk: {
+        present: Boolean(diskCached),
+        videoUrl: diskCached?.videoUrl ?? null,
+        validation: diskValidation,
+      },
+    },
+    upstream: {
+      ok: upstreamError === null,
+      error: upstreamError ? serializeError(upstreamError) : null,
+      rawVideoUrls,
+    },
+    selector: {
+      strategy: "first_video_url_entry",
+      selectedFromRaw,
+      selectedUrl: selectedVideoUrl,
+      selectedThumbnailUrl,
+      selectedValidation,
+    },
+    probe: {
+      selectedUrlRangeProbe: selectedUrlProbe,
+      error: selectedUrlProbeError
+        ? serializeError(selectedUrlProbeError)
+        : null,
+    },
+  });
+});
+
 app.listen(port, () => {
   logger.info("api_started", {
     port,
