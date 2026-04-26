@@ -8,11 +8,7 @@ import {
   type ReadonlyURLSearchParams,
 } from "next/navigation";
 import { buildApiUrl, getApiUnavailableMessage } from "@/lib/api";
-import {
-  CLIP_PAGE_TTL_MS,
-  METADATA_TTL_MS,
-  fetchJsonWithCache,
-} from "@/lib/requestCache";
+import { METADATA_TTL_MS, fetchJsonWithCache } from "@/lib/requestCache";
 import {
   recordClipNavigation,
   useInteractionPressure,
@@ -456,20 +452,14 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
         });
 
         const url = buildApiUrl("/clips/player", search);
-        const data = await fetchJsonWithCache(
-          url,
-          async () => {
-            const res = await fetch(url, {
-              signal: controller.signal,
-              headers: {
-                "X-Request-Intent": append ? "load_more" : "initial_load",
-              },
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            return res.json();
+        const res = await fetch(url, {
+          signal: controller.signal,
+          headers: {
+            "X-Request-Intent": append ? "load_more" : "initial_load",
           },
-          CLIP_PAGE_TTL_MS,
-        );
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
 
         // Stale generation — discard silently.
         if (gen !== generationRef.current) {

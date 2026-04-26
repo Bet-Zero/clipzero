@@ -184,10 +184,16 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url || "/", `http://127.0.0.1:${port}`);
 
   if (req.method === "OPTIONS") {
+    // Mirror requested headers so cross-origin fetches with custom headers
+    // (e.g. X-Request-Intent) pass CORS preflight in smoke tests.
+    const requestHeaders = req.headers["access-control-request-headers"];
     res.writeHead(204, {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers":
+        typeof requestHeaders === "string" && requestHeaders.trim().length > 0
+          ? requestHeaders
+          : "Content-Type, X-Request-Intent",
     });
     res.end();
     return;

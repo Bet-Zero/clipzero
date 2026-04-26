@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildApiUrl, getApiUnavailableMessage } from "@/lib/api";
-import { CLIP_PAGE_TTL_MS, fetchJsonWithCache } from "@/lib/requestCache";
 import {
   recordClipNavigation,
   useInteractionPressure,
@@ -278,18 +277,12 @@ export default function ClipBrowser({
       });
 
       const url = buildApiUrl("/clips/game", search);
-      const data = await fetchJsonWithCache(
-        url,
-        async () => {
-          const res = await fetch(url, {
-            signal: controller.signal,
-            headers: { "X-Request-Intent": "load_more" },
-          });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.json();
-        },
-        CLIP_PAGE_TTL_MS,
-      );
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: { "X-Request-Intent": "load_more" },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
 
       // Only apply results if this is still the latest request.
       if (gen !== generationRef.current) {

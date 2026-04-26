@@ -25,7 +25,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Referrer-Policy",
-            value: "no-referrer",
+            value: "strict-origin-when-cross-origin",
           },
           {
             key: "Permissions-Policy",
@@ -38,7 +38,7 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.nba.com https://videos.nba.com https://*.nba.com; media-src 'self' https://clipzeroapi.xyz; connect-src 'self' https://clipzeroapi.xyz; frame-ancestors 'none'; base-uri 'self'; form-action 'self';",
+              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.nba.com https://videos.nba.com https://*.nba.com; media-src 'self' https://videos.nba.com https://*.nba.com; connect-src 'self' https://clipzeroapi.xyz http://127.0.0.1:4100 http://localhost:4100; frame-ancestors 'none'; base-uri 'self'; form-action 'self';",
           },
         ],
       },
