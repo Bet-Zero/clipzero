@@ -170,11 +170,6 @@ const app = express();
 // Single-flight deduplicator — collapses concurrent identical upstream fetches
 // into one in-flight request. Keyed by fetch type and parameters.
 const sf = new SingleFlight();
-// Short TTL (15s) suppressing repeated same-key video asset null results.
-// Prevents hammering an upstream key that is consistently failing while still
-// allowing recovery after the window passes.
-const videoAssetNullTtl = new Map<string, number>();
-const VIDEO_ASSET_NULL_TTL_MS = 15_000;
 // Maximum concurrent upstream video asset lookups per batch.
 const VIDEO_ASSET_CONCURRENCY = 3;
 // Only trust proxy when explicitly configured (e.g. behind Cloudflare/nginx).
@@ -263,183 +258,68 @@ function normalizeDate(dateStr: string): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Upgrade a 960x540 video URL to its 1280x720 equivalent when possible. */
-function normalizeVideoUrl(url: string | null): string | null {
-  if (url && url.endsWith("_960x540.mp4")) {
-    return url.slice(0, -"_960x540.mp4".length) + "_1280x720.mp4";
-  }
-  return url;
-}
-
 async function getCachedVideoAsset(
   gameId: string,
   actionNumber: number,
-  requestId?: string,
+  _requestId?: string,
 ): Promise<{ videoUrl: string | null; thumbnailUrl: string | null }> {
   const cacheKey = `${gameId}:${actionNumber}`;
-  const fetchStart = Date.now();
-
-  function baseEvidence(): Partial<FailureEvidence> {
-    return {
-      timestamp: new Date().toISOString(),
-      route: "video_asset",
-      requestId: requestId ?? "unknown",
-      gameId,
-      actionNumber,
-      upstreamEndpoint: "stats.nba.com/stats/videoeventsasset",
-    };
-  }
 
   void checkNbaVideoCdnHealth();
 
   const memoryCached = videoAssetCache.get(cacheKey);
   if (memoryCached) return memoryCached;
 
-  // Suppress repeated null results within a short window to avoid hammering
-  // an upstream key that is consistently failing.
-  const nullTs = videoAssetNullTtl.get(cacheKey);
-  if (nullTs !== undefined && Date.now() - nullTs < VIDEO_ASSET_NULL_TTL_MS) {
-    return emptyVideoAsset;
+  const persisted = await getPersistentValue<{
+    videoUrl: string | null;
+    thumbnailUrl: string | null;
+  }>("video-assets", cacheKey);
+  // Only use persisted value if it has a valid URL — don't serve stale nulls
+  // from previously failed fetches.
+  if (persisted && (persisted.videoUrl || persisted.thumbnailUrl)) {
+    const cachedValue = {
+      videoUrl: persisted.videoUrl,
+      thumbnailUrl: persisted.thumbnailUrl,
+    };
+    videoAssetCache.set(cacheKey, cachedValue);
+    return cachedValue;
   }
 
-  // Single-flight: if the same asset is already being fetched, join that
-  // promise instead of starting a duplicate upstream request.
-  const inFlightDeduped = sf.has(`video:${cacheKey}`);
-  if (inFlightDeduped) {
-    logger.info("video_asset_inflight_deduped", { gameId, actionNumber });
+  function persistCachedValue(cachedValue: {
+    videoUrl: string | null;
+    thumbnailUrl: string | null;
+  }) {
+    void setPersistentValue("video-assets", cacheKey, cachedValue).catch(
+      (error) => {
+        logger.warn("persistent_cache_write_failed", {
+          cacheName: "video-assets",
+          cacheKey,
+          gameId,
+          actionNumber,
+          ...serializeError(error),
+        });
+      },
+    );
   }
-  return sf.call(`video:${cacheKey}`, async () => {
-    // Re-check memory: a coalesced caller may have just written it.
-    const mc = videoAssetCache.get(cacheKey);
-    if (mc) return mc;
 
-    const persisted = await getPersistentValue<{
-      videoUrl: string | null;
-      thumbnailUrl: string | null;
-    }>("video-assets", cacheKey);
-    // Only use persisted value if it has a valid URL — don't serve stale nulls
-    // from previously failed fetches.
-    if (persisted && (persisted.videoUrl || persisted.thumbnailUrl)) {
-      const normalized = {
-        videoUrl: normalizeVideoUrl(persisted.videoUrl),
-        thumbnailUrl: persisted.thumbnailUrl,
-      };
-      videoAssetCache.set(cacheKey, normalized);
-      return normalized;
+  try {
+    const asset = await getVideoEventAsset(gameId, actionNumber);
+    const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
+    const cachedValue = {
+      videoUrl: firstVideo?.murl ?? null,
+      thumbnailUrl: firstVideo?.mth ?? null,
+    };
+    videoAssetCache.set(cacheKey, cachedValue);
+    // Only persist to disk when we have a valid URL — don't permanently cache
+    // failures or empty results so they can be retried on future requests.
+    if (cachedValue.videoUrl || cachedValue.thumbnailUrl) {
+      persistCachedValue(cachedValue);
     }
-
-    function persistCachedValue(cachedValue: {
-      videoUrl: string | null;
-      thumbnailUrl: string | null;
-    }) {
-      void setPersistentValue("video-assets", cacheKey, cachedValue).catch(
-        (error) => {
-          logger.warn("persistent_cache_write_failed", {
-            cacheName: "video-assets",
-            cacheKey,
-            gameId,
-            actionNumber,
-            ...serializeError(error),
-          });
-        },
-      );
-    }
-
-    try {
-      const upstreamStart = Date.now();
-      const asset = await getVideoEventAsset(gameId, actionNumber);
-      const upstreamDuration = Date.now() - upstreamStart;
-      const videoUrls = asset?.resultSets?.Meta?.videoUrls ?? [];
-      const selectedVideo =
-        videoUrls.find(
-          (video: { murl?: string }) =>
-            typeof video?.murl === "string" &&
-            video.murl.includes("_1280x720.mp4"),
-        ) ??
-        videoUrls.find(
-          (video: { murl?: string }) => typeof video?.murl === "string",
-        );
-      const cachedValue = {
-        videoUrl: normalizeVideoUrl(selectedVideo?.murl ?? null),
-        thumbnailUrl: selectedVideo?.mth ?? null,
-      };
-      videoAssetCache.set(cacheKey, cachedValue);
-      // Only persist to disk when we have a valid URL — don't permanently cache
-      // failures or empty results so they can be retried on future requests.
-      if (cachedValue.videoUrl || cachedValue.thumbnailUrl) {
-        persistCachedValue(cachedValue);
-        videoAssetNullTtl.delete(cacheKey);
-        logFailureEvent(RawEventKindEnum.asset_returned_url, {
-          eventId: crypto.randomUUID(),
-          ...baseEvidence(),
-          durationMs: upstreamDuration,
-          memoryCacheHit: false,
-          persistentCacheHit: false,
-          inFlightDedupeHit: inFlightDeduped,
-          freshUpstreamFetch: true,
-          urlFieldPresent: true,
-          thumbnailFieldPresent: !!cachedValue.thumbnailUrl,
-          responseBodyValid: true,
-        } as FailureEvidence);
-      } else {
-        // Record the null result timestamp for short-window suppression.
-        videoAssetNullTtl.set(cacheKey, Date.now());
-        logFailureEvent(RawEventKindEnum.asset_returned_empty, {
-          eventId: crypto.randomUUID(),
-          ...baseEvidence(),
-          durationMs: upstreamDuration,
-          memoryCacheHit: false,
-          persistentCacheHit: false,
-          inFlightDedupeHit: inFlightDeduped,
-          freshUpstreamFetch: true,
-          urlFieldPresent: false,
-          thumbnailFieldPresent: false,
-          responseBodyValid: true,
-          probeStatusCode: lastNbaVideoCdnProbe?.status,
-          probeEtag: lastNbaVideoCdnProbe?.etag ?? null,
-          probeContentLength: lastNbaVideoCdnProbe?.contentLength ?? null,
-          probeTimestamp: lastNbaVideoCdnProbe
-            ? new Date(lastNbaVideoCdnProbe.timestamp).toISOString()
-            : undefined,
-          probeError: lastNbaVideoCdnProbe?.error ?? undefined,
-        } as FailureEvidence);
-      }
-      return cachedValue;
-    } catch (error: unknown) {
-      // Don't cache failures at all — allow retry on every subsequent request.
-      // Do apply the short-window null TTL to avoid burst hammering on errors.
-      videoAssetNullTtl.set(cacheKey, Date.now());
-
-      const isTimeout =
-        axios.isAxiosError(error) && error.code === "ECONNABORTED";
-      const httpStatus = axios.isAxiosError(error)
-        ? error.response?.status
-        : undefined;
-      const eventKind: RawEventKind = isTimeout
-        ? RawEventKindEnum.upstream_timeout
-        : httpStatus
-          ? RawEventKindEnum.upstream_http_error
-          : RawEventKindEnum.upstream_failed;
-
-      logFailureEvent(eventKind, {
-        eventId: crypto.randomUUID(),
-        ...baseEvidence(),
-        durationMs: Date.now() - fetchStart,
-        memoryCacheHit: false,
-        persistentCacheHit: false,
-        inFlightDedupeHit: inFlightDeduped,
-        freshUpstreamFetch: true,
-        timedOut: isTimeout,
-        httpStatus,
-        networkErrorCode: axios.isAxiosError(error) ? error.code : undefined,
-        networkErrorName: error instanceof Error ? error.name : undefined,
-        errorName: error instanceof Error ? error.name : undefined,
-        errorMessage: error instanceof Error ? error.message : String(error),
-      } as FailureEvidence);
-
-      return { videoUrl: null, thumbnailUrl: null };
-    }
-  });
+    return cachedValue;
+  } catch {
+    // Don't cache failures at all — allow retry on every subsequent request.
+    return { videoUrl: null, thumbnailUrl: null };
+  }
 }
 
 function persistValueBestEffort<T>(
