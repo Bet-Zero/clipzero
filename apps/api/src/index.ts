@@ -26,6 +26,7 @@ import {
   getPlayerNameMapForGame,
   getTodaysGames,
   getVideoEventAsset,
+  selectVideoFromEventAsset,
   getAllPlayers,
   getPlayerGameLog,
   getTeamByTricode,
@@ -52,6 +53,12 @@ import { matchesNormalizedGroup } from "./lib/subtypeGroups";
 // video paths return 206 with clip-specific ETags; fake paths should not return
 // a partial MP4. If a fake path ever does return 200/206, treat that as a
 // catch-all placeholder condition and stop handing video URLs to the frontend.
+//
+// This is separate from selectVideoFromEventAsset() in nba.ts, which only
+// standardizes which `murl` is chosen from the stats API `videoUrls` list. A URL
+// can be structurally valid (correct path from stats) while the CDN still
+// returns placeholder bytes; the probe and lastNbaVideoCdnProbe* state help
+// surface that (see /health `probe` and debug routes).
 //
 // We re-check periodically so the app self-heals when the CDN comes back.
 // ---------------------------------------------------------------------------
@@ -258,6 +265,13 @@ function normalizeDate(dateStr: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Resolves and caches per-play `murl` / `mth` from stats. Uses
+ * `selectVideoFromEventAsset` for consistent rendition choice only. Cached URLs
+ * are not guaranteed to be non-placeholder at `videos.nba.com`; the CDN probe
+ * and failure/probe fields indicate when the edge is in a catch-all/placeholder
+ * mode even though this cache holds structurally valid paths.
+ */
 async function getCachedVideoAsset(
   gameId: string,
   actionNumber: number,
@@ -275,7 +289,8 @@ async function getCachedVideoAsset(
     thumbnailUrl: string | null;
   }>("video-assets", cacheKey);
   // Only use persisted value if it has a valid URL — don't serve stale nulls
-  // from previously failed fetches.
+  // from previously failed fetches. (URLs here are from stats; placeholder bytes
+  // at the CDN are a separate concern, see nba video CDN health check above.)
   if (persisted && (persisted.videoUrl || persisted.thumbnailUrl)) {
     const cachedValue = {
       videoUrl: persisted.videoUrl,
@@ -304,10 +319,10 @@ async function getCachedVideoAsset(
 
   try {
     const asset = await getVideoEventAsset(gameId, actionNumber);
-    const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
+    const selected = selectVideoFromEventAsset(asset);
     const cachedValue = {
-      videoUrl: firstVideo?.murl ?? null,
-      thumbnailUrl: firstVideo?.mth ?? null,
+      videoUrl: selected?.murl ?? null,
+      thumbnailUrl: selected?.mth ?? null,
     };
     videoAssetCache.set(cacheKey, cachedValue);
     // Only persist to disk when we have a valid URL — don't permanently cache
@@ -907,6 +922,8 @@ app.get("/matchups", async (req, res) => {
   }
 });
 
+// Exercises getVideoEventAsset + selectVideoFromEventAsset (rendition choice
+// only; compare to /health probe when diagnosing placeholder bytes at the CDN).
 app.get("/clips/test", async (_req, res) => {
   try {
     const gameId = "0022501115";
@@ -914,16 +931,7 @@ app.get("/clips/test", async (_req, res) => {
     void checkNbaVideoCdnHealth();
 
     const asset = await getVideoEventAsset(gameId, gameEventId);
-    const videoUrls = asset?.resultSets?.Meta?.videoUrls ?? [];
-    const selectedVideo =
-      videoUrls.find(
-        (video: { murl?: string }) =>
-          typeof video?.murl === "string" &&
-          video.murl.includes("_1280x720.mp4"),
-      ) ??
-      videoUrls.find(
-        (video: { murl?: string }) => typeof video?.murl === "string",
-      );
+    const selectedVideo = selectVideoFromEventAsset(asset);
 
     res.json({
       gameId,

@@ -617,6 +617,49 @@ export async function getPlayerNameMapForGame(gameId: string) {
   return playerMap;
 }
 
+/**
+ * Standardize **which `murl` / `mth` pair** to use from a stats.nba.com
+ * `videoeventsasset` JSON body (`resultSets.Meta.videoUrls`).
+ *
+ * - Prefers a `_1280x720` rendition when listed, else the first non-empty `murl`.
+ * - If the API only returns one URL, this returns that URL (same as always
+ *   using index 0 for that case).
+ *
+ * This **does not** claim to fix NBA CDN `videos.nba.com` behavior. The URL can
+ * be structurally valid while the edge still serves generic placeholder bytes
+ * (e.g. request- or path-dependent delivery). For that, rely on health/probe
+ * and failure evidence outside this function, not on picking a different array
+ * slot when there is no alternate `murl`.
+ */
+export function selectVideoFromEventAsset(
+  asset: unknown,
+): { murl: string; mth: string | null } | null {
+  const videoUrls = (asset as {
+    resultSets?: { Meta?: { videoUrls?: { murl?: string; mth?: string }[] } };
+  })?.resultSets?.Meta?.videoUrls;
+  if (!Array.isArray(videoUrls) || videoUrls.length === 0) {
+    return null;
+  }
+  const preferred = videoUrls.find(
+    (video) =>
+      typeof video?.murl === "string" && video.murl.includes("_1280x720.mp4"),
+  );
+  const fallback = videoUrls.find(
+    (video) => typeof video?.murl === "string" && video.murl.length > 0,
+  );
+  const selected = preferred ?? fallback;
+  if (!selected) return null;
+  return {
+    murl: selected.murl!,
+    mth: typeof selected.mth === "string" ? selected.mth : null,
+  };
+}
+
+/**
+ * Fetches raw `videoeventsasset` JSON. All consumers should pass the result
+ * through {@link selectVideoFromEventAsset} to pick a consistent `murl` / `mth`
+ * (rendition selection only; see that function’s docs for CDN scope).
+ */
 export async function getVideoEventAsset(gameId: string, gameEventId: number) {
   const url = "https://stats.nba.com/stats/videoeventsasset";
 
@@ -659,21 +702,12 @@ export async function getClipRecordsForGame(
 
     try {
       const asset = await getVideoEventAsset(gameId, shot.actionNumber);
-      const videoUrls = asset?.resultSets?.Meta?.videoUrls ?? [];
-      const selectedVideo =
-        videoUrls.find(
-          (video: { murl?: string }) =>
-            typeof video?.murl === "string" &&
-            video.murl.includes("_1280x720.mp4"),
-        ) ??
-        videoUrls.find(
-          (video: { murl?: string }) => typeof video?.murl === "string",
-        );
+      const selected = selectVideoFromEventAsset(asset);
 
       clipRecords.push({
         ...shot,
-        videoUrl: selectedVideo?.murl ?? null,
-        thumbnailUrl: selectedVideo?.mth ?? null,
+        videoUrl: selected?.murl ?? null,
+        thumbnailUrl: selected?.mth ?? null,
       } as ClipRecord);
     } catch {
       clipRecords.push({
