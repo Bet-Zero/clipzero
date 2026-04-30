@@ -3,6 +3,13 @@
 import { useCallback, useState } from "react";
 import type { Clip } from "@/lib/types";
 
+const USE_MEDIA_ROUTE = process.env.NEXT_PUBLIC_USE_MEDIA_ROUTE === "1";
+
+function getVideoSrc(videoUrl: string): string {
+  if (!USE_MEDIA_ROUTE) return videoUrl;
+  return `/api/media?url=${encodeURIComponent(videoUrl)}`;
+}
+
 function formatClock(clock?: string) {
   if (!clock) return "—";
   return clock
@@ -50,6 +57,7 @@ type Props = {
 
 export default function ClipPlayer({ clip, onEnded }: Props) {
   const [downloading, setDownloading] = useState(false);
+  const videoSrc = clip?.videoUrl ? getVideoSrc(clip.videoUrl) : null;
 
   const handleDownload = useCallback(async () => {
     if (!clip?.videoUrl || downloading) return;
@@ -85,8 +93,8 @@ export default function ClipPlayer({ clip, onEnded }: Props) {
     <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
       {clip.videoUrl ? (
         <video
-          key={clip.videoUrl}
-          src={clip.videoUrl}
+          key={videoSrc ?? clip.videoUrl}
+          src={videoSrc ?? clip.videoUrl}
           referrerPolicy="no-referrer"
           poster={clip.thumbnailUrl ?? undefined}
           controls
