@@ -6,6 +6,13 @@ export interface ProbeInfo {
   error?: string | null;
 }
 
+export interface RuntimeInfo {
+  packageVersion: string | null;
+  gitSha: string | null;
+  buildTimestamp: string | null;
+  entrypoint: string | null;
+}
+
 export interface HealthPayload {
   ok: boolean;
   disabled: boolean;
@@ -13,6 +20,8 @@ export interface HealthPayload {
   timestamp: string;
   // Optional short-lived probe evidence for ops/debugging
   probe?: ProbeInfo;
+  // Runtime/build marker so operators can verify what binary is serving.
+  runtime?: RuntimeInfo;
 }
 
 export function buildHealthResponse(
@@ -20,6 +29,7 @@ export function buildHealthResponse(
   videoCdnAvailable: boolean,
   timestamp: string = new Date().toISOString(),
   probe?: ProbeInfo,
+  runtime?: RuntimeInfo,
 ): { statusCode: number; payload: HealthPayload } {
   const payload: HealthPayload = {
     ok: !disabled,
@@ -30,6 +40,10 @@ export function buildHealthResponse(
 
   if (probe) {
     payload.probe = probe;
+  }
+
+  if (runtime) {
+    payload.runtime = runtime;
   }
 
   return {

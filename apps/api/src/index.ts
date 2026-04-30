@@ -40,6 +40,7 @@ import type {
 } from "./lib/nba";
 import { getPersistentValue, setPersistentValue } from "./lib/persistentCache";
 import { createRateLimiter } from "./lib/rateLimit";
+import { getRuntimeInfo } from "./lib/runtimeInfo";
 import { SingleFlight } from "./lib/singleFlight";
 import { getWindowContext } from "./lib/failureWindows";
 import { matchesNormalizedGroup } from "./lib/subtypeGroups";
@@ -177,6 +178,7 @@ const VIDEO_ASSET_CONCURRENCY = 3;
 // to bypass rate limiting via X-Forwarded-For.
 app.set("trust proxy", process.env.CLIPZERO_TRUST_PROXY === "1");
 const port = apiConfig.port;
+const runtimeInfo = getRuntimeInfo();
 const clipCache = new Map<string, unknown>();
 const gamesCache = new Map<string, unknown>();
 const videoAssetCache = new Map<
@@ -797,6 +799,7 @@ app.get("/health", async (_req, res) => {
     videoCdnAvailable,
     undefined,
     probePayload,
+    runtimeInfo,
   );
 
   res.status(statusCode).json(payload);
@@ -2615,5 +2618,6 @@ app.listen(port, () => {
     disabled: apiConfig.disabled,
     allowedOrigins:
       apiConfig.allowedOrigins.length > 0 ? apiConfig.allowedOrigins : ["*"],
+    runtime: runtimeInfo,
   });
 });
