@@ -87,7 +87,6 @@ export default function ClipPlayer({ clip, onEnded }: Props) {
         <video
           key={clip.videoUrl}
           src={clip.videoUrl}
-          referrerPolicy="no-referrer"
           poster={clip.thumbnailUrl ?? undefined}
           controls
           autoPlay
