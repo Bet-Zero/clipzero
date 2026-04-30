@@ -90,6 +90,24 @@ Do not manually run `npm run start:api`, `npm run start -w apps/api`, or
 debugging outside PM2. A manual process can take over port `4000`, make PM2 look
 healthy while serving the wrong process, and confuse tunnel troubleshooting.
 
+### Important runtime rule
+
+PM2 runs the compiled API from `apps/api/dist`, not the TypeScript source in
+`apps/api/src`.
+
+After any API source change:
+
+1. Run `npm run build -w apps/api`.
+2. Restart PM2 with `pm2 restart clipzero-api`.
+3. Verify the running API changed by checking `/health` or a known endpoint.
+4. Do not assume source changes are live until this is verified.
+
+If debugging local API:
+
+1. First check `pm2 list`.
+2. Check `lsof -i :4000`.
+3. Do not start `npm run dev` on port `4000` while PM2 is already running.
+
 Open the app:
 
 ```text
