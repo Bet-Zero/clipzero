@@ -56,13 +56,11 @@ API runs locally and is exposed via Cloudflare Tunnel at: <https://clipzeroapi.x
 Most days, you do not need to run anything. PM2 keeps both the API and tunnel
 running in the background.
 
-Quick health check:
+When the site seems broken, run the non-destructive runtime doctor:
 
 ```bash
 cd /Users/brenthibbitts/clipzero
-pm2 status
-curl -sS http://127.0.0.1:4000/health
-curl -sS https://clipzeroapi.xyz/health
+npm run doctor
 ```
 
 Expected PM2 processes:
@@ -81,10 +79,10 @@ Expected health response includes:
 If `CLIPZERO_DEBUG=1`, `/health` also includes a lightweight `cacheSummary`
 showing how many persistent cache entries are valid, legacy, or expired.
 
-`videoCdnAvailable: false` does not mean the API or tunnel is down. It means the
-NBA video CDN is currently serving placeholder video content, so ClipZero should
-hide/suppress clip playback and show the warning state instead of attempting to
-play the placeholder for every clip.
+`videoCdnAvailable` is a telemetry-safe health field, not a strict proof that
+every video asset is playable. For CDN incident diagnosis, inspect the optional
+`probe` evidence and recent API logs. Do not treat this field as proof that the
+API, tunnel, or clip playback logic changed.
 
 ### PM2 ownership rule
 
@@ -103,12 +101,20 @@ healthy while serving the wrong process, and confuse tunnel troubleshooting.
 PM2 runs the compiled API from `apps/api/dist`, not the TypeScript source in
 `apps/api/src`.
 
-After any API source change:
+After any API source change, run:
 
-1. Run `npm run build -w apps/api`.
-2. Restart PM2 with `pm2 restart clipzero-api`.
-3. Verify the running API changed by checking `/health` or a known endpoint.
-4. Do not assume source changes are live until this is verified.
+```bash
+cd /Users/brenthibbitts/clipzero
+npm run verify:prod
+```
+
+This builds the API, runs the API tests, restarts only `clipzero-api` through the
+committed PM2 ecosystem config, waits for local and public health, checks that
+the running runtime SHA matches the checkout, probes a stable data endpoint, and
+verifies the production frontend API base. It does not restart the tunnel unless
+you pass `-- --restart-tunnel`.
+
+Do not assume source changes are live until `npm run verify:prod` passes.
 
 If debugging local API:
 
@@ -125,26 +131,24 @@ https://clipzero-web.vercel.app
 ### Restart commands
 
 ```bash
-# Restart API only, usually after API code changes
-pm2 restart clipzero-api --update-env
+# Restart API and tunnel from the committed ecosystem config
+npm run pm2:restart
 
-# Restart tunnel only, if public URL is down but local API works
-pm2 restart clipzero-tunnel --update-env
+# Restart API only, usually after API code changes and only through verify
+npm run verify:prod
 
-# Restart both, if unsure
-pm2 restart clipzero-api --update-env
-pm2 restart clipzero-tunnel --update-env
+# Restart tunnel only when public URL is down but local API works
+pm2 restart ecosystem.config.cjs --only clipzero-tunnel --update-env
+
+# Build/test/restart API and explicitly restart tunnel
+npm run verify:prod -- --restart-tunnel
 ```
 
 ### After API code changes
 
 ```bash
 cd /Users/brenthibbitts/clipzero
-npm install
-npm run build:api
-npm run test:api
-pm2 restart clipzero-api --update-env
-curl -sS https://clipzeroapi.xyz/health
+npm run verify:prod
 ```
 
 ### After frontend code changes
@@ -173,9 +177,7 @@ pm2 logs clipzero-tunnel --lines 100
 
 ```bash
 cd /Users/brenthibbitts/clipzero
-curl -sS http://127.0.0.1:4000/health
-curl -sS https://clipzeroapi.xyz/health
-pm2 restart clipzero-tunnel --update-env
+npm run doctor
 ```
 
 If local health works but the public URL does not, the likely problem is the
@@ -191,8 +193,8 @@ pm2 logs clipzero-api --lines 100 --nostream
 ```
 
 If health returns `videoCdnAvailable: false`, the API and tunnel can still be
-working normally. That means the upstream NBA video CDN is serving placeholder
-video content, and ClipZero should suppress playback until the upstream recovers.
+working normally. Treat it as diagnostic evidence about the upstream NBA video
+CDN and inspect the `probe` field and API logs before drawing conclusions.
 
 ### Debugging and long-term fixes
 
@@ -239,21 +241,18 @@ npm run cache:sweep -w apps/api
 
 ```bash
 cd /Users/brenthibbitts/clipzero
-lsof -nP -iTCP:4000 -sTCP:LISTEN
-ps -fp $(lsof -tiTCP:4000 -sTCP:LISTEN)
+npm run doctor
 ```
 
 If port `4000` is owned by a stray manual shell process instead of the expected
-PM2-managed API process, clear it and restart the managed stack:
+PM2-managed API process, `doctor` reports `PORT_OWNERSHIP_DRIFT` with the
+listener PID. Stop only the known stray process, then restart through the
+committed PM2 ecosystem config:
 
 ```bash
 cd /Users/brenthibbitts/clipzero
-kill $(lsof -tiTCP:4000 -sTCP:LISTEN)
-pm2 restart clipzero-api --update-env
-pm2 restart clipzero-tunnel --update-env
-pm2 status
-curl -sS http://127.0.0.1:4000/health
-curl -sS https://clipzeroapi.xyz/health
+npm run pm2:restart
+npm run doctor
 ```
 
 ### If the Mac rebooted
@@ -273,14 +272,26 @@ You do not need `pm2 save` after normal restarts.
 ```bash
 cd /Users/brenthibbitts/clipzero
 npm run build:api
-pm2 delete clipzero-api clipzero-tunnel 2>/dev/null || true
-pm2 start "npm run start:api" --name clipzero-api --cwd /Users/brenthibbitts/clipzero
-pm2 start "cloudflared tunnel run clipzero-api" --name clipzero-tunnel
+npm run pm2:start
 pm2 save
 pm2 startup
 ```
 
 Run the `sudo ...` command that `pm2 startup` prints. After that, no terminals needed.
+Only run `pm2 startup` when setting up persistence from scratch or changing
+startup behavior.
+
+### Runtime doctor diagnoses
+
+`npm run doctor` prints concise `PASS`, `WARN`, and `FAIL` rows and exits
+non-zero on `FAIL`.
+
+- `READY` means the production path is internally consistent.
+- `STALE_RUNTIME` means compiled `dist` or the running API SHA does not match the current checkout.
+- `PORT_OWNERSHIP_DRIFT` means port `4000` is missing, duplicated, or not owned by the PM2-managed API.
+- `TUNNEL_DRIFT` means the PM2 tunnel command or local/public runtime match is wrong.
+- `PUBLIC_HEALTH_DOWN` means local or public health, or a required public probe, failed.
+- `CONFIG_DRIFT` means repo, Cloudflare, CORS, or frontend API-base configuration is not what production expects.
 
 ### Vercel env var (already set, do not change)
 

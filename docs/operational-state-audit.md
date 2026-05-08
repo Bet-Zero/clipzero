@@ -73,16 +73,29 @@ Why it matters:
 
 If the public app breaks:
 
-1. Check `pm2 status`
-2. Check `curl -sS http://127.0.0.1:4000/health`
-3. Check `curl -sS https://clipzeroapi.xyz/health`
-4. Check whether the web app is pointing at `/api` or an explicit public API base
+1. Run `npm run doctor`
+2. Read the final diagnosis: `READY`, `STALE_RUNTIME`, `PORT_OWNERSHIP_DRIFT`, `TUNNEL_DRIFT`, `PUBLIC_HEALTH_DOWN`, or `CONFIG_DRIFT`
+3. Use the failed row, not a manual restart, as the next action
 
 If runtime behavior feels confusing:
 
-1. Verify whether PM2 is serving fresh `dist` output
-2. Inspect `runtime` fields in `/health`
+1. Run `npm run doctor`
+2. If API source changed intentionally, run `npm run verify:prod`
 3. Inspect `cacheSummary` in `/health` or `/debug/cache` when debug mode is enabled
+
+## Runtime reliability tooling
+
+- `ecosystem.config.cjs` is the committed PM2 source of truth for `clipzero-api`
+  and `clipzero-tunnel`.
+- `npm run doctor` is non-destructive and checks PM2 state, port `4000`
+  ownership, source-vs-dist freshness, local/public health, Cloudflare ingress,
+  CORS, and local/public runtime equality.
+- `npm run verify:prod` builds, runs API tests, restarts only `clipzero-api`
+  through the ecosystem config, polls local/public health, probes a stable data
+  endpoint, checks CORS, and verifies the deployed frontend points at
+  `https://clipzeroapi.xyz`.
+- `npm run verify:prod -- --restart-tunnel` is the only normal verifier path
+  that restarts `clipzero-tunnel`.
 
 ## Design goal
 
