@@ -687,18 +687,13 @@ export async function getClipRecordsForGame(
   return clipRecords;
 }
 
-function formatDateForNba(date: string) {
-  const [year, month, day] = date.split("-");
-  return `${month}/${day}/${year}`;
-}
-
 export async function getGamesByDate(date: string): Promise<ScoreboardGame[]> {
   const url = "https://stats.nba.com/stats/scoreboardv3";
 
   const response = await getWithRetries<any>(url, {
     headers: STATS_HEADERS,
     params: {
-      GameDate: formatDateForNba(date),
+      GameDate: date,
       LeagueID: "00",
     },
     timeout: 60000,

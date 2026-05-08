@@ -254,6 +254,16 @@ function msSince(start: number) {
   return `${Date.now() - start}ms`;
 }
 
+function hasCachedGames(payload: unknown): payload is {
+  count?: number;
+  games?: unknown[];
+} {
+  if (!payload || typeof payload !== "object") return false;
+  const count = (payload as { count?: unknown }).count;
+  const games = (payload as { games?: unknown }).games;
+  return typeof count === "number" && count > 0 && Array.isArray(games);
+}
+
 function normalizeDate(dateStr: string): string {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return dateStr;
@@ -820,12 +830,12 @@ app.get("/games", async (req, res) => {
 
     if (isHistorical) {
       const memoryCached = gamesCache.get(cacheKey);
-      if (memoryCached) {
+      if (hasCachedGames(memoryCached)) {
         return res.json(memoryCached);
       }
 
       const diskCached = await getCachedGames(cacheKey);
-      if (diskCached) {
+      if (hasCachedGames(diskCached)) {
         gamesCache.set(cacheKey, diskCached);
         return res.json(diskCached);
       }
