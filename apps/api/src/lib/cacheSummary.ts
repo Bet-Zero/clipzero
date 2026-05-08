@@ -30,7 +30,9 @@ export async function buildPersistentCacheSummary(): Promise<CacheSummary> {
         getPersistentCacheReadOptions(cacheName),
       );
 
-      const legacyEntries = entries.filter((entry) => !entry.isVersioned).length;
+      const legacyEntries = entries.filter(
+        (entry) => !entry.isVersioned,
+      ).length;
       const expiredEntries = entries.filter(
         (entry) => entry.isVersioned && entry.isExpired,
       ).length;

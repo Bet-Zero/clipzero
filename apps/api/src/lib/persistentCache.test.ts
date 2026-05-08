@@ -75,9 +75,7 @@ describe("persistentCache", () => {
 
   it("removes the temp file when a rename fails", async () => {
     const renameError = new Error("rename failed");
-    const renameSpy = vi
-      .spyOn(fs, "rename")
-      .mockRejectedValueOnce(renameError);
+    const renameSpy = vi.spyOn(fs, "rename").mockRejectedValueOnce(renameError);
     const persistentCache = await loadPersistentCacheModule(cacheDir);
 
     await expect(

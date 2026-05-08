@@ -2,10 +2,7 @@ import {
   getPersistentCacheReadOptions,
   getPersistentCacheWriteOptions,
 } from "./cachePolicy";
-import {
-  getPersistentValue,
-  setPersistentValue,
-} from "./persistentCache";
+import { getPersistentValue, setPersistentValue } from "./persistentCache";
 
 type GamesPayload = {
   count: number;

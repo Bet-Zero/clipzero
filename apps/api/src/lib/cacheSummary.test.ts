@@ -29,11 +29,10 @@ describe("buildPersistentCacheSummary", () => {
     const nowSpy = vi.spyOn(Date, "now");
     const { persistentCache, cacheSummary } = await loadModules(cacheDir);
 
-    await persistentCache.setPersistentValue(
-      "games-by-date",
-      "legacy",
-      { count: 1, games: [] },
-    );
+    await persistentCache.setPersistentValue("games-by-date", "legacy", {
+      count: 1,
+      games: [],
+    });
 
     nowSpy.mockReturnValue(1_000);
     await persistentCache.setPersistentValue(
@@ -47,7 +46,15 @@ describe("buildPersistentCacheSummary", () => {
     await persistentCache.setPersistentValue(
       "player-directory",
       "2025-26",
-      [{ personId: 1, displayName: "Player", teamId: 1, teamTricode: "ABC", position: "G" }],
+      [
+        {
+          personId: 1,
+          displayName: "Player",
+          teamId: 1,
+          teamTricode: "ABC",
+          position: "G",
+        },
+      ],
       { version: 1 },
     );
 

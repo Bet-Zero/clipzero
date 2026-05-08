@@ -290,11 +290,7 @@ async function getCachedVideoAsset(
   const persisted = await getPersistentValue<{
     videoUrl: string | null;
     thumbnailUrl: string | null;
-  }>(
-    "video-assets",
-    cacheKey,
-    getPersistentCacheReadOptions("video-assets"),
-  );
+  }>("video-assets", cacheKey, getPersistentCacheReadOptions("video-assets"));
   // Only use persisted value if it has a valid URL — don't serve stale nulls
   // from previously failed fetches.
   if (persisted && (persisted.videoUrl || persisted.thumbnailUrl)) {
