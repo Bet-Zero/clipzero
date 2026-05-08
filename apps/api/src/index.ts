@@ -17,6 +17,11 @@ import type {
 } from "./lib/failureTypes";
 import { RawEventKind as RawEventKindEnum } from "./lib/failureTypes";
 import { getCachedGames, setCachedGames } from "./lib/gamesCache";
+import {
+  getPersistentCacheReadOptions,
+  getPersistentCacheWriteOptions,
+} from "./lib/cachePolicy";
+import { buildPersistentCacheSummary } from "./lib/cacheSummary";
 import { buildHealthResponse } from "./lib/health";
 import { logger, serializeError } from "./lib/logger";
 import {
@@ -285,7 +290,11 @@ async function getCachedVideoAsset(
   const persisted = await getPersistentValue<{
     videoUrl: string | null;
     thumbnailUrl: string | null;
-  }>("video-assets", cacheKey);
+  }>(
+    "video-assets",
+    cacheKey,
+    getPersistentCacheReadOptions("video-assets"),
+  );
   // Only use persisted value if it has a valid URL — don't serve stale nulls
   // from previously failed fetches.
   if (persisted && (persisted.videoUrl || persisted.thumbnailUrl)) {
@@ -301,17 +310,20 @@ async function getCachedVideoAsset(
     videoUrl: string | null;
     thumbnailUrl: string | null;
   }) {
-    void setPersistentValue("video-assets", cacheKey, cachedValue).catch(
-      (error) => {
-        logger.warn("persistent_cache_write_failed", {
-          cacheName: "video-assets",
-          cacheKey,
-          gameId,
-          actionNumber,
-          ...serializeError(error),
-        });
-      },
-    );
+    void setPersistentValue(
+      "video-assets",
+      cacheKey,
+      cachedValue,
+      getPersistentCacheWriteOptions("video-assets"),
+    ).catch((error) => {
+      logger.warn("persistent_cache_write_failed", {
+        cacheName: "video-assets",
+        cacheKey,
+        gameId,
+        actionNumber,
+        ...serializeError(error),
+      });
+    });
   }
 
   try {
@@ -339,7 +351,12 @@ function persistValueBestEffort<T>(
   cacheKey: string,
   value: T,
 ): void {
-  void setPersistentValue(cacheName, cacheKey, value).catch((error) => {
+  void setPersistentValue(
+    cacheName,
+    cacheKey,
+    value,
+    getPersistentCacheWriteOptions(cacheName),
+  ).catch((error) => {
     logger.warn("persistent_cache_write_failed", {
       cacheName,
       cacheKey,
@@ -363,6 +380,7 @@ async function getCachedPlayByPlay(
     const persisted = await getPersistentValue<RawAction[]>(
       "play-by-play",
       gameId,
+      getPersistentCacheReadOptions("play-by-play"),
     );
     if (persisted) {
       playByPlayCache.set(gameId, persisted);
@@ -468,6 +486,7 @@ async function getCachedPlayerDirectory(
     const persisted = await getPersistentValue<PlayerDirectoryEntry[]>(
       "player-directory",
       season,
+      getPersistentCacheReadOptions("player-directory"),
     );
     if (persisted) {
       playerDirectoryCache.set(season, persisted);
@@ -496,6 +515,7 @@ async function getCachedPlayerGameLogForSeason(
     const persisted = await getPersistentValue<PlayerGameLogEntry[]>(
       "player-game-logs",
       cacheKey,
+      getPersistentCacheReadOptions("player-game-logs"),
     );
     if (persisted) {
       playerGameLogCache.set(cacheKey, persisted);
@@ -524,6 +544,7 @@ async function getCachedTeamGameLogForSeason(
     const persisted = await getPersistentValue<TeamGameLogEntry[]>(
       "team-game-logs",
       cacheKey,
+      getPersistentCacheReadOptions("team-game-logs"),
     );
     if (persisted) {
       teamGameLogCache.set(cacheKey, persisted);
@@ -623,6 +644,7 @@ async function getCachedSeasonActionsBundle(
   const persisted = await getPersistentValue<unknown>(
     "player-season-actions",
     cacheKey,
+    getPersistentCacheReadOptions("player-season-actions"),
   );
   // Accept only the new bundle format; silently ignore legacy plain arrays
   // written by older versions of the server.
@@ -803,6 +825,9 @@ app.get("/health", async (_req, res) => {
         error: lastNbaVideoCdnProbe.error,
       }
     : undefined;
+  const cacheSummary = apiConfig.debugEnabled
+    ? await buildPersistentCacheSummary()
+    : undefined;
 
   const { statusCode, payload } = buildHealthResponse(
     apiConfig.disabled,
@@ -810,6 +835,7 @@ app.get("/health", async (_req, res) => {
     undefined,
     probePayload,
     runtimeInfo,
+    cacheSummary,
   );
 
   res.status(statusCode).json(payload);
@@ -2619,6 +2645,15 @@ app.get("/debug/video-asset", async (req, res) => {
         : null,
     },
   });
+});
+
+app.get("/debug/cache", async (_req, res) => {
+  if (!apiConfig.debugEnabled) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  res.json(await buildPersistentCacheSummary());
 });
 
 app.listen(port, () => {

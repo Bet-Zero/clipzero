@@ -7,6 +7,11 @@ Private-launch setup for a fast NBA clip explorer.
 - `/home/runner/work/clipzero/clipzero/apps/web` — Next.js frontend
 - `/home/runner/work/clipzero/clipzero/apps/api` — Express API
 
+## Operational docs
+
+- `/Users/brenthibbitts/clipzero/docs/cache-guide.md` — what is cached, how freshness works, and when to inspect or evict
+- `/Users/brenthibbitts/clipzero/docs/operational-state-audit.md` — non-cache hidden state: env coupling, PM2 ownership, and deployment assumptions
+
 ## Local development
 
 1. Copy `/home/runner/work/clipzero/clipzero/.env.example` to `.env` and fill in the values for the API and web environments you need.
@@ -43,8 +48,8 @@ npm run start:web
 
 ## Vercel web + local API
 
-Frontend is on Vercel: https://clipzero-web.vercel.app
-API runs locally and is exposed via Cloudflare Tunnel at: https://clipzeroapi.xyz
+Frontend is on Vercel: <https://clipzero-web.vercel.app>
+API runs locally and is exposed via Cloudflare Tunnel at: <https://clipzeroapi.xyz>
 
 ### Daily operations
 
@@ -72,6 +77,9 @@ Expected health response includes:
 ```json
 { "ok": true, "disabled": false, "videoCdnAvailable": true }
 ```
+
+If `CLIPZERO_DEBUG=1`, `/health` also includes a lightweight `cacheSummary`
+showing how many persistent cache entries are valid, legacy, or expired.
 
 `videoCdnAvailable: false` does not mean the API or tunnel is down. It means the
 NBA video CDN is currently serving placeholder video content, so ClipZero should
@@ -186,12 +194,31 @@ If health returns `videoCdnAvailable: false`, the API and tunnel can still be
 working normally. That means the upstream NBA video CDN is serving placeholder
 video content, and ClipZero should suppress playback until the upstream recovers.
 
-**Debugging and long-term fixes**
+### Debugging and long-term fixes
 
 - Inspect recent classified failures and probe history (internal-only) at:
 
 ```bash
 curl -sS http://127.0.0.1:4000/debug/failures/recent
+```
+
+- Inspect the aggregate persistent-cache summary (internal-only) at:
+
+```bash
+curl -sS http://127.0.0.1:4000/debug/cache
+```
+
+- Inspect or evict a single persistent cache key locally:
+
+```bash
+npm run cache:inspect -w apps/api -- games-by-date 2026-05-06
+npm run cache:evict -w apps/api -- games-by-date 2026-05-06
+```
+
+- Sweep legacy and expired persistent cache entries locally:
+
+```bash
+npm run cache:sweep -w apps/api
 ```
 
 - The API now retains a short rolling history of CDN probe results and exposes
@@ -257,7 +284,7 @@ Run the `sudo ...` command that `pm2 startup` prints. After that, no terminals n
 
 ### Vercel env var (already set, do not change)
 
-```
+```text
 NEXT_PUBLIC_API_BASE_URL=https://clipzeroapi.xyz
 ```
 

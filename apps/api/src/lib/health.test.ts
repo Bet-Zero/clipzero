@@ -54,4 +54,56 @@ describe("buildHealthResponse", () => {
       },
     });
   });
+
+  it("includes cache summary diagnostics when provided", () => {
+    expect(
+      buildHealthResponse(
+        false,
+        true,
+        "2026-04-21T00:00:00.000Z",
+        undefined,
+        undefined,
+        {
+          generatedAt: "2026-04-21T00:00:01.000Z",
+          totalEntries: 4,
+          validEntries: 2,
+          legacyEntries: 1,
+          expiredEntries: 1,
+          caches: [
+            {
+              cacheName: "games-by-date",
+              totalEntries: 2,
+              validEntries: 1,
+              legacyEntries: 1,
+              expiredEntries: 0,
+            },
+          ],
+        },
+      ),
+    ).toEqual({
+      statusCode: 200,
+      payload: {
+        ok: true,
+        disabled: false,
+        videoCdnAvailable: true,
+        timestamp: "2026-04-21T00:00:00.000Z",
+        cacheSummary: {
+          generatedAt: "2026-04-21T00:00:01.000Z",
+          totalEntries: 4,
+          validEntries: 2,
+          legacyEntries: 1,
+          expiredEntries: 1,
+          caches: [
+            {
+              cacheName: "games-by-date",
+              totalEntries: 2,
+              validEntries: 1,
+              legacyEntries: 1,
+              expiredEntries: 0,
+            },
+          ],
+        },
+      },
+    });
+  });
 });

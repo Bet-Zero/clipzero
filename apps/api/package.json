@@ -8,6 +8,9 @@
     "build": "tsc",
     "start": "node --env-file-if-exists=../../.env dist/index.js",
     "data:test": "tsx src/scripts/testDataSource.ts",
+    "cache:inspect": "tsx src/scripts/cacheAdmin.ts inspect",
+    "cache:evict": "tsx src/scripts/cacheAdmin.ts evict",
+    "cache:sweep": "tsx src/scripts/cacheAdmin.ts sweep",
     "test": "vitest run",
     "test:watch": "vitest"
   },

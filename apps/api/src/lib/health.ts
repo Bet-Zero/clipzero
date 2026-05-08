@@ -13,6 +13,23 @@ export interface RuntimeInfo {
   entrypoint: string | null;
 }
 
+export interface CacheSummaryItem {
+  cacheName: string;
+  totalEntries: number;
+  validEntries: number;
+  legacyEntries: number;
+  expiredEntries: number;
+}
+
+export interface CacheSummary {
+  generatedAt: string;
+  totalEntries: number;
+  validEntries: number;
+  legacyEntries: number;
+  expiredEntries: number;
+  caches: CacheSummaryItem[];
+}
+
 export interface HealthPayload {
   ok: boolean;
   disabled: boolean;
@@ -22,6 +39,8 @@ export interface HealthPayload {
   probe?: ProbeInfo;
   // Runtime/build marker so operators can verify what binary is serving.
   runtime?: RuntimeInfo;
+  // Optional cache hygiene snapshot, exposed only in debug mode.
+  cacheSummary?: CacheSummary;
 }
 
 export function buildHealthResponse(
@@ -30,6 +49,7 @@ export function buildHealthResponse(
   timestamp: string = new Date().toISOString(),
   probe?: ProbeInfo,
   runtime?: RuntimeInfo,
+  cacheSummary?: CacheSummary,
 ): { statusCode: number; payload: HealthPayload } {
   const payload: HealthPayload = {
     ok: !disabled,
@@ -44,6 +64,10 @@ export function buildHealthResponse(
 
   if (runtime) {
     payload.runtime = runtime;
+  }
+
+  if (cacheSummary) {
+    payload.cacheSummary = cacheSummary;
   }
 
   return {
