@@ -26,36 +26,36 @@ The repo already documents this model in `README.md` and `docs/operational-state
 
 `pm2 describe clipzero-api` showed:
 
-- script path: `/Users/brenthibbitts/clipzero/apps/api/dist/index.js`
+- script path: `<repo-root>/apps/api/dist/index.js`
 - interpreter: `node`
 - interpreter args: `--env-file-if-exists=../../.env`
-- exec cwd: `/Users/brenthibbitts/clipzero/apps/api`
+- exec cwd: `<repo-root>/apps/api`
 - mode: `fork_mode`
 
 `pm2 describe clipzero-tunnel` showed:
 
 - script path: `/bin/bash`
 - script args: `-c cloudflared tunnel run clipzero-api`
-- exec cwd: `/Users/brenthibbitts/clipzero`
+- exec cwd: `<repo-root>`
 - mode: `fork_mode`
 
 `lsof -nP -iTCP:4000 -sTCP:LISTEN` showed `node` PID `12508` listening on `*:4000`. `ps -o pid,ppid,user,command -p 12508` showed:
 
 ```text
-12508 645 brenthibbitts node /Users/brenthibbitts/clipzero/apps/api/dist/index.js
+12508 645 <LOCAL_USER> node <repo-root>/apps/api/dist/index.js
 ```
 
 `ps -o pid,ppid,user,command -p 645` showed PID `645` is the PM2 daemon:
 
 ```text
-645 1 brenthibbitts PM2 v6.0.14: God Daemon (/Users/brenthibbitts/.pm2)
+645 1 <LOCAL_USER> PM2 v6.0.14: God Daemon (/Users/<LOCAL_USER>/.pm2)
 ```
 
 So, at inspection time, the local port owner was the PM2-managed compiled API process.
 
 ### Live Cloudflare Tunnel config observed
 
-The committed repo does not contain Cloudflare Tunnel ingress config. The live local config is external state under `/Users/brenthibbitts/.cloudflared/config.yml`.
+The committed repo does not contain Cloudflare Tunnel ingress config. The live local config is external state under `/Users/<LOCAL_USER>/.cloudflared/config.yml`.
 
 Non-secret fields observed:
 
@@ -67,7 +67,7 @@ ingress:
 
 That matches the intended route: public hostname `clipzeroapi.xyz` forwards to the local API on port `4000`.
 
-A separate `/Users/brenthibbitts/.cloudflared/config.broken.yml` also exists and appears malformed. Since PM2 runs `cloudflared tunnel run clipzero-api`, the active config appears to be `config.yml`, but the presence of a broken config file is an external-state hazard.
+A separate `/Users/<LOCAL_USER>/.cloudflared/config.broken.yml` also exists and appears malformed. Since PM2 runs `cloudflared tunnel run clipzero-api`, the active config appears to be `config.yml`, but the presence of a broken config file is an external-state hazard.
 
 ## 2. Required Production Path
 
@@ -125,8 +125,8 @@ Evidence:
 
 - `apps/api/package.json` has `"main": "dist/index.js"` and starts `node ... dist/index.js`.
 - `README.md` explicitly says PM2 runs `apps/api/dist`, not `apps/api/src`.
-- Live `pm2 describe clipzero-api` showed the script path is `/Users/brenthibbitts/clipzero/apps/api/dist/index.js`.
-- Live `/health` returned `runtime.entrypoint` as `/Users/brenthibbitts/clipzero/apps/api/dist/index.js`.
+- Live `pm2 describe clipzero-api` showed the script path is `<repo-root>/apps/api/dist/index.js`.
+- Live `/health` returned `runtime.entrypoint` as `<repo-root>/apps/api/dist/index.js`.
 
 ## 5. What Process Should Own Port 4000
 
@@ -190,7 +190,7 @@ Live local and public health both returned:
     "packageVersion": "1.0.0",
     "gitSha": "a62e58e",
     "buildTimestamp": "2026-05-08T08:31:45.972Z",
-    "entrypoint": "/Users/brenthibbitts/clipzero/apps/api/dist/index.js"
+    "entrypoint": "<repo-root>/apps/api/dist/index.js"
   }
 }
 ```
@@ -277,7 +277,7 @@ There is no committed PM2 ecosystem config.
 The only committed PM2 setup is prose in `README.md`, including:
 
 ```bash
-pm2 start "npm run start:api" --name clipzero-api --cwd /Users/brenthibbitts/clipzero
+pm2 start "npm run start:api" --name clipzero-api --cwd <repo-root>
 pm2 start "cloudflared tunnel run clipzero-api" --name clipzero-tunnel
 ```
 
@@ -311,7 +311,7 @@ The README already warns that a manual process can take over port `4000`, while 
 Current inspection found the port owner was correct:
 
 - port `4000` listener: node PID `12508`
-- command: `node /Users/brenthibbitts/clipzero/apps/api/dist/index.js`
+- command: `node <repo-root>/apps/api/dist/index.js`
 - parent: PM2 daemon PID `645`
 
 But this is manual verification only.

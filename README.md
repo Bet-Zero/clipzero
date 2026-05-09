@@ -9,8 +9,8 @@ Private-launch setup for a fast NBA clip explorer.
 
 ## Operational docs
 
-- `/Users/brenthibbitts/clipzero/docs/cache-guide.md` — what is cached, how freshness works, and when to inspect or evict
-- `/Users/brenthibbitts/clipzero/docs/operational-state-audit.md` — non-cache hidden state: env coupling, PM2 ownership, and deployment assumptions
+- `<repo-root>/docs/cache-guide.md` — what is cached, how freshness works, and when to inspect or evict
+- `<repo-root>/docs/operational-state-audit.md` — non-cache hidden state: env coupling, PM2 ownership, and deployment assumptions
 
 ## Local development
 
@@ -59,7 +59,7 @@ running in the background.
 When the site seems broken, run the non-destructive runtime doctor:
 
 ```bash
-cd /Users/brenthibbitts/clipzero
+cd <repo-root>
 npm run doctor
 ```
 
@@ -104,7 +104,7 @@ PM2 runs the compiled API from `apps/api/dist`, not the TypeScript source in
 After any API source change, run:
 
 ```bash
-cd /Users/brenthibbitts/clipzero
+cd <repo-root>
 npm run verify:prod
 ```
 
@@ -147,14 +147,14 @@ npm run verify:prod -- --restart-tunnel
 ### After API code changes
 
 ```bash
-cd /Users/brenthibbitts/clipzero
+cd <repo-root>
 npm run verify:prod
 ```
 
 ### After frontend code changes
 
 ```bash
-cd /Users/brenthibbitts/clipzero
+cd <repo-root>
 npm run test:web
 npm run build:web
 git add .
@@ -176,7 +176,7 @@ pm2 logs clipzero-tunnel --lines 100
 #### Public site is broken, but local API may still be fine
 
 ```bash
-cd /Users/brenthibbitts/clipzero
+cd <repo-root>
 npm run doctor
 ```
 
@@ -186,7 +186,7 @@ tunnel, not the API.
 #### All clips show unavailable or the NBA placeholder condition is suspected
 
 ```bash
-cd /Users/brenthibbitts/clipzero
+cd <repo-root>
 curl -sS http://127.0.0.1:4000/health
 curl -sS https://clipzeroapi.xyz/health
 pm2 logs clipzero-api --lines 100 --nostream
@@ -240,7 +240,7 @@ npm run cache:sweep -w apps/api
 #### PM2 says online, but the wrong process is serving port 4000
 
 ```bash
-cd /Users/brenthibbitts/clipzero
+cd <repo-root>
 npm run doctor
 ```
 
@@ -250,7 +250,7 @@ listener PID. Stop only the known stray process, then restart through the
 committed PM2 ecosystem config:
 
 ```bash
-cd /Users/brenthibbitts/clipzero
+cd <repo-root>
 npm run pm2:restart
 npm run doctor
 ```
@@ -258,7 +258,7 @@ npm run doctor
 ### If the Mac rebooted
 
 ```bash
-cd /Users/brenthibbitts/clipzero
+cd <repo-root>
 pm2 resurrect
 pm2 status
 curl -sS https://clipzeroapi.xyz/health
@@ -270,7 +270,7 @@ Only run this when setting PM2 up from scratch or changing the process list.
 You do not need `pm2 save` after normal restarts.
 
 ```bash
-cd /Users/brenthibbitts/clipzero
+cd <repo-root>
 npm run build:api
 npm run pm2:start
 pm2 save
