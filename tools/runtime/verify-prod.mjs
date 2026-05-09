@@ -14,6 +14,7 @@ import {
   publicApiBaseUrl,
   publicHealthUrl,
   productionWebUrl,
+  readVerifyAccessToken,
   repoRoot,
   Reporter,
   requireMainBranch,
@@ -167,7 +168,7 @@ if (cors.ok) {
   );
 }
 
-const accessToken = process.env.CLIPZERO_VERIFY_ACCESS_TOKEN;
+const accessToken = readVerifyAccessToken();
 const frontendResults = await verifyFrontendApiBase({ accessToken });
 for (const result of frontendResults) {
   if (result.warn) {

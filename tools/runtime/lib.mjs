@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readVerifyToken } from "./verify-token-store.mjs";
 
 const runtimeDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -412,6 +413,16 @@ export function readCloudflareConfig() {
       /\bservice\s*:\s*http:\/\/localhost:4000\b/.test(activeText),
     malformed,
   };
+}
+
+export function readVerifyAccessToken() {
+  const envToken = process.env.CLIPZERO_VERIFY_ACCESS_TOKEN?.trim();
+  if (envToken) {
+    return envToken;
+  }
+
+  const stored = readVerifyToken();
+  return stored.exists && stored.token ? stored.token : null;
 }
 
 async function verifyRewriteProof(accessToken) {
