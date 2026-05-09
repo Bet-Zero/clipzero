@@ -167,11 +167,16 @@ if (cors.ok) {
   );
 }
 
-const frontend = await verifyFrontendApiBase();
-if (frontend.ok) {
-  reporter.pass("production frontend API base", `${frontend.method}: ${frontend.detail}`);
-} else {
-  reporter.fail("production frontend API base", `${frontend.method}: ${frontend.detail}`, "CONFIG_DRIFT");
+const accessToken = process.env.CLIPZERO_VERIFY_ACCESS_TOKEN;
+const frontendResults = await verifyFrontendApiBase({ accessToken });
+for (const result of frontendResults) {
+  if (result.warn) {
+    reporter.warn(result.label, result.detail);
+  } else if (result.ok) {
+    reporter.pass(result.label, result.detail);
+  } else {
+    reporter.fail(result.label, result.detail, result.code ?? "CONFIG_DRIFT");
+  }
 }
 
 console.log(`URL  web=${productionWebUrl}`);

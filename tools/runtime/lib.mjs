@@ -305,13 +305,14 @@ export async function fetchText(url, options = {}) {
       cache: "no-store",
     });
     const text = await res.text();
-    return { ok: res.ok, status: res.status, headers: res.headers, text, error: null };
+    return { ok: res.ok, status: res.status, headers: res.headers, text, finalUrl: res.url, error: null };
   } catch (error) {
     return {
       ok: false,
       status: 0,
       headers: new Headers(),
       text: "",
+      finalUrl: "",
       error: error instanceof Error ? error.message : String(error),
     };
   } finally {
@@ -413,35 +414,131 @@ export function readCloudflareConfig() {
   };
 }
 
-export async function verifyFrontendApiBase() {
-  const root = await fetchText(productionWebUrl, { timeoutMs: 15_000 });
-  if (!root.ok) {
-    return { ok: false, method: "frontend-js", detail: `frontend fetch failed (${root.status || root.error})` };
+async function verifyRewriteProof(accessToken) {
+  if (!accessToken) {
+    return {
+      ok: true,
+      warn: true,
+      label: "production rewrite proof",
+      detail: "skipped — set CLIPZERO_VERIFY_ACCESS_TOKEN to enable authenticated /api/health check",
+    };
   }
 
-  const checked = [root.text];
+  const [gatedHealth, directHealth] = await Promise.all([
+    fetchJson(`${productionWebUrl}/api/health`, {
+      headers: { Cookie: `clipzero_access=${accessToken}` },
+      timeoutMs: 15_000,
+    }),
+    fetchJson(publicHealthUrl, { timeoutMs: 10_000 }),
+  ]);
+
+  if (!gatedHealth.ok) {
+    const hint =
+      gatedHealth.error === "invalid JSON"
+        ? "authenticated request returned non-JSON (wrong token or middleware rejected cookie)"
+        : `status=${gatedHealth.status || gatedHealth.error}`;
+    return {
+      ok: false,
+      warn: false,
+      label: "production rewrite proof",
+      detail: `authenticated /api/health failed — ${hint}`,
+      code: "CONFIG_DRIFT",
+    };
+  }
+
+  if (runtimeFieldsMatch(gatedHealth.json, directHealth.json)) {
+    return {
+      ok: true,
+      warn: false,
+      label: "production rewrite proof",
+      detail: `/api/health matches public API health (${runtimeSummary(gatedHealth.json)})`,
+    };
+  }
+
+  return {
+    ok: false,
+    warn: false,
+    label: "production rewrite proof",
+    detail: `runtime mismatch: Vercel=[${runtimeSummary(gatedHealth.json)}] public=[${runtimeSummary(directHealth.json)}]`,
+    code: "CONFIG_DRIFT",
+  };
+}
+
+export async function verifyFrontendApiBase(options = {}) {
+  const { accessToken } = options;
+  const results = [];
+
+  const root = await fetchText(productionWebUrl, { timeoutMs: 15_000 });
+
+  if (root.status === 0 && !root.ok) {
+    results.push({
+      ok: false,
+      warn: false,
+      label: "production frontend fetch",
+      detail: `frontend fetch failed (${root.error})`,
+      code: "CONFIG_DRIFT",
+    });
+    return results;
+  }
+
+  // When fetch follows a 307 redirect, res.url reflects the final URL.
+  // A redirect to /login means the password gate is active.
+  const finalUrl = root.finalUrl ?? "";
+  const isPasswordGated = /\/login(\?|$)/.test(finalUrl);
+
   const scriptPaths = [...root.text.matchAll(/<script[^>]+src="([^"]+\.js[^"]*)"/g)]
-    .map((match) => match[1])
+    .map((m) => m[1])
     .filter((src) => src.includes("/_next/static/"))
     .slice(0, 25);
 
+  const corpora = [root.text];
   for (const scriptPath of scriptPaths) {
     const scriptUrl = new URL(scriptPath, productionWebUrl).toString();
     const script = await fetchText(scriptUrl, { timeoutMs: 15_000 });
-    if (script.ok) {
-      checked.push(script.text);
+    if (script.ok) corpora.push(script.text);
+  }
+  const corpus = corpora.join("\n");
+
+  const hasLocalhost = corpus.includes("localhost:4000") || corpus.includes("127.0.0.1:4000");
+  results.push({
+    ok: !hasLocalhost,
+    warn: false,
+    label: "production frontend safety",
+    detail: hasLocalhost
+      ? "localhost:4000 or 127.0.0.1:4000 found in public chunks"
+      : "no localhost API base found in public chunks",
+    code: "CONFIG_DRIFT",
+  });
+
+  if (isPasswordGated) {
+    results.push({
+      ok: true,
+      warn: false,
+      label: "production frontend mode",
+      detail: "password-gated same-origin /api mode detected",
+    });
+    results.push(await verifyRewriteProof(accessToken));
+  } else {
+    const hasExpected = corpus.includes(publicApiBaseUrl);
+    if (hasExpected) {
+      results.push({
+        ok: true,
+        warn: false,
+        label: "production frontend mode",
+        detail: `direct API mode: ${publicApiBaseUrl} found in public chunks`,
+      });
+    } else {
+      results.push({
+        ok: true,
+        warn: true,
+        label: "production frontend mode",
+        detail: "same-origin /api mode (no hardcoded URL or password gate detected in public chunks)",
+      });
+      results.push(await verifyRewriteProof(accessToken));
     }
   }
 
-  const corpus = checked.join("\n");
-  const hasExpected = corpus.includes(publicApiBaseUrl);
-  const hasLocalhost = corpus.includes("localhost:4000") || corpus.includes("127.0.0.1:4000");
-
-  return {
-    ok: hasExpected && !hasLocalhost,
-    method: "frontend-js",
-    detail: `expected=${hasExpected ? "yes" : "no"} localhost4000=${hasLocalhost ? "yes" : "no"}`,
-  };
+  return results;
 }
 
 export function requireMainBranch(reporter, branch, strict = true) {
