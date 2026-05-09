@@ -429,23 +429,30 @@ Checklist:
 15. Fetch `https://clipzeroapi.xyz/health`.
 16. Require public health `ok === true`.
 17. Compare public and local health runtime fields:
-   - `gitSha`
-   - `buildTimestamp`
-   - `entrypoint`
+
+- `gitSha`
+- `buildTimestamp`
+- `entrypoint`
+
 18. Check local Cloudflare config, if readable:
-   - hostname `clipzeroapi.xyz`
-   - service `http://localhost:4000`
+
+- hostname `clipzeroapi.xyz`
+- service `http://localhost:4000`
+
 19. Warn if malformed Cloudflare config files matching `config*.yml` are present.
 20. Check CORS response for Vercel origin:
-   - `curl -I -H "Origin: https://clipzero-web.vercel.app" https://clipzeroapi.xyz/health`
-   - require `access-control-allow-origin: https://clipzero-web.vercel.app` when `CLIPZERO_ALLOWED_ORIGINS` is configured.
+
+- `curl -I -H "Origin: https://clipzero-web.vercel.app" https://clipzeroapi.xyz/health`
+- require `access-control-allow-origin: https://clipzero-web.vercel.app` when `CLIPZERO_ALLOWED_ORIGINS` is configured.
+
 21. Print a final diagnosis:
-   - `READY`
-   - `STALE_RUNTIME`
-   - `PORT_OWNERSHIP_DRIFT`
-   - `TUNNEL_DRIFT`
-   - `PUBLIC_HEALTH_DOWN`
-   - `CONFIG_DRIFT`
+
+- `READY`
+- `STALE_RUNTIME`
+- `PORT_OWNERSHIP_DRIFT`
+- `TUNNEL_DRIFT`
+- `PUBLIC_HEALTH_DOWN`
+- `CONFIG_DRIFT`
 
 ## 18. Proposed `npm run verify:prod` Checklist
 
@@ -468,14 +475,20 @@ Checklist:
 11. Poll `https://clipzeroapi.xyz/health` until healthy or timeout.
 12. Require public health runtime fields to match local health.
 13. Probe a lightweight real data endpoint locally and publicly, for example:
-   - `/games?date=<stable-past-date>`
+
+- `/games?date=<stable-past-date>`
+
 14. Check CORS for `https://clipzero-web.vercel.app`.
 15. Verify Vercel production API base URL by one of these approaches:
-   - preferred: use Vercel API/CLI to read only `NEXT_PUBLIC_API_BASE_URL` and compare to `https://clipzeroapi.xyz`
-   - fallback: fetch deployed production JS and assert it references `https://clipzeroapi.xyz` and does not reference `localhost:4000`
+
+- preferred: use Vercel API/CLI to read only `NEXT_PUBLIC_API_BASE_URL` and compare to `https://clipzeroapi.xyz`
+- fallback: fetch deployed production JS and assert it references `https://clipzeroapi.xyz` and does not reference `localhost:4000`
+
 16. Print final public URLs:
-   - `https://clipzero-web.vercel.app`
-   - `https://clipzeroapi.xyz/health`
+
+- `https://clipzero-web.vercel.app`
+- `https://clipzeroapi.xyz/health`
+
 17. Exit non-zero on any mismatch.
 
 ## 19. Proposed PM2 Ecosystem Config
@@ -503,8 +516,8 @@ module.exports = {
       restart_delay: 2000,
       time: true,
       env: {
-        PORT: "4000"
-      }
+        PORT: "4000",
+      },
     },
     {
       name: "clipzero-tunnel",
@@ -518,9 +531,9 @@ module.exports = {
       watch: false,
       max_restarts: 10,
       restart_delay: 2000,
-      time: true
-    }
-  ]
+      time: true,
+    },
+  ],
 };
 ```
 
