@@ -20,7 +20,7 @@ import {
   useStressMode,
 } from "@/lib/stressMode";
 import {
-  beginFilterTransition,
+  beginFilterTransitionIfChanged,
   clearFilterTransition,
   useFilterTransition,
 } from "@/lib/filterTransition";
@@ -767,13 +767,14 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
     overrides: Partial<MatchupModeFilterState> = {},
   ): MatchupModeFilterState {
     const hasFilterChange =
-      "team" in overrides ||
-      "playType" in overrides ||
-      "result" in overrides ||
-      "quarter" in overrides ||
-      "shotValue" in overrides ||
-      "subType" in overrides ||
-      "distanceBucket" in overrides;
+      ("team" in overrides && overrides.team !== team) ||
+      ("playType" in overrides && overrides.playType !== playType) ||
+      ("result" in overrides && overrides.result !== result) ||
+      ("quarter" in overrides && overrides.quarter !== quarter) ||
+      ("shotValue" in overrides && overrides.shotValue !== shotValue) ||
+      ("subType" in overrides && overrides.subType !== subType) ||
+      ("distanceBucket" in overrides &&
+        overrides.distanceBucket !== distanceBucket);
 
     return {
       teamA: overrides.teamA ?? teamA,
@@ -799,9 +800,14 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
   }
 
   function navigateTo(overrides: Partial<MatchupModeFilterState> = {}) {
+    const currentUrl = buildMatchupModeUrl(season, getFilterState());
+    const nextUrl = buildMatchupModeUrl(season, getFilterState(overrides));
+    if (pendingNavigateUrlRef.current === nextUrl) return;
+    if (!beginFilterTransitionIfChanged("matchup", currentUrl, nextUrl)) return;
+
     // Record interaction pressure — rapid filter/context changes back off prefetch.
     recordClipNavigation(2);
-    beginFilterTransition("matchup");
+
     const stringKeys = [
       "teamA",
       "teamB",
@@ -833,8 +839,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
       }));
     }
     // Build the URL eagerly and debounce the push.
-    const url = buildMatchupModeUrl(season, getFilterState(overrides));
-    pendingNavigateUrlRef.current = url;
+    pendingNavigateUrlRef.current = nextUrl;
     if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current);
     navigateTimerRef.current = setTimeout(() => {
       navigateTimerRef.current = null;
@@ -1159,12 +1164,13 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
                         {filter.options.map((opt) => (
                           <button
                             key={opt.value}
-                            onClick={() =>
+                            onClick={() => {
+                              if (currentValue === opt.value) return;
                               navigateTo({
                                 [filter.param]: opt.value,
                                 actionNumber: null,
-                              })
-                            }
+                              });
+                            }}
                             className={`rounded px-3 py-0.5 text-sm ${
                               currentValue === opt.value
                                 ? "bg-zinc-600 text-white"

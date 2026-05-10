@@ -20,7 +20,7 @@ import {
   useStressMode,
 } from "@/lib/stressMode";
 import {
-  beginFilterTransition,
+  beginFilterTransitionIfChanged,
   clearFilterTransition,
   useFilterTransition,
 } from "@/lib/filterTransition";
@@ -737,16 +737,17 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     overrides: Partial<PlayerModeFilterState> = {},
   ): PlayerModeFilterState {
     const hasFilterChange =
-      "playType" in overrides ||
-      "result" in overrides ||
-      "quarter" in overrides ||
-      "shotValue" in overrides ||
-      "subType" in overrides ||
-      "distanceBucket" in overrides ||
-      "area" in overrides ||
-      "descriptor" in overrides ||
-      "qualifier" in overrides ||
-      "opponent" in overrides;
+      ("playType" in overrides && overrides.playType !== playType) ||
+      ("result" in overrides && overrides.result !== result) ||
+      ("quarter" in overrides && overrides.quarter !== quarter) ||
+      ("shotValue" in overrides && overrides.shotValue !== shotValue) ||
+      ("subType" in overrides && overrides.subType !== subType) ||
+      ("distanceBucket" in overrides &&
+        overrides.distanceBucket !== distanceBucket) ||
+      ("area" in overrides && overrides.area !== area) ||
+      ("descriptor" in overrides && overrides.descriptor !== descriptor) ||
+      ("qualifier" in overrides && overrides.qualifier !== qualifier) ||
+      ("opponent" in overrides && overrides.opponent !== opponent);
 
     return {
       player:
@@ -773,9 +774,14 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   }
 
   function navigateTo(overrides: Partial<PlayerModeFilterState> = {}) {
+    const currentUrl = buildPlayerModeUrl(season, getFilterState());
+    const nextUrl = buildPlayerModeUrl(season, getFilterState(overrides));
+    if (pendingNavigateUrlRef.current === nextUrl) return;
+    if (!beginFilterTransitionIfChanged("player", currentUrl, nextUrl)) return;
+
     // Record interaction pressure — rapid filter/context changes back off prefetch.
     recordClipNavigation(2);
-    beginFilterTransition("player");
+
     // Apply optimistic updates for string filter params
     const filterKeys = [
       "playType",
@@ -806,8 +812,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       }));
     }
     // Build the URL eagerly and debounce the push.
-    const url = buildPlayerModeUrl(season, getFilterState(overrides));
-    pendingNavigateUrlRef.current = url;
+    pendingNavigateUrlRef.current = nextUrl;
     if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current);
     navigateTimerRef.current = setTimeout(() => {
       navigateTimerRef.current = null;
@@ -1220,11 +1225,12 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
                         {filter.options.map((opt) => (
                           <button
                             key={opt.value}
-                            onClick={() =>
+                            onClick={() => {
+                              if (currentValue === opt.value) return;
                               navigateTo({
                                 [filter.param]: opt.value,
-                              } as Partial<PlayerModeFilterState>)
-                            }
+                              } as Partial<PlayerModeFilterState>);
+                            }}
                             className={`rounded px-3 py-0.5 text-sm ${
                               currentValue === opt.value
                                 ? "bg-zinc-600 text-white"

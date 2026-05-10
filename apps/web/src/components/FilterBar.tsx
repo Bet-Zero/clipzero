@@ -13,7 +13,7 @@ import {
   splitMultiValue,
   canonicalMultiValue,
 } from "@/lib/filters";
-import { beginFilterTransition } from "@/lib/filterTransition";
+import { beginFilterTransitionIfChanged } from "@/lib/filterTransition";
 import { useDomElementById } from "@/lib/dom";
 import {
   PLAY_TYPES,
@@ -508,20 +508,36 @@ export default function FilterBar({
   // router.push is debounced 150ms so rapid filter clicks collapse into one
   // navigation.
   function navigate(overrides: Record<string, string>) {
-    beginFilterTransition("game");
-    setPending((prev) => ({
-      sourceKey: paramsKey,
-      values:
-        prev.sourceKey === paramsKey
-          ? { ...prev.values, ...overrides }
-          : { ...overrides },
-    }));
-    const search = new URLSearchParams();
-    if (season) search.set("season", season);
-    if (date) search.set("date", date);
-    if (gameId) search.set("gameId", gameId);
+    const buildUrl = (state: Record<string, string>): string => {
+      const search = new URLSearchParams();
+      if (season) search.set("season", season);
+      if (date) search.set("date", date);
+      if (gameId) search.set("gameId", gameId);
 
-    const state: Record<string, string> = {
+      if (state.playType && state.playType !== DEFAULT_PLAY_TYPE)
+        search.set("playType", state.playType);
+      if (state.team) search.set("team", canonicalMultiValue(state.team));
+      if (state.player) search.set("player", canonicalMultiValue(state.player));
+      if (state.quarter)
+        search.set("quarter", canonicalMultiValue(state.quarter));
+      if (state.result && state.result !== DEFAULT_RESULT)
+        search.set("result", state.result);
+      if (state.shotValue) search.set("shotValue", state.shotValue);
+      if (state.subType)
+        search.set("subType", canonicalMultiValue(state.subType));
+      if (state.distanceBucket)
+        search.set("distanceBucket", canonicalMultiValue(state.distanceBucket));
+      if (state.area) search.set("area", canonicalMultiValue(state.area));
+      if (state.descriptor)
+        search.set("descriptor", canonicalMultiValue(state.descriptor));
+      if (state.qualifier)
+        search.set("qualifier", canonicalMultiValue(state.qualifier));
+      if (state.group) search.set("group", state.group);
+      if (state.playerIds) search.set("playerIds", state.playerIds);
+      return `/?${cleanSearchString(search)}`;
+    };
+
+    const currentState: Record<string, string> = {
       playType,
       team,
       quarter,
@@ -535,32 +551,24 @@ export default function FilterBar({
       qualifier,
       group,
       playerIds: p("playerIds"),
-      ...overrides,
     };
+    const nextState = { ...currentState, ...overrides };
+    const currentUrl = buildUrl(currentState);
+    const nextUrl = buildUrl(nextState);
 
-    if (state.playType && state.playType !== DEFAULT_PLAY_TYPE)
-      search.set("playType", state.playType);
-    if (state.team) search.set("team", canonicalMultiValue(state.team));
-    if (state.player) search.set("player", canonicalMultiValue(state.player));
-    if (state.quarter)
-      search.set("quarter", canonicalMultiValue(state.quarter));
-    if (state.result && state.result !== DEFAULT_RESULT)
-      search.set("result", state.result);
-    if (state.shotValue) search.set("shotValue", state.shotValue);
-    if (state.subType)
-      search.set("subType", canonicalMultiValue(state.subType));
-    if (state.distanceBucket)
-      search.set("distanceBucket", canonicalMultiValue(state.distanceBucket));
-    if (state.area) search.set("area", canonicalMultiValue(state.area));
-    if (state.descriptor)
-      search.set("descriptor", canonicalMultiValue(state.descriptor));
-    if (state.qualifier)
-      search.set("qualifier", canonicalMultiValue(state.qualifier));
-    if (state.group) search.set("group", state.group);
-    if (state.playerIds) search.set("playerIds", state.playerIds);
+    if (pendingNavigateUrlRef.current === nextUrl) return;
+    if (!beginFilterTransitionIfChanged("game", currentUrl, nextUrl)) return;
+
+    setPending((prev) => ({
+      sourceKey: paramsKey,
+      values:
+        prev.sourceKey === paramsKey
+          ? { ...prev.values, ...overrides }
+          : { ...overrides },
+    }));
 
     // Store the latest URL and debounce the actual push.
-    pendingNavigateUrlRef.current = `/?${cleanSearchString(search)}`;
+    pendingNavigateUrlRef.current = nextUrl;
     if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current);
     navigateTimerRef.current = setTimeout(() => {
       navigateTimerRef.current = null;
@@ -607,7 +615,71 @@ export default function FilterBar({
     (group !== "" ? 1 : 0);
 
   function clearFilters() {
-    beginFilterTransition("game");
+    const currentState: Record<string, string> = {
+      playType,
+      team,
+      quarter,
+      player: selectedPlayer,
+      result: shotResult,
+      shotValue,
+      subType,
+      distanceBucket,
+      area,
+      descriptor,
+      qualifier,
+      group,
+      playerIds: p("playerIds"),
+    };
+    const currentSearch = new URLSearchParams();
+    if (season) currentSearch.set("season", season);
+    if (date) currentSearch.set("date", date);
+    if (gameId) currentSearch.set("gameId", gameId);
+    if (currentState.playType && currentState.playType !== DEFAULT_PLAY_TYPE)
+      currentSearch.set("playType", currentState.playType);
+    if (currentState.team)
+      currentSearch.set("team", canonicalMultiValue(currentState.team));
+    if (currentState.player)
+      currentSearch.set("player", canonicalMultiValue(currentState.player));
+    if (currentState.quarter)
+      currentSearch.set("quarter", canonicalMultiValue(currentState.quarter));
+    if (currentState.result && currentState.result !== DEFAULT_RESULT)
+      currentSearch.set("result", currentState.result);
+    if (currentState.shotValue)
+      currentSearch.set("shotValue", currentState.shotValue);
+    if (currentState.subType)
+      currentSearch.set("subType", canonicalMultiValue(currentState.subType));
+    if (currentState.distanceBucket)
+      currentSearch.set(
+        "distanceBucket",
+        canonicalMultiValue(currentState.distanceBucket),
+      );
+    if (currentState.area)
+      currentSearch.set("area", canonicalMultiValue(currentState.area));
+    if (currentState.descriptor)
+      currentSearch.set(
+        "descriptor",
+        canonicalMultiValue(currentState.descriptor),
+      );
+    if (currentState.qualifier)
+      currentSearch.set(
+        "qualifier",
+        canonicalMultiValue(currentState.qualifier),
+      );
+    if (currentState.group) currentSearch.set("group", currentState.group);
+    if (currentState.playerIds)
+      currentSearch.set("playerIds", currentState.playerIds);
+
+    const currentUrl = `/?${cleanSearchString(currentSearch)}`;
+
+    const search = new URLSearchParams();
+    if (season) search.set("season", season);
+    if (date) search.set("date", date);
+    if (gameId) search.set("gameId", gameId);
+    const limit = params.get("limit");
+    if (limit) search.set("limit", limit);
+    const nextUrl = `/?${cleanSearchString(search)}`;
+    if (!beginFilterTransitionIfChanged("game", currentUrl, nextUrl)) return;
+
     setPending({
       sourceKey: paramsKey,
       values: {
@@ -625,13 +697,7 @@ export default function FilterBar({
         group: "",
       },
     });
-    const search = new URLSearchParams();
-    if (season) search.set("season", season);
-    if (date) search.set("date", date);
-    if (gameId) search.set("gameId", gameId);
-    const limit = params.get("limit");
-    if (limit) search.set("limit", limit);
-    router.push(`/?${search.toString()}`);
+    router.push(nextUrl);
   }
 
   const playTypeFilters = getFiltersForPlayType(playType);
@@ -889,9 +955,10 @@ export default function FilterBar({
                         {filter.options.map((opt) => (
                           <button
                             key={opt.value}
-                            onClick={() =>
-                              navigate({ [filter.param]: opt.value })
-                            }
+                            onClick={() => {
+                              if (currentValue === opt.value) return;
+                              navigate({ [filter.param]: opt.value });
+                            }}
                             className={`rounded px-3 py-0.5 text-sm ${
                               currentValue === opt.value
                                 ? "bg-zinc-600 text-white"

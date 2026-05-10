@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   beginFilterTransition,
+  beginFilterTransitionIfChanged,
   clearFilterTransition,
   isFilterTransitionPending,
   resetFilterTransitionsForTests,
@@ -39,5 +40,27 @@ describe("filterTransition", () => {
     vi.advanceTimersByTime(10_001);
 
     expect(isFilterTransitionPending("matchup")).toBe(false);
+  });
+
+  it("does not mark pending for no-op navigation", () => {
+    const started = beginFilterTransitionIfChanged(
+      "game",
+      "/?mode=game",
+      "/?mode=game",
+    );
+
+    expect(started).toBe(false);
+    expect(isFilterTransitionPending("game")).toBe(false);
+  });
+
+  it("marks pending for meaningful navigation", () => {
+    const started = beginFilterTransitionIfChanged(
+      "player",
+      "/?mode=player&season=2025-26",
+      "/?mode=player&season=2025-26&playType=shots",
+    );
+
+    expect(started).toBe(true);
+    expect(isFilterTransitionPending("player")).toBe(true);
   });
 });

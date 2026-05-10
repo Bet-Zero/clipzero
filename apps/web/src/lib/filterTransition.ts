@@ -53,6 +53,16 @@ export function beginFilterTransition(scope: FilterTransitionScope): void {
   armFallbackClear(scope);
 }
 
+export function beginFilterTransitionIfChanged(
+  scope: FilterTransitionScope,
+  currentUrl: string,
+  nextUrl: string,
+): boolean {
+  if (currentUrl === nextUrl) return false;
+  beginFilterTransition(scope);
+  return true;
+}
+
 export function clearFilterTransition(scope: FilterTransitionScope): void {
   pendingByScope.set(scope, false);
   const prev = fallbackTimerByScope.get(scope);
