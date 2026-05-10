@@ -19,6 +19,11 @@ import {
   recordFetchFailure,
   useStressMode,
 } from "@/lib/stressMode";
+import {
+  beginFilterTransition,
+  clearFilterTransition,
+  useFilterTransition,
+} from "@/lib/filterTransition";
 import { useDomElementById } from "@/lib/dom";
 import {
   DEFAULT_PLAY_TYPE,
@@ -351,6 +356,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
 
   const isHighPressure = useInteractionPressure();
   const isStressed = useStressMode();
+  const isTransitionPending = useFilterTransition("matchup");
 
   const loadingRef = useRef(false);
   // Request generation counter — incremented on every new clip-set fetch.
@@ -403,6 +409,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
 
   useEffect(() => {
     if (!validMatchup) {
+      clearFilterTransition("matchup");
       setGames([]);
       setGamesError(null);
       setClips([]);
@@ -588,6 +595,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
         );
       } finally {
         if (gen === generationRef.current) {
+          if (!append) clearFilterTransition("matchup");
           loadingRef.current = false;
           setClipsLoading(false);
           setInitialLoading(false);
@@ -621,6 +629,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
     if (validMatchup && !gamesLoading && games.length > 0) {
       fetchClips(0, false);
     } else if (validMatchup && !gamesLoading && games.length === 0) {
+      clearFilterTransition("matchup");
       setClips([]);
       setTotal(0);
     }
@@ -792,6 +801,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
   function navigateTo(overrides: Partial<MatchupModeFilterState> = {}) {
     // Record interaction pressure — rapid filter/context changes back off prefetch.
     recordClipNavigation(2);
+    beginFilterTransition("matchup");
     const stringKeys = [
       "teamA",
       "teamB",
@@ -927,6 +937,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
     exclusionCount;
 
   const isFiltered = activeFilterCount > 0;
+  const isReplacing = isTransitionPending || initialLoading;
 
   return (
     <div>
@@ -1282,6 +1293,25 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
           <div className="mx-auto max-w-2xl px-4 py-8 text-sm text-zinc-400">
             No completed {teamA} vs {teamB} games found for {season}.
           </div>
+        ) : isReplacing ? (
+          <div className="py-2">
+            <div className="mb-2 text-sm text-zinc-400">
+              {initialLoading
+                ? "Loading matchup clips..."
+                : "Updating clips..."}
+            </div>
+            <div className="mb-4 flex gap-2 overflow-hidden">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-24 w-44 shrink-0 animate-pulse rounded-lg bg-zinc-900"
+                />
+              ))}
+            </div>
+            <div className="mx-auto w-full max-w-4xl">
+              <div className="aspect-video w-full animate-pulse rounded-xl border border-zinc-800 bg-zinc-900" />
+            </div>
+          </div>
         ) : (
           <>
             <ClipRail
@@ -1289,7 +1319,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
               activeIndex={activeIndex}
               onSelect={handleSelect}
               hasMore={hasMore}
-              loading={clipsLoading || initialLoading}
+              loading={clipsLoading}
               error={error}
               onLoadMore={loadMore}
             />

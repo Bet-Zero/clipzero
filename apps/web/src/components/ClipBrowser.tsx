@@ -12,6 +12,10 @@ import {
   recordFetchFailure,
   useStressMode,
 } from "@/lib/stressMode";
+import {
+  clearFilterTransition,
+  useFilterTransition,
+} from "@/lib/filterTransition";
 import { DEFAULT_RESULT, buildClipSearchParams } from "@/lib/filters";
 import { PLAY_TYPE_LABELS } from "@/lib/filterConfig";
 import type { Clip } from "@/lib/types";
@@ -104,6 +108,7 @@ export default function ClipBrowser({
 
   const isHighPressure = useInteractionPressure();
   const isStressed = useStressMode();
+  const isTransitionPending = useFilterTransition("game");
 
   const loadingRef = useRef(false);
   // Request generation counter — incremented on every new clip-set fetch.
@@ -176,6 +181,7 @@ export default function ClipBrowser({
         ? initialClips.findIndex((c) => c.actionNumber === initialActionNumber)
         : -1;
     setActiveIndex(idx >= 0 ? idx : 0);
+    clearFilterTransition("game");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     gameId,
@@ -455,25 +461,46 @@ export default function ClipBrowser({
     }
   }, [activeIndex, clips]);
 
+  const isReplacing = isTransitionPending;
+
   return (
     <div className="flex flex-1 min-h-0 flex-col gap-2 px-4 py-2 overflow-y-auto">
-      <ClipRail
-        clips={clips}
-        activeIndex={activeIndex}
-        onSelect={handleSelect}
-        hasMore={hasMore}
-        loading={loading}
-        error={error}
-        onLoadMore={loadMore}
-        homeTeamTricode={homeTeamTricode}
-      />
+      {isReplacing ? (
+        <div className="flex flex-col gap-4 py-2">
+          <div className="text-sm text-zinc-400">Updating clips...</div>
+          <div className="flex gap-2 overflow-hidden">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-24 w-44 shrink-0 animate-pulse rounded-lg bg-zinc-900"
+              />
+            ))}
+          </div>
+          <div className="mx-auto w-full max-w-4xl">
+            <div className="aspect-video w-full animate-pulse rounded-xl border border-zinc-800 bg-zinc-900" />
+          </div>
+        </div>
+      ) : (
+        <>
+          <ClipRail
+            clips={clips}
+            activeIndex={activeIndex}
+            onSelect={handleSelect}
+            hasMore={hasMore}
+            loading={loading}
+            error={error}
+            onLoadMore={loadMore}
+            homeTeamTricode={homeTeamTricode}
+          />
 
-      <div className="mx-auto w-full max-w-4xl">
-        <ClipPlayer
-          clip={clips[activeIndex] ?? null}
-          onEnded={handleClipEnded}
-        />
-      </div>
+          <div className="mx-auto w-full max-w-4xl">
+            <ClipPlayer
+              clip={clips[activeIndex] ?? null}
+              onEnded={handleClipEnded}
+            />
+          </div>
+        </>
+      )}
 
       <div className="pb-1 text-center text-xs text-zinc-600">
         {clips.length} of {total} clips

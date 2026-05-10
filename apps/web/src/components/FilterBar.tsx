@@ -13,6 +13,7 @@ import {
   splitMultiValue,
   canonicalMultiValue,
 } from "@/lib/filters";
+import { beginFilterTransition } from "@/lib/filterTransition";
 import { useDomElementById } from "@/lib/dom";
 import {
   PLAY_TYPES,
@@ -507,6 +508,7 @@ export default function FilterBar({
   // router.push is debounced 150ms so rapid filter clicks collapse into one
   // navigation.
   function navigate(overrides: Record<string, string>) {
+    beginFilterTransition("game");
     setPending((prev) => ({
       sourceKey: paramsKey,
       values:
@@ -605,6 +607,7 @@ export default function FilterBar({
     (group !== "" ? 1 : 0);
 
   function clearFilters() {
+    beginFilterTransition("game");
     setPending({
       sourceKey: paramsKey,
       values: {

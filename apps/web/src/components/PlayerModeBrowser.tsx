@@ -19,6 +19,11 @@ import {
   recordFetchFailure,
   useStressMode,
 } from "@/lib/stressMode";
+import {
+  beginFilterTransition,
+  clearFilterTransition,
+  useFilterTransition,
+} from "@/lib/filterTransition";
 import { useDomElementById } from "@/lib/dom";
 import {
   DEFAULT_PLAY_TYPE,
@@ -286,6 +291,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
 
   const isHighPressure = useInteractionPressure();
   const isStressed = useStressMode();
+  const isTransitionPending = useFilterTransition("player");
 
   const loadingRef = useRef(false);
   // Request generation counter — incremented on every new clip-set fetch.
@@ -319,6 +325,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   // Fetch game log when player changes
   useEffect(() => {
     if (!selectedPlayer) {
+      clearFilterTransition("player");
       setGameLog([]);
       setGameLogError(null);
       setClips([]);
@@ -550,6 +557,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
         );
       } finally {
         if (gen === generationRef.current) {
+          if (!append) clearFilterTransition("player");
           loadingRef.current = false;
           setClipsLoading(false);
           setInitialLoading(false);
@@ -581,6 +589,8 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     pendingAdvanceRef.current = false;
     if (selectedPlayer && gameLog.length > 0) {
       fetchClips(0, false);
+    } else if (selectedPlayer && gameLog.length === 0) {
+      clearFilterTransition("player");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -765,6 +775,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
   function navigateTo(overrides: Partial<PlayerModeFilterState> = {}) {
     // Record interaction pressure — rapid filter/context changes back off prefetch.
     recordClipNavigation(2);
+    beginFilterTransition("player");
     // Apply optimistic updates for string filter params
     const filterKeys = [
       "playType",
@@ -1006,6 +1017,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
     opponent,
     playType,
   });
+  const isReplacing = isTransitionPending || initialLoading;
 
   return (
     <div>
@@ -1383,11 +1395,12 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
           </div>
         )}
 
-      {initialLoading && (
+      {isReplacing && selectedPlayer && gameLog.length > 0 && (
         <div className="mx-auto max-w-3xl px-4 py-6">
           <div className="mb-2 text-sm text-zinc-400">
-            Loading clips across {gameLog.length} games... this may take a
-            moment on first load.
+            {initialLoading
+              ? `Loading clips across ${gameLog.length} games... this may take a moment on first load.`
+              : "Updating clips..."}
           </div>
           <div className="mb-4 flex gap-3 overflow-hidden">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -1409,13 +1422,13 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       )}
 
       {/* Error */}
-      {error && !initialLoading && (
+      {error && !isReplacing && (
         <div className="mx-auto max-w-3xl px-4 py-2 text-sm text-red-400">
           {error}
         </div>
       )}
 
-      {!initialLoading &&
+      {!isReplacing &&
         !clipsLoading &&
         !error &&
         selectedPlayer &&
@@ -1428,7 +1441,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
         )}
 
       {/* Clips viewer */}
-      {!initialLoading && clips.length > 0 && (
+      {!isReplacing && clips.length > 0 && (
         <div className="flex flex-col gap-4 px-4 py-4">
           <ClipRail
             clips={clips}
@@ -1463,7 +1476,7 @@ export default function PlayerModeBrowser({ season }: { season: string }) {
       )}
 
       {/* Empty state after load */}
-      {!initialLoading &&
+      {!isReplacing &&
         !clipsLoading &&
         selectedPlayer &&
         gameLog.length > 0 &&
