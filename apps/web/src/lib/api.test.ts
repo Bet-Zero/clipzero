@@ -77,9 +77,7 @@ describe("getGameClipsUnavailableCopy", () => {
   });
 
   it("preserves matchup context when available", () => {
-    expect(getGameClipsUnavailableCopy("NYK @ BOS").matchup).toBe(
-      "NYK @ BOS",
-    );
+    expect(getGameClipsUnavailableCopy("NYK @ BOS").matchup).toBe("NYK @ BOS");
   });
 });
 
@@ -91,7 +89,9 @@ describe("sanitizeApiErrorDetail", () => {
   });
 
   it("drops html-like payloads", () => {
-    expect(sanitizeApiErrorDetail("<!doctype html><html><body>Denied</body></html>")).toBeUndefined();
+    expect(
+      sanitizeApiErrorDetail("<!doctype html><html><body>Denied</body></html>"),
+    ).toBeUndefined();
   });
 });
 
@@ -124,11 +124,14 @@ describe("readApiErrorDetail", () => {
   });
 
   it("falls back to the status text for html error pages", async () => {
-    const response = new Response("<!doctype html><html><body>Denied</body></html>", {
-      status: 502,
-      statusText: "Bad Gateway",
-      headers: { "content-type": "text/html" },
-    });
+    const response = new Response(
+      "<!doctype html><html><body>Denied</body></html>",
+      {
+        status: 502,
+        statusText: "Bad Gateway",
+        headers: { "content-type": "text/html" },
+      },
+    );
 
     await expect(readApiErrorDetail(response)).resolves.toBe("Bad Gateway");
   });

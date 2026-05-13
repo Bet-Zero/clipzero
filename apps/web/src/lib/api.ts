@@ -47,7 +47,10 @@ export function sanitizeApiErrorDetail(detail: unknown): string | undefined {
     return undefined;
   }
 
-  const plainText = normalized.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const plainText = normalized
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   if (!plainText) return undefined;
   if (plainText.length <= MAX_ERROR_DETAIL_LENGTH) return plainText;
 
