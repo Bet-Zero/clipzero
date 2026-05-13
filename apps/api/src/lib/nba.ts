@@ -331,17 +331,26 @@ export function getTeamByTricode(
 }
 
 type ScoreboardResponse = {
-  scoreboard: {
-    games: ScoreboardGame[];
+  scoreboard?: {
+    games?: ScoreboardGame[];
   };
 };
 
 type PlayByPlayResponse = {
-  game: {
-    gameId: string;
-    actions: RawAction[];
+  game?: {
+    gameId?: string;
+    actions?: RawAction[];
   };
 };
+
+type CdnJsonFetchOptions = {
+  timeout?: number;
+  label?: string;
+};
+
+type CdnJsonAttemptResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; reason: string; error?: unknown };
 
 type BoxScorePlayer = {
   personId?: number;
@@ -374,23 +383,205 @@ const STATS_HEADERS = {
   "Accept-Language": "en-US,en;q=0.9",
 };
 
-// Minimal headers for CDN / static JSON endpoints (cdn.nba.com, videos.nba.com).
-// Using browser-like headers against CDN hosts has been observed to change
-// upstream behavior (403s / placeholder responses), so prefer minimal headers
-// for those domains.
+// Minimal headers remain the first attempt for CDN / static JSON endpoints.
+// Some liveData objects now require a browser-like retry, but videos.nba.com
+// probe traffic still needs to stay minimal to avoid misleading placeholder
+// behavior.
 const CDN_HEADERS = {
   Accept: "application/json, text/plain, */*",
 };
 
+const CDN_BROWSER_LIKE_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  Referer: "https://www.nba.com/",
+  Origin: "https://www.nba.com",
+  Accept: "application/json, text/plain, */*",
+  "Accept-Language": "en-US,en;q=0.9",
+};
+
+function getHeaderValue(headers: unknown, name: string): string | undefined {
+  if (!headers || typeof headers !== "object") return undefined;
+
+  if ("get" in headers && typeof headers.get === "function") {
+    const value = headers.get(name);
+    return typeof value === "string" ? value : undefined;
+  }
+
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() !== name.toLowerCase()) continue;
+    if (Array.isArray(value)) return value.join(", ");
+    if (typeof value === "string") return value;
+  }
+
+  return undefined;
+}
+
+function getBodyText(data: unknown): string {
+  if (typeof data === "string") return data;
+  if (typeof Buffer !== "undefined" && Buffer.isBuffer(data)) {
+    return data.toString("utf8");
+  }
+  return "";
+}
+
+function getCdnAccessDeniedReasonFromResponse(
+  response?: import("axios").AxiosResponse<unknown>,
+): string | null {
+  if (!response) return null;
+
+  if (response.status === 403) {
+    return "status 403";
+  }
+
+  const contentType =
+    getHeaderValue(response.headers, "content-type")?.toLowerCase() ?? "";
+
+  if (contentType.includes("text/html")) {
+    return `content-type ${contentType}`;
+  }
+
+  if (contentType.includes("xml")) {
+    return `content-type ${contentType}`;
+  }
+
+  const body = getBodyText(response.data).toLowerCase();
+
+  if (body.includes("<code>accessdenied</code>")) {
+    return "body contains <Code>AccessDenied</Code>";
+  }
+
+  if (body.includes("access denied")) {
+    return "body contains Access Denied";
+  }
+
+  return null;
+}
+
+function getCdnAccessDeniedReason(error: unknown): string | null {
+  if (!axios.isAxiosError(error)) return null;
+  return getCdnAccessDeniedReasonFromResponse(error.response);
+}
+
+function parseCdnJsonData<T>(data: unknown, label: string): T {
+  if (typeof data === "string") {
+    const trimmed = data.trim();
+
+    if (!trimmed) {
+      throw new Error(`Invalid ${label} response`);
+    }
+
+    try {
+      return JSON.parse(trimmed) as T;
+    } catch {
+      throw new Error(`Invalid ${label} response`);
+    }
+  }
+
+  if (typeof data === "object" && data !== null) {
+    return data as T;
+  }
+
+  throw new Error(`Invalid ${label} response`);
+}
+
+function annotateError(error: unknown, message: string): Error {
+  if (error instanceof Error) {
+    error.message = message;
+    return error;
+  }
+
+  return new Error(message);
+}
+
+async function fetchCdnJsonAttempt<T>(
+  url: string,
+  headers: Record<string, string>,
+  timeout: number,
+  label: string,
+): Promise<CdnJsonAttemptResult<T>> {
+  try {
+    const response = await axios.get<T | string>(url, {
+      headers,
+      timeout,
+    });
+
+    const deniedReason = getCdnAccessDeniedReasonFromResponse(response);
+    if (deniedReason) {
+      return { ok: false, reason: deniedReason };
+    }
+
+    return {
+      ok: true,
+      data: parseCdnJsonData<T>(response.data, label),
+    };
+  } catch (error) {
+    const deniedReason = getCdnAccessDeniedReason(error);
+    if (deniedReason) {
+      return { ok: false, reason: deniedReason, error };
+    }
+
+    throw error;
+  }
+}
+
+async function getCdnJsonWithBrowserRetry<T>(
+  url: string,
+  opts: CdnJsonFetchOptions = {},
+): Promise<T> {
+  const timeout = opts.timeout ?? 20000;
+  const label = opts.label ?? "NBA CDN JSON";
+
+  const firstAttempt = await fetchCdnJsonAttempt<T>(
+    url,
+    CDN_HEADERS,
+    timeout,
+    label,
+  );
+
+  if (firstAttempt.ok) {
+    return firstAttempt.data;
+  }
+
+  let retryAttempt: CdnJsonAttemptResult<T>;
+  try {
+    retryAttempt = await fetchCdnJsonAttempt<T>(
+      url,
+      CDN_BROWSER_LIKE_HEADERS,
+      timeout,
+      label,
+    );
+  } catch (error) {
+    throw annotateError(
+      error,
+      `${label} request failed after browser-like CDN retry (initial response denied: ${firstAttempt.reason})`,
+    );
+  }
+
+  if (retryAttempt.ok) {
+    return retryAttempt.data;
+  }
+
+  throw annotateError(
+    retryAttempt.error,
+    `${label} request failed after browser-like CDN retry (initial response denied: ${firstAttempt.reason}; retry response denied: ${retryAttempt.reason})`,
+  );
+}
+
 export async function getPlayByPlay(gameId: string): Promise<RawAction[]> {
   const url = `https://cdn.nba.com/static/json/liveData/playbyplay/playbyplay_${gameId}.json`;
 
-  const response = await axios.get<PlayByPlayResponse>(url, {
-    headers: CDN_HEADERS,
+  const data = await getCdnJsonWithBrowserRetry<PlayByPlayResponse>(url, {
     timeout: 20000,
+    label: "NBA play-by-play",
   });
 
-  return response.data.game.actions;
+  const actions = data.game?.actions;
+  if (!Array.isArray(actions)) {
+    throw new Error("Invalid NBA play-by-play response");
+  }
+
+  return actions;
 }
 
 export function getFilteredActions(
@@ -589,13 +780,13 @@ function getShotActions(gameId: string, actions: RawAction[]) {
 export async function getPlayerNameMapForGame(gameId: string) {
   const url = `https://cdn.nba.com/static/json/liveData/boxscore/boxscore_${gameId}.json`;
 
-  const response = await axios.get<BoxScoreResponse>(url, {
-    headers: CDN_HEADERS,
+  const data = await getCdnJsonWithBrowserRetry<BoxScoreResponse>(url, {
     timeout: 60000,
+    label: "NBA boxscore",
   });
 
-  const homePlayers = response.data?.game?.homeTeam?.players ?? [];
-  const awayPlayers = response.data?.game?.awayTeam?.players ?? [];
+  const homePlayers = data?.game?.homeTeam?.players ?? [];
+  const awayPlayers = data?.game?.awayTeam?.players ?? [];
   const allPlayers = [...homePlayers, ...awayPlayers];
 
   const playerMap = new Map<number, string>();
@@ -720,12 +911,17 @@ export async function getTodaysGames(): Promise<ScoreboardGame[]> {
   const url =
     "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json";
 
-  const response = await getWithRetries<ScoreboardResponse>(url, {
-    headers: CDN_HEADERS,
+  const data = await getCdnJsonWithBrowserRetry<ScoreboardResponse>(url, {
     timeout: 10000,
+    label: "NBA scoreboard",
   });
 
-  return response.data.scoreboard.games;
+  const games = data.scoreboard?.games;
+  if (!Array.isArray(games)) {
+    throw new Error("Invalid NBA scoreboard response");
+  }
+
+  return games;
 }
 
 // --- Player-mode data sources ---
