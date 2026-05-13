@@ -3,7 +3,13 @@ import { redirect } from "next/navigation";
 import ClipBrowser from "@/components/ClipBrowser";
 import FilterBar from "@/components/FilterBar";
 import PageShell from "@/components/PageShell";
-import { buildApiUrl, getApiUnavailableMessage } from "@/lib/api";
+import {
+  buildApiUrl,
+  getApiUnavailableMessage,
+  getGameClipsUnavailableCopy,
+  readApiErrorDetail,
+  sanitizeApiErrorDetail,
+} from "@/lib/api";
 import {
   parseSeason,
   seasonForDate,
@@ -51,7 +57,11 @@ async function getGames(
   }
 }
 
-type ClipsResult = ClipsResponse & { apiError: boolean };
+type ClipsResult = ClipsResponse & {
+  clipError: boolean;
+  clipErrorStatus?: number;
+  clipErrorMessage?: string;
+};
 
 async function getClips(
   gameId: string,
@@ -103,14 +113,21 @@ async function getClips(
     hasMore: false,
     nextOffset: null,
     videoCdnAvailable: true,
-    apiError: false,
+    clipError: false,
   };
 
   try {
     const res = await fetch(buildApiUrl("/clips/game", search), {
       cache: "no-store",
     });
-    if (!res.ok) return { ...empty, apiError: true };
+    if (!res.ok) {
+      return {
+        ...empty,
+        clipError: true,
+        clipErrorStatus: res.status,
+        clipErrorMessage: await readApiErrorDetail(res),
+      };
+    }
     const data = await res.json();
     return {
       clips: data.clips ?? [],
@@ -122,10 +139,16 @@ async function getClips(
       nextOffset: data.nextOffset ?? null,
       videoCdnAvailable: data.videoCdnAvailable ?? true,
       targetIndex: data.targetIndex ?? undefined,
-      apiError: false,
+      clipError: false,
     };
-  } catch {
-    return { ...empty, apiError: true };
+  } catch (error) {
+    return {
+      ...empty,
+      clipError: true,
+      clipErrorMessage: sanitizeApiErrorDetail(
+        error instanceof Error ? error.message : String(error),
+      ),
+    };
   }
 }
 
@@ -254,12 +277,26 @@ async function ClipsSection({
     season,
   );
 
-  if (clipsData.apiError) {
+  if (clipsData.clipError) {
+    const clipErrorCopy = getGameClipsUnavailableCopy(matchup);
+
     return (
       <>
-        <FilterBar players={[]} teams={[]} matchup="" />
-        <div className="mx-auto max-w-3xl px-4 py-6 text-sm text-red-400">
-          {getApiUnavailableMessage()}
+        <FilterBar players={[]} teams={teams} matchup={matchup ?? ""} />
+        <div className="mx-auto max-w-3xl px-4 py-6">
+          <div className="rounded-lg border border-red-950 bg-zinc-950/80 px-4 py-4">
+            <p className="text-sm font-medium text-red-300">
+              {clipErrorCopy.title}
+            </p>
+            {clipErrorCopy.matchup ? (
+              <p className="mt-1 text-xs text-zinc-500">
+                Selected matchup: {clipErrorCopy.matchup}
+              </p>
+            ) : null}
+            <p className="mt-2 text-sm text-zinc-400">
+              {clipErrorCopy.description}
+            </p>
+          </div>
         </div>
       </>
     );
