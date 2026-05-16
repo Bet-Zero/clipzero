@@ -156,6 +156,7 @@ type MatchupClipQueryParams = {
   limit: number;
   offset: number;
   team?: string;
+  player?: string;
   playType?: string;
   result?: string;
   quarter?: string;
@@ -179,6 +180,7 @@ export function buildMatchupClipSearchParams(
   search.set("limit", String(params.limit));
   search.set("offset", String(params.offset));
   if (params.team) search.set("team", params.team);
+  if (params.player) search.set("player", params.player);
   if (params.playType) search.set("playType", params.playType);
   if (params.result && params.result !== DEFAULT_RESULT)
     search.set("result", params.result);
@@ -244,6 +246,7 @@ export function parseMatchupModeParams(
     teamA: params.get("teamA") || "",
     teamB: params.get("teamB") || "",
     team: params.get("team") || "",
+    player: params.get("player") || "",
     playType: params.get("playType") || DEFAULT_PLAY_TYPE,
     result: params.get("result") || DEFAULT_RESULT,
     quarter: params.get("quarter") || "",
@@ -311,6 +314,7 @@ export function buildMatchupModeUrl(
   if (state.teamA) search.set("teamA", state.teamA);
   if (state.teamB) search.set("teamB", state.teamB);
   if (state.team) search.set("team", canonicalMultiValue(state.team));
+  if (state.player) search.set("player", canonicalMultiValue(state.player));
   if (state.playType && state.playType !== DEFAULT_PLAY_TYPE)
     search.set("playType", state.playType);
   if (state.result && state.result !== DEFAULT_RESULT)

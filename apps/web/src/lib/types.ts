@@ -125,6 +125,7 @@ export type MatchupClipsResponse = {
   gamesIncluded: number;
   gamesExcluded: number;
   games: MatchupGame[];
+  players?: Player[];
   videoCdnAvailable?: boolean;
   clips: Clip[];
   targetIndex?: number | null;
@@ -151,6 +152,7 @@ export type MatchupModeFilterState = {
   teamA: string;
   teamB: string;
   team: string;
+  player: string;
   playType: string;
   result: string;
   quarter: string;

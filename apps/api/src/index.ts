@@ -1590,6 +1590,15 @@ app.get("/clips/matchup", async (req, res) => {
           .filter(Boolean)
       : [];
 
+    const player =
+      typeof req.query.player === "string" ? req.query.player.trim() : "";
+    const playerValues = player
+      ? player
+          .split(",")
+          .map((p) => p.trim())
+          .filter(Boolean)
+      : [];
+
     const excludeGameIdsParam =
       typeof req.query.excludeGameIds === "string"
         ? req.query.excludeGameIds.trim()
@@ -1611,7 +1620,7 @@ app.get("/clips/matchup", async (req, res) => {
         : null;
 
     const normalizedExcludeKey = [...excludeGameIds].sort().join(",");
-    const cacheKey = `${season}:${teamA.tricode}:${teamB.tricode}:${normalizedExcludeKey}:${team}:${result}:${playType}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${area}:${descriptor}:${qualifier}:${limit}:${offset}`;
+    const cacheKey = `${season}:${teamA.tricode}:${teamB.tricode}:${normalizedExcludeKey}:${team}:${result}:${playType}:${quarterParam}:${shotValue}:${subType}:${distanceBucket}:${area}:${descriptor}:${qualifier}:${player}:${limit}:${offset}`;
     void checkNbaVideoCdnHealth();
     const videoCdnAvailable = nbaVideoCdnAvailable;
     if (!targetActionNumber) {
@@ -1718,7 +1727,27 @@ app.get("/clips/matchup", async (req, res) => {
       );
     });
 
-    const pageActions = filteredActions.slice(offset, offset + limit);
+    // Build player list before applying player filter so the dropdown always
+    // shows all players available under the current non-player filters.
+    const playerMap = new Map<string, { name: string; teamTricode: string }>();
+    for (const action of filteredActions) {
+      if (action.playerName && !playerMap.has(action.playerName)) {
+        playerMap.set(action.playerName, {
+          name: action.playerName,
+          teamTricode: action.teamTricode ?? "",
+        });
+      }
+    }
+    const players = Array.from(playerMap.values());
+
+    const playerFilteredActions =
+      playerValues.length === 0
+        ? filteredActions
+        : filteredActions.filter((action) =>
+            playerValues.includes(action.playerName ?? ""),
+          );
+
+    const pageActions = playerFilteredActions.slice(offset, offset + limit);
     const clips = await mapWithConcurrency(
       pageActions,
       VIDEO_ASSET_CONCURRENCY,
@@ -1757,12 +1786,12 @@ app.get("/clips/matchup", async (req, res) => {
       },
     );
 
-    const hasMore = offset + clips.length < filteredActions.length;
+    const hasMore = offset + clips.length < playerFilteredActions.length;
     const nextOffset = hasMore ? offset + clips.length : null;
 
     let targetIndex: number | null | undefined;
     if (targetActionNumber !== null) {
-      const idx = filteredActions.findIndex(
+      const idx = playerFilteredActions.findIndex(
         (action) => action.actionNumber === targetActionNumber,
       );
       targetIndex = idx >= 0 ? idx : null;
@@ -1773,7 +1802,7 @@ app.get("/clips/matchup", async (req, res) => {
       teamA: teamLite(teamA),
       teamB: teamLite(teamB),
       count: clips.length,
-      total: filteredActions.length,
+      total: playerFilteredActions.length,
       offset,
       limit,
       hasMore,
@@ -1781,6 +1810,7 @@ app.get("/clips/matchup", async (req, res) => {
       gamesIncluded: includedGames.length,
       gamesExcluded: excludeGameIds.size,
       games: includedGames,
+      players,
       videoCdnAvailable,
       clips,
       ...(targetIndex !== undefined ? { targetIndex } : {}),
@@ -1800,7 +1830,7 @@ app.get("/clips/matchup", async (req, res) => {
       result,
       offset,
       clipCount: clips.length,
-      totalCount: filteredActions.length,
+      totalCount: playerFilteredActions.length,
       gamesIncluded: includedGames.length,
       gamesExcluded: excludeGameIds.size,
       hasMore,

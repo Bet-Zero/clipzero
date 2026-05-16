@@ -36,7 +36,7 @@ import {
   toggleMultiValue,
 } from "@/lib/filters";
 import { NBA_TEAMS, isKnownTeam } from "@/lib/teams";
-import type { Clip, MatchupGame, MatchupModeFilterState } from "@/lib/types";
+import type { Clip, MatchupGame, MatchupModeFilterState, Player } from "@/lib/types";
 import { FailureDiagnosis } from "@/lib/failureTypes";
 import { logFrontendFailureEvent } from "@/lib/failureLogger";
 import {
@@ -124,6 +124,152 @@ function MatchupMultiSelectDropdown({
                 setOpen(false);
               }}
               className="w-full border-t border-zinc-800 px-3 py-1.5 text-left text-xs text-zinc-500 hover:text-zinc-300"
+            >
+              Clear selection
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MatchupPlayerGroupedDropdown({
+  players,
+  teams,
+  selectedValues,
+  onToggle,
+  onClear,
+}: {
+  players: Player[];
+  teams: string[];
+  selectedValues: string[];
+  onToggle: (value: string) => void;
+  onClear?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  const summaryLabel =
+    selectedValues.length === 0
+      ? "All Players"
+      : selectedValues.length === 1
+        ? "1 player"
+        : `${selectedValues.length} players`;
+
+  const grouped = teams.map((t) => ({
+    team: t,
+    players: players.filter((p) => p.teamTricode === t),
+  }));
+  const ungrouped = players.filter(
+    (p) => !p.teamTricode || !teams.includes(p.teamTricode),
+  );
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={`flex h-7 w-36 items-center justify-between rounded px-2 text-sm transition-colors ${
+          selectedValues.length > 0
+            ? "bg-zinc-800 text-white"
+            : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+        }`}
+      >
+        <span className="truncate">{summaryLabel}</span>
+        <span className="ml-1 shrink-0 text-zinc-500">▾</span>
+      </button>
+      {open && (
+        <div className="absolute z-30 mt-1 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg">
+          <div className="flex">
+            {grouped.map(({ team: t, players: teamPlayers }) =>
+              teamPlayers.length > 0 ? (
+                <div
+                  key={t}
+                  className="scrollbar-overlay max-h-80 w-52 overflow-x-hidden overflow-y-auto border-r border-zinc-800 last:border-r-0"
+                >
+                  <div className="sticky top-0 bg-zinc-950 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                    {t}
+                  </div>
+                  {teamPlayers.map((p) => {
+                    const checked = selectedValues.includes(p.name);
+                    return (
+                      <button
+                        key={p.name}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => onToggle(p.name)}
+                        className={`flex w-full items-center gap-2 px-3 py-1 text-left text-sm ${
+                          checked
+                            ? "bg-zinc-800 text-white"
+                            : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+                        }`}
+                      >
+                        <span
+                          className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[9px] ${
+                            checked
+                              ? "border-white bg-white text-black"
+                              : "border-zinc-600"
+                          }`}
+                        >
+                          {checked ? "✓" : ""}
+                        </span>
+                        <span className="min-w-0 truncate">{p.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null,
+            )}
+          </div>
+          {ungrouped.length > 0 && (
+            <div className="scrollbar-overlay max-h-40 overflow-y-auto border-t border-zinc-800">
+              <div className="sticky top-0 bg-zinc-950 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                Other
+              </div>
+              {ungrouped.map((p) => {
+                const checked = selectedValues.includes(p.name);
+                return (
+                  <button
+                    key={p.name}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => onToggle(p.name)}
+                    className={`flex w-full items-center gap-2 px-3 py-1 text-left text-sm ${
+                      checked
+                        ? "bg-zinc-800 text-white"
+                        : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+                    }`}
+                  >
+                    <span
+                      className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[9px] ${
+                        checked
+                          ? "border-white bg-white text-black"
+                          : "border-zinc-600"
+                      }`}
+                    >
+                      {checked ? "✓" : ""}
+                    </span>
+                    <span className="whitespace-nowrap">{p.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {onClear && (
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                onClear();
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-2 border-t border-zinc-800 px-3 py-1.5 text-left text-xs text-zinc-500 hover:text-zinc-300"
             >
               Clear selection
             </button>
@@ -307,6 +453,8 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
     new Set(),
   );
 
+  const [players, setPlayers] = useState<Player[]>([]);
+
   const [clips, setClips] = useState<Clip[]>([]);
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -332,6 +480,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
   const teamA = p("teamA").toUpperCase();
   const teamB = p("teamB").toUpperCase();
   const team = p("team").toUpperCase();
+  const player = p("player");
   const playType = p("playType") || DEFAULT_PLAY_TYPE;
   const result = p("result") || DEFAULT_RESULT;
   const quarter = p("quarter");
@@ -490,6 +639,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
           limit,
           offset,
           team,
+          player,
           playType,
           result,
           quarter,
@@ -544,6 +694,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
           setTotal(data.total ?? 0);
           setHasMore(data.hasMore ?? false);
           setNextOffset(data.nextOffset ?? null);
+          setPlayers(data.players ?? []);
 
           if (pinnedNum) {
             const idx = newClips.findIndex((c) => c.actionNumber === pinnedNum);
@@ -610,6 +761,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
       teamB,
       season,
       team,
+      player,
       playType,
       result,
       quarter,
@@ -639,6 +791,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
     gamesLoading,
     games.length,
     team,
+    player,
     playType,
     result,
     quarter,
@@ -768,6 +921,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
   ): MatchupModeFilterState {
     const hasFilterChange =
       ("team" in overrides && overrides.team !== team) ||
+      ("player" in overrides && overrides.player !== player) ||
       ("playType" in overrides && overrides.playType !== playType) ||
       ("result" in overrides && overrides.result !== result) ||
       ("quarter" in overrides && overrides.quarter !== quarter) ||
@@ -780,6 +934,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
       teamA: overrides.teamA ?? teamA,
       teamB: overrides.teamB ?? teamB,
       team: overrides.team ?? team,
+      player: overrides.player ?? player,
       playType: overrides.playType ?? playType,
       result: overrides.result ?? result,
       quarter: overrides.quarter ?? quarter,
@@ -812,6 +967,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
       "teamA",
       "teamB",
       "team",
+      "player",
       "playType",
       "result",
       "quarter",
@@ -851,12 +1007,14 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
 
   function selectTeam(which: "teamA" | "teamB", nextTeam: string) {
     setExcludedGameIds(new Set());
+    setPlayers([]);
     setClips([]);
     setTotal(0);
     setGames([]);
     navigateTo({
       [which]: nextTeam,
       team: "",
+      player: "",
       excludedGameIds: new Set(),
       actionNumber: null,
     } as Partial<MatchupModeFilterState>);
@@ -886,6 +1044,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
     setExcludedGameIds(empty);
     navigateTo({
       team: "",
+      player: "",
       playType: DEFAULT_PLAY_TYPE,
       result: DEFAULT_RESULT,
       quarter: "",
@@ -930,6 +1089,7 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
   const exclusionCount = excludedGameIds.size;
   const activeFilterCount =
     (team !== "" ? 1 : 0) +
+    (player !== "" ? splitMultiValue(player).length : 0) +
     (playType !== DEFAULT_PLAY_TYPE ? 1 : 0) +
     (quarter !== "" ? splitMultiValue(quarter).length : 0) +
     (result !== DEFAULT_RESULT && playType === "shots" ? 1 : 0) +
@@ -988,6 +1148,25 @@ export default function MatchupModeBrowser({ season }: { season: string }) {
                     );
                   })}
                 </div>
+
+                {players.length > 0 && (
+                  <MatchupPlayerGroupedDropdown
+                    players={players}
+                    teams={[teamA, teamB]}
+                    selectedValues={splitMultiValue(player)}
+                    onToggle={(val) =>
+                      navigateTo({
+                        player: toggleMultiValue(player, val),
+                        actionNumber: null,
+                      })
+                    }
+                    onClear={
+                      player
+                        ? () => navigateTo({ player: "", actionNumber: null })
+                        : undefined
+                    }
+                  />
+                )}
 
                 {games.length > 0 && (
                   <div ref={gamesTriggerRef} className="relative shrink-0">
