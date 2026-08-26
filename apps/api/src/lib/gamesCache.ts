@@ -1,5 +1,6 @@
 import {
   getPersistentCacheReadOptions,
+  getPersistentCacheStaleReadOptions,
   getPersistentCacheWriteOptions,
 } from "./cachePolicy";
 import { getPersistentValue, setPersistentValue } from "./persistentCache";
@@ -16,6 +17,20 @@ export async function getCachedGames(
     "games-by-date",
     key,
     getPersistentCacheReadOptions("games-by-date"),
+  );
+}
+
+/**
+ * Read cached games ignoring the freshness window. Only for the
+ * stale-if-error path when upstream cannot be reached.
+ */
+export async function getStaleCachedGames(
+  key: string,
+): Promise<GamesPayload | null> {
+  return getPersistentValue<GamesPayload>(
+    "games-by-date",
+    key,
+    getPersistentCacheStaleReadOptions("games-by-date"),
   );
 }
 

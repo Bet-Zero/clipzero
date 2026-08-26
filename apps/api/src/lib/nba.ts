@@ -780,8 +780,11 @@ function getShotActions(gameId: string, actions: RawAction[]) {
 export async function getPlayerNameMapForGame(gameId: string) {
   const url = `https://cdn.nba.com/static/json/liveData/boxscore/boxscore_${gameId}.json`;
 
+  // 15 s per attempt: the helper makes up to two attempts (minimal headers,
+  // then browser-like), so the old 60 s could stack to ~120 s and outlive the
+  // Cloudflare edge timeout in front of the tunnel.
   const data = await getCdnJsonWithBrowserRetry<BoxScoreResponse>(url, {
-    timeout: 60000,
+    timeout: 15000,
     label: "NBA boxscore",
   });
 
@@ -881,14 +884,23 @@ export async function getClipRecordsForGame(
 export async function getGamesByDate(date: string): Promise<ScoreboardGame[]> {
   const url = "https://stats.nba.com/stats/scoreboardv3";
 
-  const response = await getWithRetries<any>(url, {
-    headers: STATS_HEADERS,
-    params: {
-      GameDate: date,
-      LeagueID: "00",
+  // Short timeout, no retry on timeout: a stalled scoreboard fetch must fail
+  // fast. At 3 x 60 s this request could hang ~3 minutes, which outlives the
+  // Cloudflare edge timeout in front of the tunnel — users saw an opaque 502
+  // HTML page instead of a real API error.
+  const response = await getWithRetries<any>(
+    url,
+    {
+      headers: STATS_HEADERS,
+      params: {
+        GameDate: date,
+        LeagueID: "00",
+      },
+      timeout: 12000,
     },
-    timeout: 60000,
-  });
+    2,
+    false,
+  );
 
   const games = response.data?.scoreboard?.games ?? [];
 
@@ -963,15 +975,23 @@ export async function getAllPlayers(
 ): Promise<PlayerDirectoryEntry[]> {
   const url = "https://stats.nba.com/stats/commonallplayers";
 
-  const response = await getWithRetries<any>(url, {
-    headers: STATS_HEADERS,
-    params: {
-      LeagueID: "00",
-      Season: season,
-      IsOnlyCurrentSeason: 1,
+  // Short timeout, no retry on timeout: a stalled stats fetch must fail fast.
+  // At the default 3 x 30 s this could hang ~92 s and outlive the Cloudflare
+  // edge timeout in front of the tunnel, surfacing as an opaque 502.
+  const response = await getWithRetries<any>(
+    url,
+    {
+      headers: STATS_HEADERS,
+      params: {
+        LeagueID: "00",
+        Season: season,
+        IsOnlyCurrentSeason: 1,
+      },
+      timeout: 20000,
     },
-    timeout: 30000,
-  });
+    2,
+    false,
+  );
 
   const resultSet = response.data?.resultSets?.[0];
   if (!resultSet) return [];
@@ -1012,15 +1032,23 @@ export async function getPlayerGameLog(
 ): Promise<PlayerGameLogEntry[]> {
   const url = "https://stats.nba.com/stats/playergamelog";
 
-  const response = await getWithRetries<any>(url, {
-    headers: STATS_HEADERS,
-    params: {
-      PlayerID: playerId,
-      Season: season,
-      SeasonType: "Regular Season",
+  // Short timeout, no retry on timeout: a stalled stats fetch must fail fast.
+  // At the default 3 x 30 s this could hang ~92 s and outlive the Cloudflare
+  // edge timeout in front of the tunnel, surfacing as an opaque 502.
+  const response = await getWithRetries<any>(
+    url,
+    {
+      headers: STATS_HEADERS,
+      params: {
+        PlayerID: playerId,
+        Season: season,
+        SeasonType: "Regular Season",
+      },
+      timeout: 20000,
     },
-    timeout: 30000,
-  });
+    2,
+    false,
+  );
 
   const resultSet = response.data?.resultSets?.[0];
   if (!resultSet) return [];
@@ -1062,16 +1090,24 @@ export async function getTeamGameLog(
 ): Promise<TeamGameLogEntry[]> {
   const url = "https://stats.nba.com/stats/teamgamelog";
 
-  const response = await getWithRetries<any>(url, {
-    headers: STATS_HEADERS,
-    params: {
-      TeamID: teamId,
-      Season: season,
-      SeasonType: "Regular Season",
-      LeagueID: "00",
+  // Short timeout, no retry on timeout: a stalled stats fetch must fail fast.
+  // At the default 3 x 30 s this could hang ~92 s and outlive the Cloudflare
+  // edge timeout in front of the tunnel, surfacing as an opaque 502.
+  const response = await getWithRetries<any>(
+    url,
+    {
+      headers: STATS_HEADERS,
+      params: {
+        TeamID: teamId,
+        Season: season,
+        SeasonType: "Regular Season",
+        LeagueID: "00",
+      },
+      timeout: 20000,
     },
-    timeout: 30000,
-  });
+    2,
+    false,
+  );
 
   const resultSet = response.data?.resultSets?.[0] ?? response.data?.resultSet;
   if (!resultSet) return [];

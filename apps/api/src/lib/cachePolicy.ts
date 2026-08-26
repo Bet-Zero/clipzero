@@ -53,6 +53,21 @@ export function getPersistentCacheReadOptions(
   };
 }
 
+/**
+ * Read options that ignore `maxAgeMs` but still enforce `version`.
+ *
+ * Used as a stale-if-error fallback: when upstream is unreachable, serving
+ * data that is merely old beats serving an error. Version is still checked so
+ * we never hand back entries written under an incompatible schema.
+ */
+export function getPersistentCacheStaleReadOptions(
+  cacheName: string,
+): PersistentCacheReadOptions | undefined {
+  const policy = PERSISTENT_CACHE_POLICY[cacheName];
+  if (!policy) return undefined;
+  return { version: policy.version };
+}
+
 export function getPersistentCacheWriteOptions(
   cacheName: string,
 ): PersistentCacheWriteOptions | undefined {

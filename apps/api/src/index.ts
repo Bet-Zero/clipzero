@@ -16,9 +16,14 @@ import type {
   UserIntentType,
 } from "./lib/failureTypes";
 import { RawEventKind as RawEventKindEnum } from "./lib/failureTypes";
-import { getCachedGames, setCachedGames } from "./lib/gamesCache";
+import {
+  getCachedGames,
+  getStaleCachedGames,
+  setCachedGames,
+} from "./lib/gamesCache";
 import {
   getPersistentCacheReadOptions,
+  getPersistentCacheStaleReadOptions,
   getPersistentCacheWriteOptions,
 } from "./lib/cachePolicy";
 import { buildPersistentCacheSummary } from "./lib/cacheSummary";
@@ -178,6 +183,35 @@ const app = express();
 const sf = new SingleFlight();
 // Maximum concurrent upstream video asset lookups per batch.
 const VIDEO_ASSET_CONCURRENCY = 3;
+// Circuit breaker for the upstream video-asset endpoint. When NBA is
+// unreachable, every clip in a batch would otherwise pay the full request
+// timeout before falling back to cache, turning a page of clips into minutes
+// of waiting. After a short streak of failures we stop calling upstream and
+// serve cache directly, retrying only once the cooldown lapses.
+const VIDEO_ASSET_FAILURE_THRESHOLD = 4;
+const VIDEO_ASSET_COOLDOWN_MS = 60_000;
+let videoAssetFailureStreak = 0;
+let videoAssetCircuitOpenUntil = 0;
+
+function videoAssetCircuitIsOpen(): boolean {
+  return Date.now() < videoAssetCircuitOpenUntil;
+}
+
+function recordVideoAssetSuccess(): void {
+  videoAssetFailureStreak = 0;
+  videoAssetCircuitOpenUntil = 0;
+}
+
+function recordVideoAssetFailure(): void {
+  videoAssetFailureStreak += 1;
+  if (videoAssetFailureStreak >= VIDEO_ASSET_FAILURE_THRESHOLD) {
+    videoAssetCircuitOpenUntil = Date.now() + VIDEO_ASSET_COOLDOWN_MS;
+    videoAssetFailureStreak = 0;
+    logger.warn("video_asset_circuit_opened", {
+      cooldownMs: VIDEO_ASSET_COOLDOWN_MS,
+    });
+  }
+}
 // Only trust proxy when explicitly configured (e.g. behind Cloudflare/nginx).
 // When self-hosting directly, trusting proxy headers lets attackers spoof IPs
 // to bypass rate limiting via X-Forwarded-For.
@@ -269,6 +303,20 @@ function hasCachedGames(payload: unknown): payload is {
   return typeof count === "number" && count > 0 && Array.isArray(games);
 }
 
+/**
+ * True when every game in a cached payload has finished. A finished game's
+ * result is immutable, so such an entry stays correct no matter how old it is
+ * and can be served without consulting upstream.
+ */
+function allGamesFinal(payload: { games?: unknown[] } | null): boolean {
+  const games = payload?.games;
+  if (!Array.isArray(games) || games.length === 0) return false;
+  return games.every((game) => {
+    const status = (game as { gameStatusText?: unknown })?.gameStatusText;
+    return typeof status === "string" && /^final\b/i.test(status.trim());
+  });
+}
+
 function normalizeDate(dateStr: string): string {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return dateStr;
@@ -322,6 +370,31 @@ async function getCachedVideoAsset(
     });
   }
 
+  const readStaleVideoAsset = async () => {
+    const stale = await getPersistentValue<{
+      videoUrl: string | null;
+      thumbnailUrl: string | null;
+    }>(
+      "video-assets",
+      cacheKey,
+      getPersistentCacheStaleReadOptions("video-assets"),
+    ).catch(() => null);
+    if (!stale || (!stale.videoUrl && !stale.thumbnailUrl)) return null;
+    const cachedValue = {
+      videoUrl: stale.videoUrl,
+      thumbnailUrl: stale.thumbnailUrl,
+    };
+    videoAssetCache.set(cacheKey, cachedValue);
+    return cachedValue;
+  };
+
+  // Upstream is known-bad right now: skip the doomed call and use cache.
+  if (videoAssetCircuitIsOpen()) {
+    const stale = await readStaleVideoAsset();
+    if (stale) return stale;
+    return { videoUrl: null, thumbnailUrl: null };
+  }
+
   try {
     const asset = await getVideoEventAsset(gameId, actionNumber);
     const firstVideo = asset?.resultSets?.Meta?.videoUrls?.[0];
@@ -329,6 +402,7 @@ async function getCachedVideoAsset(
       videoUrl: firstVideo?.murl ?? null,
       thumbnailUrl: firstVideo?.mth ?? null,
     };
+    recordVideoAssetSuccess();
     videoAssetCache.set(cacheKey, cachedValue);
     // Only persist to disk when we have a valid URL — don't permanently cache
     // failures or empty results so they can be retried on future requests.
@@ -337,6 +411,14 @@ async function getCachedVideoAsset(
     }
     return cachedValue;
   } catch {
+    recordVideoAssetFailure();
+
+    // Stale-if-error: prefer an expired asset URL over no clip at all. The URL
+    // may itself have expired upstream, which the player already handles as a
+    // clip-level failure — strictly better than showing nothing.
+    const stale = await readStaleVideoAsset();
+    if (stale) return stale;
+
     // Don't cache failures at all — allow retry on every subsequent request.
     return { videoUrl: null, thumbnailUrl: null };
   }
@@ -416,6 +498,20 @@ async function getCachedPlayByPlay(
         errorMessage: error instanceof Error ? error.message : String(error),
         freshUpstreamFetch: true,
       } as FailureEvidence);
+
+      // Stale-if-error: a finished game's play-by-play never changes, so an
+      // expired cache entry is still correct data. Prefer it over failing.
+      const stale = await getPersistentValue<RawAction[]>(
+        "play-by-play",
+        gameId,
+        getPersistentCacheStaleReadOptions("play-by-play"),
+      ).catch(() => null);
+      if (stale) {
+        logger.warn("play_by_play_served_stale", { gameId });
+        playByPlayCache.set(gameId, stale);
+        return stale;
+      }
+
       throw error;
     }
   });
@@ -861,6 +957,15 @@ app.get("/games", async (req, res) => {
         gamesCache.set(cacheKey, diskCached);
         return res.json(diskCached);
       }
+
+      // A past date whose games are all Final can never change, so an entry
+      // past its freshness window is still correct. Serve it directly instead
+      // of paying an upstream round-trip to re-learn a settled result.
+      const settled = await getStaleCachedGames(cacheKey).catch(() => null);
+      if (hasCachedGames(settled) && allGamesFinal(settled)) {
+        gamesCache.set(cacheKey, settled);
+        return res.json(settled);
+      }
     }
 
     // Use the fast CDN scoreboard only when no explicit date is given (today's
@@ -891,9 +996,19 @@ app.get("/games", async (req, res) => {
 
     res.json(payload);
   } catch (error: any) {
-    logRouteError("games", error, {
-      date: typeof req.query.date === "string" ? req.query.date : "",
-    });
+    const date = typeof req.query.date === "string" ? req.query.date : "";
+    logRouteError("games", error, { date });
+
+    // Stale-if-error: upstream is unreachable, so fall back to cached games
+    // past their freshness window rather than failing outright. Historical
+    // dates are immutable, so "stale" here only means "written a while ago".
+    const staleKey = date || "today";
+    const stale = await getStaleCachedGames(staleKey).catch(() => null);
+    if (hasCachedGames(stale)) {
+      logger.warn("games_served_stale", { date: staleKey });
+      return res.json({ ...stale, stale: true });
+    }
+
     res.status(500).json({
       error: "Failed to fetch games",
     });
