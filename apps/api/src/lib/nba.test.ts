@@ -17,6 +17,22 @@ vi.mock("axios", () => {
   };
 });
 
+// nba.ts now issues requests through `nbaGet` (browser-like TLS signature)
+// rather than axios directly. These tests cover nba.ts's retry, denial and
+// payload-validation logic, not the transport, so route the transport back
+// through the same spy the assertions below already drive.
+vi.mock("./nbaHttp", async () => {
+  const { default: mockedAxiosModule } = await import("axios");
+  return {
+    nbaGet: (url: string, opts?: unknown) =>
+      (
+        mockedAxiosModule as unknown as {
+          get: (u: string, o?: unknown) => unknown;
+        }
+      ).get(url, opts),
+  };
+});
+
 const mockedAxios = vi.mocked(axios, true);
 
 function mockResponse(data: unknown, overrides: Record<string, unknown> = {}) {

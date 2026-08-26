@@ -1,4 +1,5 @@
 import axios from "axios";
+import { nbaGet, type NbaHttpResponse } from "./nbaHttp";
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -9,13 +10,13 @@ async function getWithRetries<T>(
   opts: any = {},
   maxAttempts = 3,
   retryOnTimeout = true,
-): Promise<import("axios").AxiosResponse<T>> {
+): Promise<NbaHttpResponse<T>> {
   let attempt = 0;
   let delay = 300;
   while (true) {
     attempt += 1;
     try {
-      return await axios.get<T>(url, opts);
+      return await nbaGet<T>(url, opts);
     } catch (err: any) {
       const isAxios = axios.isAxiosError(err);
       const status = isAxios ? err.response?.status : undefined;
@@ -426,7 +427,7 @@ function getBodyText(data: unknown): string {
 }
 
 function getCdnAccessDeniedReasonFromResponse(
-  response?: import("axios").AxiosResponse<unknown>,
+  response?: { status?: number; headers?: unknown; data?: unknown } | null,
 ): string | null {
   if (!response) return null;
 
@@ -501,7 +502,7 @@ async function fetchCdnJsonAttempt<T>(
   label: string,
 ): Promise<CdnJsonAttemptResult<T>> {
   try {
-    const response = await axios.get<T | string>(url, {
+    const response = await nbaGet<T | string>(url, {
       headers,
       timeout,
     });
